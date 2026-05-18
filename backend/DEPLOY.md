@@ -1,6 +1,6 @@
 # Blog Material You — 独立博客部署文档
 
-基于 [MDUI 2](https://www.mdui.org/zh-cn/docs/2/) (Material Design 3) 的独立博客系统，从 [Blog Material You](https://github.com/imitoy/hexo-you) 主题重构而来，去除 Material Design 3 框架依赖，使用 OpenResty + MariaDB + SPA 前端架构。
+基于 [MDUI 2](https://www.mdui.org/zh-cn/docs/2/) (Material Design 3) 的独立博客系统，从 [Blog Material You](https://github.com/imitoy/Blog) 主题重构而来，去除 Material Design 3 框架依赖，使用 OpenResty + MariaDB + SPA 前端架构。
 
 ---
 
