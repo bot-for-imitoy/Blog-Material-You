@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>博客管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
+  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
+    .admin-layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; }
+    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); }
+    .sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .sidebar nav mdui-list-item { border-radius: 8px; }
+    .sidebar .logout { margin-top: auto; }
+    .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 100%; }
+    .main mdui-card { margin-bottom: 24px; }
+    .main .form-group textarea { width: 100%; min-height: 400px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h1 { font-size: 28px; font-weight: 400; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card mdui-card { padding: 24px; }
+    .stat-card .stat-number { font-size: 36px; font-weight: 500; color: rgb(var(--mdui-color-primary)); }
+    .stat-card .stat-label { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-top: 4px; }
+    .post-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid rgb(var(--mdui-color-outline-variant)); }
+    .post-item:last-child { border-bottom: none; }
+    .post-info h3 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+    .post-info span { font-size: 13px; color: rgb(var(--mdui-color-outline)); }
+    .post-actions { display: flex; gap: 8px; }
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .login-card { width: 360px; padding: 32px; }
+    .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 24px; text-align: center; }
+    .login-card mdui-text-field { width: 100%; margin-bottom: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-on-surface)); }
+    .form-group input, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); }
+    .form-group textarea { min-height: 300px; resize: vertical; font-family: 'Fira Code', 'Monaco', monospace; font-size: 13px; line-height: 1.5; }
+    .tag-input { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; min-height: 42px; }
+    .tag-input input { border: none; outline: none; flex: 1; min-width: 80px; font-size: 14px; background: transparent; color: rgb(var(--mdui-color-on-surface)); }
+    .tag-input .tag { display: inline-flex; align-items: center; gap: 4px; background: rgb(var(--mdui-color-secondary-container)); color: rgb(var(--mdui-color-on-secondary-container)); padding: 2px 8px; border-radius: 12px; font-size: 13px; }
+    .tag-input .tag .remove { cursor: pointer; font-size: 16px; line-height: 1; }
+    .hidden { display: none !important; }
+    .comment-item { padding: 12px 0; border-bottom: 1px solid rgb(var(--mdui-color-outline-variant)); font-size: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .comment-item .comment-info { flex: 1; }
+    .comment-item .comment-text { margin: 4px 0; }
+    .comment-item .comment-meta { font-size: 12px; color: rgb(var(--mdui-color-outline)); }
+    .editor-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .editor-toolbar mdui-button-icon { --mdui-button-icon-size: 36px; }
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const API = '/api/admin';
+    let authToken = localStorage.getItem('admin_token');
+    let currentView = 'dashboard';
+
+    // ===== Utils =====
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function toast(msg) {
+      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
+      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
+      const sb = el.querySelector('mdui-snackbar');
+      if (sb) sb.show = true;
+    }
+
+    async function api(path, opts) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (authToken) headers['Authorization'] = 'Basic ' + authToken;
+      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) } });
+      if (res.status === 401) { authToken = null; localStorage.removeItem('admin_token'); render(); throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    function formatDate(d) {
+      if (!d) return '';
+      const dt = new Date(typeof d === 'string' && d.includes('-') ? d : Number(d) * 1000);
+      return dt.toISOString().slice(0, 10);
+    }
+
+    // ===== Auth =====
+    async function doLogin(username, password) {
+      const res = await fetch(API + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (data.errno === 0 && data.data) {
+        authToken = btoa(username + ':' + password);
+        localStorage.setItem('admin_token', authToken);
+        toast('登录成功');
+        render();
+      } else {
+        toast('登录失败：' + (data.errmsg || '用户名或密码错误'));
+      }
+    }
+
+    function logout() {
+      authToken = null;
+      localStorage.removeItem('admin_token');
+      render();
+    }
+
+    // ===== Views =====
+    function render() {
+      const app = document.getElementById('app');
+      if (!authToken) {
+        app.innerHTML = loginPage();
+        document.getElementById('login-form')?.addEventListener('submit', function(e) {
+          e.preventDefault();
+          doLogin(
+            document.querySelector('#login-form mdui-text-field[name="username"]')?.value || '',
+            document.querySelector('#login-form mdui-text-field[name="password"]')?.value || ''
+          );
+        });
+        return;
+      }
+      app.innerHTML = layoutPage();
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+          e.preventDefault();
+          currentView = this.dataset.view;
+          renderContent();
+          document.querySelectorAll('.nav-item').forEach(n => n.active = false);
+          this.active = true;
+        });
+      });
+      document.getElementById('logout-btn')?.addEventListener('click', logout);
+      renderContent();
+    }
+
+    function loginPage() {
+      return `
+        <div class="login-container">
+          <mdui-card variant="elevated" class="login-card">
+            <h1>博客管理后台</h1>
+            <form id="login-form">
+              <mdui-text-field name="username" label="用户名" variant="outlined"></mdui-text-field>
+              <mdui-text-field name="password" label="密码" variant="outlined" type="password"></mdui-text-field>
+              <mdui-button variant="filled" type="submit" style="width:100%">登录</mdui-button>
+            </form>
+          </mdui-card>
+        </div>`;
+    }
+
+    function layoutPage() {
+      return `
+        <div class="admin-layout">
+          <div class="sidebar">
+            <h2>📝 管理</h2>
+            <nav>
+              <mdui-list-item class="nav-item" data-view="dashboard" active rounded>📊 概览</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="posts" rounded>📄 文章</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="comments" rounded>💬 评论</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="talks" rounded>💭 动态</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="pages" rounded>📑 页面</mdui-list-item>
+            </nav>
+            <mdui-list-item class="logout" id="logout-btn" rounded>🚪 退出</mdui-list-item>
+          </div>
+          <div class="main" id="main-content">加载中...</div>
+        </div>`;
+    }
+
+    async function renderContent() {
+      const el = document.getElementById('main-content');
+      el.innerHTML = '加载中...';
+      try {
+        if (currentView === 'dashboard') el.innerHTML = await dashboardView();
+        else if (currentView === 'posts') el.innerHTML = await postsView();
+        else if (currentView === 'comments') el.innerHTML = await commentsView();
+        else if (currentView === 'talks') el.innerHTML = await talksView();
+        else if (currentView === 'pages') el.innerHTML = await pagesView();
+        bindEventListeners();
+      } catch(e) {
+        el.innerHTML = '<p style="color:red">加载失败: ' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    function bindEventListeners() {
+      document.querySelectorAll('[data-action]').forEach(el => {
+        el.addEventListener('click', function(e) {
+          const action = this.dataset.action;
+          const args = this.dataset.args;
+          if (action === 'edit-post') editPost(args);
+          else if (action === 'delete-post') deletePost(args);
+          else if (action === 'delete-comment') deleteComment(args);
+          else if (action === 'delete-talk') deleteTalk(args);
+          else if (action === 'new-post') newPost();
+          else if (action === 'new-talk') newTalk();
+          else if (action === 'toggle-archive') toggleArchive(args);
+          else if (action === 'edit-page') editPage(args);
+          else if (action === 'save-post') savePost();
+          else if (action === 'save-page') savePage();
+          else if (action === 'cancel-edit') renderContent();
+        });
+      });
+    }
+
+    // ===== Dashboard =====
+    async function dashboardView() {
+      const [posts, comments] = await Promise.all([api('/posts'), api('/comments')]);
+      const postCount = Array.isArray(posts) ? posts.length : 0;
+      const commentCount = Array.isArray(comments) ? comments.length : 0;
+      const tagSet = new Set();
+      if (Array.isArray(posts)) posts.forEach(p => { if (p.tags) p.tags.forEach(t => tagSet.add(t)); });
+      return `
+        <div class="page-header"><h1>概览</h1></div>
+        <div class="card-grid">
+          <div class="stat-card"><mdui-card variant="elevated"><div class="stat-number">${postCount}</div><div class="stat-label">文章</div></mdui-card></div>
+          <div class="stat-card"><mdui-card variant="elevated"><div class="stat-number">${commentCount}</div><div class="stat-label">评论</div></mdui-card></div>
+          <div class="stat-card"><mdui-card variant="elevated"><div class="stat-number">${tagSet.size}</div><div class="stat-label">标签</div></mdui-card></div>
+        </div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">最近文章</h2>
+          ${Array.isArray(posts) && posts.length > 0 ? posts.slice(0, 5).map(p => `
+            <div class="post-item">
+              <div class="post-info"><h3>${escapeHtml(p.title)}</h3><span>${formatDate(p.date)}</span></div>
+              <div class="post-actions">
+                <mdui-button data-action="edit-post" data-args="${p.slug}" variant="text">编辑</mdui-button>
+              </div>
+            </div>`).join('') : '<p style="color:var(--mdui-color-outline)">还没有文章</p>'}
+        </mdui-card>`;
+    }
+
+    // ===== Posts =====
+    async function postsView() {
+      const posts = await api('/posts');
+      return `
+        <div class="page-header"><h1>文章管理</h1><mdui-button data-action="new-post" variant="filled">写新文章</mdui-button></div>
+        <mdui-card variant="elevated" style="padding:16px">
+          ${Array.isArray(posts) && posts.length > 0 ? posts.map(p => `
+            <div class="post-item">
+              <div class="post-info"><h3>${escapeHtml(p.title)} ${p.archived ? '<span style="color:rgb(var(--mdui-color-tertiary));font-size:12px">📦 已归档</span>' : ''}</h3><span>${formatDate(p.date)} ｜ ${(p.tags || []).join(', ') || '无标签'}</span></div>
+              <div class="post-actions">
+                <mdui-button data-action="edit-post" data-args="${p.slug}" variant="text">编辑</mdui-button>
+                <mdui-button data-action="toggle-archive" data-args="${p.slug}" variant="text">${p.archived ? '📤 移出归档' : '📦 归档'}</mdui-button>
+                <mdui-button data-action="delete-post" data-args="${p.slug}" variant="text" style="color:rgb(var(--mdui-color-error))">删除</mdui-button>
+              </div>
+            </div>`).join('') : '<p style="padding:16px;color:var(--mdui-color-outline)">还没有文章，点击"写新文章"开始</p>'}
+        </mdui-card>`;
+    }
+
+    function newPost() {
+      showEditor({ slug: '', title: '', date: new Date().toISOString().slice(0, 10), tags: [], categories: [], content: '', cover: '' });
+    }
+
+    async function editPost(slug) {
+      const posts = await api('/posts');
+      const post = posts.find(p => p.slug === slug);
+      if (post) showEditor(post);
+    }
+
+    async function deletePost(slug) {
+      if (!confirm('确定删除 "' + slug + '"？')) return;
+      const res = await api('/posts?slug=' + encodeURIComponent(slug), { method: 'DELETE' });
+      if (res.errno === 0) { toast('已删除'); renderContent(); }
+      else toast('删除失败');
+    }
+
+    async function toggleArchive(slug) {
+      const res = await api('/posts', { method: 'PATCH', body: JSON.stringify({ slug }) });
+      if (res.errno === 0) { toast('操作成功 ✓，重启 OpenResty 后生效'); renderContent(); }
+      else toast('操作失败: ' + (res.errmsg || ''));
+    }
+
+    function showEditor(post) {
+      const el = document.getElementById('main-content');
+      const tagsStr = (post.tags || []).join(', ');
+      const catsStr = (post.categories || []).join(', ');
+      el.innerHTML = `
+        <div class="page-header"><h1>${post.slug ? '编辑文章' : '写新文章'}</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;margin:0 auto;width:100%;max-width:1200px;box-sizing:border-box">
+          <div class="form-group"><label>文件名标识 (slug)</label><input id="ed-slug" value="${escapeHtml(post.slug || '')}" placeholder="my-post-title"></div>
+          <div class="form-group"><label>标题</label><input id="ed-title" value="${escapeHtml(post.title || '')}"></div>
+          <div class="form-group"><label>日期</label><input id="ed-date" type="date" value="${post.date_formatted || post.date || ''}"></div>
+          <div class="form-group"><label>封面图 URL</label><input id="ed-cover" value="${escapeHtml(post.cover || '')}" placeholder="/img/cover.jpg"></div>
+          <div class="form-group"><label>标签 (逗号分隔)</label><input id="ed-tags" value="${escapeHtml(tagsStr)}" placeholder="javascript, web, design"></div>
+          <div class="form-group"><label>分类 (逗号分隔)</label><input id="ed-cats" value="${escapeHtml(catsStr)}" placeholder="Tech, Design"></div>
+          <div class="editor-toolbar">
+            <mdui-button-icon id="tb-bold"><b>B</b></mdui-button-icon>
+            <mdui-button-icon id="tb-italic"><i>I</i></mdui-button-icon>
+            <mdui-button-icon id="tb-heading">H</mdui-button-icon>
+            <mdui-button-icon id="tb-list">&bull;</mdui-button-icon>
+            <mdui-button-icon id="tb-code">[ ]</mdui-button-icon>
+            <mdui-button-icon id="tb-quote">&quot;</mdui-button-icon>
+          </div>
+          <div class="form-group"><label>正文 (Markdown)</label><textarea id="ed-content">${escapeHtml(post.content || '')}</textarea></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button data-action="save-post" variant="filled">保存</mdui-button>
+            <mdui-button data-action="cancel-edit" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+      bindEventListeners();
+      // Editor toolbar
+      const ta = document.getElementById('ed-content');
+      const tb = (id, txt) => document.getElementById(id)?.addEventListener('click', () => { ta.value += txt; ta.focus(); });
+      tb('tb-bold', '**加粗**');
+      tb('tb-italic', '*斜体*');
+      tb('tb-heading', '\n## 标题\n');
+      tb('tb-list', '\n- 列表项\n');
+      tb('tb-code', '\n```\n代码\n```\n');
+      tb('tb-quote', '\n> 引用\n');
+    }
+
+    async function savePost() {
+      const slug = document.getElementById('ed-slug').value.trim();
+      const title = document.getElementById('ed-title').value.trim();
+      const date = document.getElementById('ed-date').value;
+      const cover = document.getElementById('ed-cover').value.trim();
+      const tags = document.getElementById('ed-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+      const categories = document.getElementById('ed-cats').value.split(',').map(s => s.trim()).filter(Boolean);
+      const content = document.getElementById('ed-content').value;
+
+      if (!slug || !title) { toast('Slug 和标题不能为空'); return; }
+
+      const method = (await api('/posts')).some(p => p.slug === slug) ? 'PUT' : 'POST';
+      const res = await api('/posts', {
+        method,
+        body: JSON.stringify({ slug, title, date, tags, categories, cover, content })
+      });
+      if (res.errno === 0) { toast('保存成功 ✓'); renderContent(); }
+      else toast('保存失败: ' + (res.errmsg || ''));
+    }
+
+    // ===== Comments =====
+    async function commentsView() {
+      const comments = await api('/comments');
+      return `
+        <div class="page-header"><h1>评论管理</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          ${Array.isArray(comments) && comments.length > 0 ? comments.map(c => `
+            <div class="comment-item">
+              <div class="comment-info">
+                <strong>${escapeHtml(c.nick)}</strong> <span style="color:var(--mdui-color-outline);font-size:12px">${escapeHtml(c.mail || '')} ｜ ${c.url} ｜ ${formatDate(c.create_time)}</span>
+                <div class="comment-text">${escapeHtml(c.comment)}</div>
+              </div>
+              <mdui-button data-action="delete-comment" data-args="${c.id}" variant="text" style="color:rgb(var(--mdui-color-error));flex-shrink:0">删除</mdui-button>
+            </div>`).join('') : '<p style="color:var(--mdui-color-outline)">暂无评论</p>'}
+        </mdui-card>`;
+    }
+
+    async function deleteComment(id) {
+      if (!confirm('确定删除这条评论？')) return;
+      const res = await api('/comments?id=' + id, { method: 'DELETE' });
+      if (res.errno === 0) { toast('已删除'); renderContent(); }
+      else toast('删除失败');
+    }
+
+    // ===== Talks =====
+    async function talksView() {
+      const talks = await api('/talks');
+      return `
+        <div class="page-header"><h1>动态管理</h1><mdui-button data-action="new-talk" variant="filled">写新动态</mdui-button></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          ${Array.isArray(talks) && talks.length > 0 ? talks.map(t => {
+            var ds = '';
+            if (t.create_time) { var d = new Date(parseInt(t.create_time)*1000); ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+            return '<div class="comment-item"><div class="comment-info"><div class="comment-text">' + escapeHtml(t.content || '') + '</div><div class="comment-meta">' + ds + '</div></div><mdui-button data-action="delete-talk" data-args="' + t.id + '" variant="text" style="color:rgb(var(--mdui-color-error));flex-shrink:0">删除</mdui-button></div>';
+          }).join('') : '<p style="color:var(--mdui-color-outline)">暂无动态</p>'}
+        </mdui-card>`;
+    }
+
+    function newTalk() {
+      const el = document.getElementById('main-content');
+      el.innerHTML = `
+        <div class="page-header"><h1>写新动态</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;margin:0 auto;width:100%;max-width:1200px;box-sizing:border-box">
+          <div class="form-group"><label>内容 (纯文本, 支持 Markdown)</label><textarea id="talk-content" style="min-height:300px;width:100%"></textarea></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button onclick="saveNewTalk()" variant="filled">发布</mdui-button>
+            <mdui-button onclick="renderContent()" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+    }
+
+    async function saveNewTalk() {
+      const content = document.getElementById('talk-content').value.trim();
+      if (!content) { toast('内容不能为空'); return; }
+      const res = await api('/talks', { method: 'POST', body: JSON.stringify({ content }) });
+      if (res.errno === 0) { toast('已发布 ✓'); renderContent(); }
+      else toast('发布失败');
+    }
+
+    async function deleteTalk(id) {
+      if (!confirm('确定删除这条动态？')) return;
+      const res = await api('/talks?id=' + id, { method: 'DELETE' });
+      if (res.errno === 0) { toast('已删除'); renderContent(); }
+      else toast('删除失败');
+    }
+
+    // ===== Pages =====
+    async function pagesView() {
+      const pages = await api('/pages');
+      return `
+        <div class="page-header"><h1>页面管理</h1></div>
+        ${Array.isArray(pages) && pages.length > 0 ? pages.map(p => `
+          <mdui-card variant="elevated" style="padding:24px;margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h2 style="font-size:18px;font-weight:500">${escapeHtml(p.title)} (${p.slug})</h2>
+              <mdui-button data-action="edit-page" data-args="${p.slug}" variant="text">编辑</mdui-button>
+            </div>
+          </mdui-card>`).join('') : '<p>暂无页面</p>'}
+        </div>`;
+    }
+
+    function editPage(slug) {
+      api('/pages').then(pages => {
+        const page = pages.find(p => p.slug === slug);
+        const el = document.getElementById('main-content');
+        el.innerHTML = `
+          <div class="page-header"><h1>编辑页面: ${escapeHtml(slug)}</h1></div>
+          <mdui-card variant="elevated" style="padding:24px">
+            <div class="form-group"><label>Slug</label><input id="ed-slug" value="${escapeHtml(page?.slug || slug)}" disabled></div>
+            <div class="form-group"><label>标题</label><input id="ed-title" value="${escapeHtml(page?.title || '')}"></div>
+            <div class="form-group"><label>正文 (Markdown)</label><textarea id="ed-content">${escapeHtml(page?.content || '')}</textarea></div>
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <mdui-button data-action="save-page" variant="filled">保存</mdui-button>
+              <mdui-button data-action="cancel-edit" variant="text">取消</mdui-button>
+            </div>
+          </mdui-card>`;
+        bindEventListeners();
+      });
+    }
+
+    async function savePage() {
+      const slug = document.getElementById('ed-slug').value.trim();
+      const title = document.getElementById('ed-title').value.trim();
+      const content = document.getElementById('ed-content').value;
+      const res = await api('/pages', {
+        method: 'PUT',
+        body: JSON.stringify({ slug, title, content })
+      });
+      if (res.errno === 0) { toast('页面已保存 ✓'); renderContent(); }
+      else toast('保存失败');
+    }
+
+    // ===== Init =====
+    render();
+  </script>
+</body>
+</html>

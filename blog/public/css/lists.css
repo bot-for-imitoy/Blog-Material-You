@@ -1,0 +1,47 @@
+/* List pages (posts, archives, category) */
+.posts-year {
+  font-size: 32px;
+  font-weight: 400;
+  margin: 24px 0 16px 0;
+  color: rgb(var(--mdui-color-primary));
+}
+
+.posts-list {
+  margin: 0;
+  padding: 0;
+}
+
+.posts-list mdui-list-item {
+  margin-bottom: 8px;
+}
+
+.posts-list mdui-list-item .mdui-list-item-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.posts-list mdui-list-item .mdui-list-item-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: rgb(var(--mdui-color-on-surface));
+  margin-bottom: 4px;
+}
+
+.posts-list mdui-list-item .mdui-list-item-text {
+  font-size: 13px;
+  color: rgb(var(--mdui-color-outline));
+}
+
+/* Tags / Categories container */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+/* Navigation drawer subtitle */
+.navigation-drawer-header-subtitle {
+  font-size: 14px;
+  color: rgb(var(--mdui-color-outline));
+}

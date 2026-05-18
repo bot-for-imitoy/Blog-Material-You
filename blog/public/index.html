@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html class="mdui-theme-auto">
+<head>
+  <title>Blog Material You</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
+  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <link rel="stylesheet" href="/css/root.css">
+  <link rel="stylesheet" href="/css/content-container.css">
+  <link rel="stylesheet" href="/css/navigation-drawer.css">
+  <link rel="stylesheet" href="/css/lists.css">
+
+  <style>
+    /* Page transition */
+    #content-container {
+      transition: opacity 0.15s ease;
+    }
+    #content-container.loading {
+      opacity: 0.4;
+    }
+    /* Skeleton placeholder */
+    .loading-placeholder {
+      text-align: center;
+      padding: 80px 0;
+      color: rgb(var(--mdui-color-outline));
+    }
+  </style>
+</head>
+<body>
+  <mdui-layout class="root">
+    <mdui-top-app-bar class="top-app-bar" scroll-behavior="elevate" scroll-target=".content-container">
+      <mdui-button-icon class="navigation-drawer-button" variant="text">
+        <mdui-icon src="/icon/menu.svg"></mdui-icon>
+      </mdui-button-icon>
+      <mdui-top-app-bar-title id="app-bar-title">Blog Material You</mdui-top-app-bar-title>
+      <div style="flex-grow: 1"></div>
+      <mdui-button-icon>
+        <mdui-icon src="/icon/search.svg"></mdui-icon>
+      </mdui-button-icon>
+    </mdui-top-app-bar>
+
+    <mdui-navigation-drawer class="navigation-drawer" close-on-overlay-click open="true">
+      <div class="navigation-drawer-container">
+      <div class="navigation-drawer-header">
+        <mdui-avatar src="/img/avatar.png" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
+        <div class="navigation-drawer-header-title" id="nav-name">Blog Material You</div>
+        <div class="navigation-drawer-header-subtitle" id="nav-slogan">A simple and elegant theme.</div>
+      </div>
+      <mdui-list class="navigation-drawer-list">
+        <mdui-list-item rounded href="/" class="navigation-drawer-list-home" data-route="/">
+          Home
+          <mdui-icon src="/icon/home.svg" slot="icon"></mdui-icon>
+        </mdui-list-item>
+        <mdui-list-item rounded href="/posts/" class="navigation-drawer-list-posts" data-route="/posts/">
+          Posts
+          <mdui-icon src="/icon/article.svg" slot="icon"></mdui-icon>
+        </mdui-list-item>
+        <mdui-list-item rounded href="/tags/" class="navigation-drawer-list-tags" data-route="/tags/">
+          Tags
+          <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+        </mdui-list-item>
+        <mdui-list-item rounded href="/categories/" class="navigation-drawer-list-categories" data-route="/categories/">
+          Categories
+          <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+        </mdui-list-item>
+        <mdui-list-item rounded href="/talks/" class="navigation-drawer-list-talks" data-route="/talks/">
+          Talks
+          <mdui-icon src="/icon/chat.svg" slot="icon"></mdui-icon>
+        </mdui-list-item>
+        <mdui-list-item rounded href="/about/" class="navigation-drawer-list-about" data-route="/about/">
+          About
+          <mdui-icon src="/icon/person.svg" slot="icon"></mdui-icon>
+        </mdui-list-item>
+        <mdui-list-item rounded href="/archives/" class="navigation-drawer-list-archives" data-route="/archives/">
+          Archives
+          <mdui-icon src="/icon/archive.svg" slot="icon"></mdui-icon>
+        </mdui-list-item>
+      </mdui-list>
+      </div>
+    </mdui-navigation-drawer>
+
+    <mdui-layout-main class="layout-main">
+      <div class="content-container" id="content-container">
+        <div class="loading-placeholder">Loading...</div>
+      </div>
+    </mdui-layout-main>
+  </mdui-layout>
+  <script src="/js/navigation-drawer.js"></script>
+  <script type="module" src="/js/color.js"></script>
+
+  <script>
+    // ===== Blog Material You SPA — Client-Side Rendering =====
+    // Data store
+    let blogConfig = null;
+    let allPosts = null;
+
+    // ===== Helpers =====
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    function stripHtml(html) {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      return div.textContent || div.innerText || '';
+    }
+
+    function truncate(text, len) {
+      if (!text) return '';
+      if (text.length <= len) return text;
+      return text.slice(0, len) + '...';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function isMobile() {
+      return window.innerWidth <= 900;
+    }
+
+    // ===== Navigation =====
+    function updateNavActive(path) {
+      document.querySelectorAll('.navigation-drawer-list mdui-list-item').forEach(function(item) {
+        var route = item.getAttribute('data-route');
+        if (!route) return;
+        if (path.startsWith('/posts/') && route === '/posts/') {
+          item.active = true;
+        } else if (path.startsWith('/post/') && route === '/posts/') {
+          item.active = true;
+        } else if (path.startsWith('/tags/' ) && route === '/tags/') {
+          item.active = true;
+        } else if (path.startsWith('/categories/') && route === '/categories/') {
+          item.active = true;
+        } else if (path.startsWith('/archives/') && route === '/archives/') {
+          item.active = true;
+        } else if (path.startsWith('/about') && route === '/about/') {
+          item.active = true;
+        } else if (path.startsWith('/talks') && route === '/talks/') {
+          item.active = true;
+        } else {
+          item.active = route === path;
+        }
+      });
+    }
+
+    // ===== API Calls =====
+    async function apiFetch(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('API error: ' + res.status);
+      return res.json();
+    }
+
+    async function loadConfig() {
+      if (blogConfig) return blogConfig;
+      blogConfig = await apiFetch('/api/config');
+      // Update UI with config
+      const titleEl = document.getElementById('app-bar-title');
+      if (titleEl) titleEl.textContent = blogConfig.title || 'Blog';
+      const navName = document.getElementById('nav-name');
+      if (navName) navName.textContent = blogConfig.name || '';
+      const navSlogan = document.getElementById('nav-slogan');
+      if (navSlogan) navSlogan.textContent = blogConfig.slogan || '';
+      const navAvatar = document.getElementById('nav-avatar');
+      if (navAvatar && blogConfig.avatar) navAvatar.src = blogConfig.avatar;
+      document.title = blogConfig.title || 'Blog Material You';
+      return blogConfig;
+    }
+
+    async function loadPosts() {
+      if (allPosts) return allPosts;
+      allPosts = await apiFetch('/api/posts');
+      return allPosts;
+    }
+
+    async function loadPost(slug) {
+      return apiFetch('/api/posts/' + encodeURIComponent(slug));
+    }
+
+    async function loadTags() {
+      return apiFetch('/api/tags');
+    }
+
+    async function loadTagPosts(tag) {
+      return apiFetch('/api/tags/' + encodeURIComponent(tag));
+    }
+
+    async function loadCategories() {
+      return apiFetch('/api/categories');
+    }
+
+    async function loadCategoryPosts(cat) {
+      return apiFetch('/api/categories/' + encodeURIComponent(cat));
+    }
+
+    async function loadArchives() {
+      return apiFetch('/api/archives');
+    }
+
+    async function loadPage(slug) {
+      return apiFetch('/api/pages/' + slug);
+    }
+
+    async function loadTalks() {
+      return apiFetch('/api/talks');
+    }
+
+    async function loadComments(path) {
+      return apiFetch('/api/comments?path=' + encodeURIComponent(path));
+    }
+
+    async function loadCommentCount(path) {
+      return apiFetch('/api/comments?type=count&path=' + encodeURIComponent(path));
+    }
+
+    // ===== Renderers =====
+
+    function renderHome() {
+      const posts = allPosts || [];
+      let html = `
+        <style>
+          @import url('/css/index.css');
+          @import url('/css/post-card.css');
+        </style>
+        <mdui-card variant="filled" class="index-header-card">
+          <div class="index-header-title">${escapeHtml(blogConfig.title)}</div>
+          <div class="index-header-content">${escapeHtml(blogConfig.description)}</div>
+        </mdui-card>
+        <div class="card-container" id="card-container">
+      `;
+
+      posts.forEach(function(post) {
+        const excerptText = (post.excerpt || post.content || '');
+        const excerpt = post.cover && post.cover !== 'null'
+          ? truncate(excerptText, 120)
+          : truncate(excerptText, 200);
+        const coverHtml = post.cover && post.cover !== 'null'
+          ? '<img src="' + post.cover + '" alt="' + escapeHtml(post.title) + '" class="post-card-cover post-card-meta">'
+          : '';
+
+        html += `
+          <mdui-card variant="elevated" class="post-card">
+            ${coverHtml}
+            <div class="post-card-main">
+              <div class="post-card-title post-card-meta">${escapeHtml(post.title)}</div>
+              <div class="post-card-content post-card-meta">${escapeHtml(excerpt)}</div>
+              <div class="post-card-date post-card-meta">
+                <mdui-icon src="/icon/calender.svg"></mdui-icon>
+                <span>${formatDate(post.date)}</span>
+              </div>
+              <mdui-card variant="filled" class="post-card-forward" href="/post/${encodeURIComponent(post.slug)}">
+                <div class="post-card-forward-div">
+                  <mdui-icon class="post-card-forward-icon" src="/icon/arrow-forward.svg"></mdui-icon>
+                </div>
+              </mdui-card>
+            </div>
+          </mdui-card>
+        `;
+      });
+
+      html += `</div><hr><div class="index-bottom"><mdui-chip>C 2025 Blog Material You</mdui-chip></div>`;
+      return html;
+    }
+
+    function renderPostsPage() {
+      const posts = allPosts || [];
+      const years = {};
+      posts.forEach(function(p) {
+        const y = p.date ? p.date.slice(0, 4) : 'Unknown';
+        if (!years[y]) years[y] = [];
+        years[y].push(p);
+      });
+
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">Posts</div>
+          <div class="header-content">All posts of the blog</div>
+        </mdui-card>
+      `;
+
+      Object.keys(years).sort().reverse().forEach(function(year) {
+        html += '<h1 class="posts-year">' + escapeHtml(year) + '</h1><mdui-list class="posts-list">';
+        years[year].forEach(function(post) {
+          html += `
+            <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
+              <div class="mdui-list-item-content">
+                <div class="mdui-list-item-title">${escapeHtml(post.title)}</div>
+                <div class="mdui-list-item-text">${formatDate(post.date)}</div>
+              </div>
+            </mdui-list-item>
+          `;
+        });
+        html += '</mdui-list>';
+      });
+
+      return html;
+    }
+
+    function renderPostPage(post) {
+      // Render raw Markdown content as simple HTML
+      const contentHtml = renderMarkdown(post.content || '');
+
+      let chipsHtml = '';
+      if (post.categories && post.categories.length) {
+        post.categories.forEach(function(cat) {
+          chipsHtml += `
+            <mdui-chip rounded href="/categories/${encodeURIComponent(cat)}" class="post-chip-category">
+              <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+              ${escapeHtml(cat)}
+            </mdui-chip>
+          `;
+        });
+      }
+      if (post.tags && post.tags.length) {
+        post.tags.forEach(function(tag) {
+          chipsHtml += `
+            <mdui-chip rounded href="/tags/${encodeURIComponent(tag)}" class="post-chip-tag">
+              <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+              ${escapeHtml(tag)}
+            </mdui-chip>
+          `;
+        });
+      }
+
+      const coverHtml = post.cover && post.cover !== 'null'
+        ? '<img src="' + post.cover + '" alt="' + escapeHtml(post.title) + '" class="post-header-cover post-header-meta">'
+        : '';
+
+      const html = `
+        <style>
+          @import url('/css/post-content.css');
+          @import url('/css/code.css');
+        </style>
+        <mdui-snackbar class="snackbar-network-error">Network error</mdui-snackbar>
+        <mdui-snackbar class="snackbar-comment-success">Comment submitted successfully</mdui-snackbar>
+        <mdui-snackbar class="snackbar-comment-failure">Failed to submit comment</mdui-snackbar>
+        <div class="content">
+          <mdui-card variant="elevated" class="post-header">
+            ${coverHtml}
+            <div class="post-header-main">
+              <div class="post-header-title post-header-meta">${escapeHtml(post.title)}</div>
+              <div class="post-header-date post-header-meta">
+                <mdui-icon class="post-header-date-icon" src="/icon/calender.svg"></mdui-icon>
+                <span>${formatDate(post.date)}</span>
+              </div>
+            </div>
+          </mdui-card>
+          <div class="post-header-chips">${chipsHtml}</div>
+          <hr>
+          <div class="markdown-content">${contentHtml}</div>
+          <hr>
+          <div class="comment-input">
+            <mdui-text-field id="comment-nick" label="Nick Name" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-email" label="Email" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-website" label="Website (optional)" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-content" label="Comment" variant="outlined" max-rows="4" autosize></mdui-text-field>
+            <mdui-button id="comment-submit-button" variant="filled">Submit</mdui-button>
+          </div>
+          <h3 class="comment-section-title" id="comment-section-title">Comments</h3>
+          <mdui-list id="comments-container" class="comment-list"></mdui-list>
+        </div>
+      `;
+      return html;
+    }
+
+    function renderTagsPage(tags) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">Tags</div>
+          <div class="header-content">All tags of the blog</div>
+        </mdui-card>
+        <div class="tags-container">
+      `;
+      tags.forEach(function(tag) {
+        html += `
+          <mdui-chip rounded href="/tags/${encodeURIComponent(tag.name)}">
+            ${escapeHtml(tag.name)}
+            <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+          </mdui-chip>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function renderCategoriesPage(cats) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">Categories</div>
+          <div class="header-content">All categories of the blog</div>
+        </mdui-card>
+        <div class="tags-container">
+      `;
+      cats.forEach(function(cat) {
+        html += `
+          <mdui-chip rounded href="/categories/${encodeURIComponent(cat.name)}">
+            <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+            ${escapeHtml(cat.name)}
+            <span slot="badge">${cat.count}</span>
+          </mdui-chip>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function renderListPage(title, description, items) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">${escapeHtml(title)}</div>
+          <div class="header-content">${escapeHtml(description)}</div>
+        </mdui-card>
+        <mdui-list class="posts-list">
+      `;
+      items.forEach(function(item) {
+        html += `
+          <mdui-list-item href="/post/${encodeURIComponent(item.slug)}">
+            <div class="mdui-list-item-content">
+              <div class="mdui-list-item-title">${escapeHtml(item.title)}</div>
+              <div class="mdui-list-item-text">${formatDate(item.date)}</div>
+            </div>
+          </mdui-list-item>
+        `;
+      });
+      html += '</mdui-list>';
+      return html;
+    }
+
+    function renderArchivesPage(archives) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">Archives</div>
+          <div class="header-content">All archived posts</div>
+        </mdui-card>
+      `;
+      Object.keys(archives).sort().reverse().forEach(function(year) {
+        html += '<h1 class="posts-year">' + escapeHtml(year) + '</h1><mdui-list class="posts-list">';
+        archives[year].forEach(function(post) {
+          html += `
+            <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
+              <div class="mdui-list-item-content">
+                <div class="mdui-list-item-title">${escapeHtml(post.title)}</div>
+                <div class="mdui-list-item-text">${formatDate(post.date)}</div>
+              </div>
+            </mdui-list-item>
+          `;
+        });
+        html += '</mdui-list>';
+      });
+      return html;
+    }
+
+    function renderAboutPage(page) {
+      const html = `
+        <style>
+          @import url('/css/post-content.css');
+          @import url('/css/code.css');
+          @import url('/css/about.css');
+        </style>
+        <div class="content">
+          <mdui-card variant="elevated" class="about-header">
+            <mdui-avatar src="${blogConfig.avatar}" class="about-avatar"></mdui-avatar>
+            <div class="about-title">${escapeHtml(blogConfig.title)}</div>
+            <div class="about-description">${escapeHtml(blogConfig.description)}</div>
+          </mdui-card>
+          <hr>
+          <div class="markdown-content">${renderMarkdown(page.content || '')}</div>
+          <hr>
+        </div>
+      `;
+      return html;
+    }
+
+    function renderTalksPage(talksList) {
+      const talks = Array.isArray(talksList) ? talksList : [];
+      let items = '';
+      talks.forEach(function(t) {
+        var dateStr = '';
+        if (t.create_time) {
+          var d = new Date(parseInt(t.create_time) * 1000);
+          dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        }
+        items += '<hr><div class="talk-item" style="padding:8px 0"><div class="markdown-content">' + renderMarkdown(t.content || '') + '</div>' +
+                 '<span style="font-size:12px;color:rgb(var(--mdui-color-outline))">' + dateStr + '</span></div>';
+      });
+      const html = `
+        <style>
+          @import url('/css/post-content.css');
+          @import url('/css/code.css');
+          @import url('/css/about.css');
+        </style>
+        <div class="content">
+          <mdui-card variant="elevated" class="about-header">
+            <div class="about-title">Talks</div>
+            <div class="about-description">说说 / 动态</div>
+          </mdui-card>
+          ${items}
+          <hr>
+        </div>
+      `;
+      return html;
+    }
+
+    // ===== Markdown Renderer (minimal client-side) =====
+    function renderMarkdown(text) {
+      if (!text) return '';
+      let html = text;
+
+      // Code blocks (fenced, with lang)
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
+        const langClass = lang ? ' language-' + escapeHtml(lang) : '';
+        return '<div class="highlight"><div class="code"><pre class="line-numbers"><code class="' + langClass + '">' + escapeHtml(code.trim()) + '</code></pre></div></div>';
+      });
+
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+      // Images
+      html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+
+      // Links
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+      // Bold + italic
+      html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+      // Headings
+      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+      // Blockquotes
+      html = html.replace(/^> (.+)$/gm, '<blockquote><p>$1</p></blockquote>');
+
+      // Horizontal rules
+      html = html.replace(/^---$/gm, '<hr>');
+
+      // Tables (simplified)
+      html = html.replace(/^\|(.+)\|$/gm, function(match, row) {
+        var cells = row.split('|');
+        var isHeader = false;
+        for (var i = 0; i < cells.length; i++) {
+          if (cells[i].trim().match(/^[-:]+[- :]*$/)) {
+            isHeader = true;
+            break;
+          }
+        }
+        if (isHeader) return '';
+        var htmlRow = '<tr>';
+        for (var i = 0; i < cells.length; i++) {
+          htmlRow += '<td>' + cells[i].trim() + '</td>';
+        }
+        htmlRow += '</tr>';
+        return htmlRow;
+      });
+      if (text.match(/^\|.+\|$/m)) {
+        html = '<table>' + html + '</table>';
+        // Double <table> fix
+        html = html.replace(/<\/table>\s*<table>/g, '');
+      }
+
+      // Paragraphs
+      html = html.replace(/\n\n/g, '</p><p>');
+      html = '<p>' + html + '</p>';
+      // Fix nested paragraphs around block-level elements
+      html = html.replace(/<p>\s*<(h\d|div|blockquote|table|hr|ul|ol)/g, '<$1');
+      html = html.replace(/<\/(h\d|div|blockquote|table|hr|ul|ol)>\s*<\/p>/g, '</$1>');
+
+      return html;
+    }
+
+    // ===== Router =====
+    async function navigate(path, pushState) {
+      if (pushState !== false) {
+        history.pushState({}, '', path);
+      }
+
+      const container = document.getElementById('content-container');
+      container.classList.add('loading');
+
+      try {
+        // Load config if not loaded
+        await loadConfig();
+
+        let html = '';
+
+        if (path === '/' || path === '') {
+          await loadPosts();
+          html = renderHome();
+          updateNavActive('/');
+
+        } else if (path === '/posts/' || path === '/posts') {
+          await loadPosts();
+          html = renderPostsPage();
+          updateNavActive('/posts/');
+
+        } else if (path.startsWith('/post/')) {
+          var slug = path.replace('/post/', '').replace(/\/$/, '');
+          slug = decodeURIComponent(slug);
+          var post = await loadPost(slug);
+          html = renderPostPage(post);
+          updateNavActive('/posts/');
+
+        } else if (path === '/tags/' || path === '/tags') {
+          var tags = await loadTags();
+          html = renderTagsPage(tags);
+          updateNavActive('/tags/');
+
+        } else if (path.startsWith('/tags/')) {
+          var tag = decodeURIComponent(path.replace('/tags/', '').replace(/\/$/, ''));
+          var posts = await loadTagPosts(tag);
+          html = renderListPage(tag, 'Tag', posts);
+          updateNavActive('/tags/');
+
+        } else if (path === '/categories/' || path === '/categories') {
+          var cats = await loadCategories();
+          html = renderCategoriesPage(cats);
+          updateNavActive('/categories/');
+
+        } else if (path.startsWith('/categories/')) {
+          var cat = decodeURIComponent(path.replace('/categories/', '').replace(/\/$/, ''));
+          var posts2 = await loadCategoryPosts(cat);
+          html = renderListPage(cat, 'Category', posts2);
+          updateNavActive('/categories/');
+
+        } else if (path === '/archives/' || path === '/archives') {
+          var archives = await loadArchives();
+          html = renderArchivesPage(archives);
+          updateNavActive('/archives/');
+
+        } else if (path === '/about/' || path === '/about') {
+          var page = await loadPage('about');
+          html = renderAboutPage(page);
+          updateNavActive('/about/');
+
+        } else if (path === '/talks/' || path === '/talks') {
+          var talksList = await loadTalks();
+          html = renderTalksPage(talksList);
+          updateNavActive('/talks/');
+
+        } else {
+          html = '<div class="loading-placeholder"><h2>404 — Page Not Found</h2><p>The page you\'re looking for doesn\'t exist.</p></div>';
+        }
+
+        container.innerHTML = html;
+        document.title = blogConfig.title || 'Blog Material You';
+
+        // Re-trigger pjax-style plugins (waterfall, code cleanup)
+        postRender(container);
+      } catch (err) {
+        console.error('Navigation error:', err);
+        container.innerHTML = '<div class="loading-placeholder"><h2>Error</h2><p>Failed to load page: ' + escapeHtml(err.message) + '</p></div>';
+      }
+
+      container.classList.remove('loading');
+    }
+
+    // ===== Post-Render Hooks =====
+    function postRender(container) {
+      // 1. Remove gutter from code blocks
+      document.querySelectorAll('.highlight .gutter').forEach(function(el) {
+        el.remove();
+      });
+
+      // 2. Waterfall layout on home
+      if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            layoutWaterfall();
+          });
+        });
+      }
+
+      // 3. Comments on post pages
+      if (window.location.pathname.startsWith('/post/')) {
+        initComments();
+      }
+
+      // 4. Attach click handlers to custom elements
+      if (container) attachClickHandlers(container);
+    }
+
+    // ===== Waterfall Layout =====
+    function layoutWaterfall() {
+      var container = document.querySelector('.card-container');
+      var items = document.querySelectorAll('.card-container .post-card');
+      var content = document.querySelector('.content-container');
+
+      if (!container || !items.length || !content) return;
+
+      var windowWidth = content.offsetWidth - 48;
+      var column = 1;
+      if (windowWidth >= 840) {
+        column = 3;
+      } else if (windowWidth >= 428) {
+        column = 2;
+      }
+
+      var gap = 16;
+      var width = (windowWidth - (column - 1) * gap) / column;
+
+      var columnHeights = new Array(column).fill(0);
+      var columnLefts = new Array(column);
+      var columnRights = new Array(column);
+      for (var i = 0; i < column; i++) {
+        columnLefts[i] = i * (width + gap);
+        columnRights[i] = columnLefts[i] + width;
+      }
+
+      items.forEach(function(item) {
+        var minHeight = Math.min.apply(null, columnHeights);
+        var columnIndex = columnHeights.indexOf(minHeight);
+
+        item.style.position = 'absolute';
+        item.style.top = minHeight + 'px';
+        item.style.left = columnLefts[columnIndex] + 'px';
+        item.style.right = (windowWidth - columnRights[columnIndex]) + 'px';
+        item.style.width = width + 'px';
+
+        columnHeights[columnIndex] += item.offsetHeight + gap;
+      });
+
+      var maxHeight = Math.max.apply(null, columnHeights);
+      container.style.height = (maxHeight + gap) + 'px';
+    }
+
+    // ===== Click Handlers (SPA navigation) =====
+    function attachClickHandlers(root) {
+      if (!root) root = document;
+      root.querySelectorAll('mdui-chip[href], mdui-list-item[href], mdui-card[href]').forEach(function(el) {
+        if (el._spaAttached) return;
+        el._spaAttached = true;
+        el.addEventListener('click', function(e) {
+          var href = el.getAttribute('href');
+          if (!href) return;
+          if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
+          if (href === window.location.pathname) return;
+          e.preventDefault();
+          e.stopPropagation();
+
+          navigate(href);
+
+          var nav = document.querySelector('.navigation-drawer');
+          if (nav && isMobile()) {
+            nav.open = false;
+          }
+        });
+      });
+    }
+
+    // ===== Comments =====
+    function initComments() {
+      var path = window.location.pathname;
+
+      // Load comment count (synchronous for reliable initial load)
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/comments?type=count&path=' + encodeURIComponent(path), false);
+        xhr.send();
+        var result = JSON.parse(xhr.responseText || '{}');
+        var titleEl = document.getElementById('comment-section-title');
+        if (titleEl && result.data) {
+          var count = parseInt(result.data.count) || 0;
+          titleEl.textContent = count + ' Comment' + (count !== 1 ? 's' : '');
+        }
+      } catch(e) { console.error('Comment count error:', e); }
+
+      // Load comments list
+      try {
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/api/comments?path=' + encodeURIComponent(path), false);
+        xhr.send();
+        var result = JSON.parse(xhr.responseText || '{}');
+        var container = document.getElementById('comments-container');
+        if (!container) return;
+        container.innerHTML = '';
+        if (result.data && result.data.data && result.data.data.forEach) {
+          result.data.data.forEach(function(comment) {
+            var item = document.createElement('mdui-list-item');
+            item.classList.add('comment');
+            item.alignment = 'start';
+            item.nonclickable = true;
+            item.innerHTML = '<div slot="custom" class="comment-block">' +
+              '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>' +
+              '<div class="comment-right-area">' +
+              '<p class="comment-nick-name">' + escapeHtml(comment.nick || '') + '</p>' +
+              '<div class="comment-content">' + escapeHtml(comment.comment || '') + '</div>' +
+              '</div></div>';
+            container.appendChild(item);
+          });
+        }
+      } catch(e) { console.error('Comments load error:', e); }
+
+      // Submit comment button
+      var submitBtn = document.getElementById('comment-submit-button');
+      if (submitBtn) {
+        // Remove any old listeners by cloning
+        var newBtn = submitBtn.cloneNode(true);
+        submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+        newBtn.addEventListener('click', function() {
+          submitComment(path);
+        });
+      }
+    }
+
+    function submitComment(path) {
+      var btn = document.getElementById('comment-submit-button');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.loading = true;
+
+      var nick = document.getElementById('comment-nick').value.trim();
+      var email = document.getElementById('comment-email').value.trim();
+      var website = document.getElementById('comment-website').value.trim();
+      var content = document.getElementById('comment-content').value.trim();
+
+      // Disable inputs
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = true;
+      });
+
+      // Validation
+      var hasError = false;
+      if (!nick) {
+        var nickField = document.getElementById('comment-nick');
+        if (nickField) nickField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+        hasError = true;
+      }
+      if (!email) {
+        var emailField = document.getElementById('comment-email');
+        if (emailField) emailField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+        hasError = true;
+      }
+      if (!content) {
+        var contentField = document.getElementById('comment-content');
+        if (contentField) contentField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+        hasError = true;
+      }
+
+      if (hasError) {
+        showSnackbar('comment-failure');
+        resetCommentForm();
+        return;
+      }
+
+      fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nick: nick,
+          mail: email,
+          comment: content,
+          link: website,
+          ua: navigator.userAgent,
+          url: path
+        })
+      }).then(function(res) {
+        return res.json();
+      }).then(function(result) {
+        if (result.errno === 0) {
+          showSnackbar('comment-success');
+          // Reload comments
+          initComments();
+          // Clear form
+          ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+          });
+        } else {
+          showSnackbar('comment-failure');
+        }
+        resetCommentForm();
+      }).catch(function(err) {
+        showSnackbar('network-error');
+        resetCommentForm();
+      });
+    }
+
+    function resetCommentForm() {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
+      var btn = document.getElementById('comment-submit-button');
+      if (btn) {
+        btn.disabled = false;
+        btn.loading = false;
+      }
+    }
+
+    function showSnackbar(type) {
+      var el = document.querySelector('.snackbar-' + type);
+      if (el) el.show = true;
+    }
+
+    // ===== Initialization =====
+    document.addEventListener('DOMContentLoaded', function() {
+      // Attach SPA click handlers to ALL mdui elements on the page
+      // (nav drawer links are outside #content-container)
+      attachClickHandlers(document);
+
+      // Navigate to current path
+      navigate(window.location.pathname, false);
+
+      // Handle browser back/forward
+      window.addEventListener('popstate', function(e) {
+        navigate(window.location.pathname, false);
+      });
+
+      // Re-attach handlers to new content after SPA navigation
+      var observer = new MutationObserver(function() {
+        attachClickHandlers(document.getElementById('content-container'));
+      });
+      var container = document.getElementById('content-container');
+      if (container) {
+        observer.observe(container, { childList: true, subtree: true });
+      }
+    });
+
+    // Waterfall resize observer
+    var resizeObserver = new ResizeObserver(function() {
+      if (window.location.pathname === '/') {
+        layoutWaterfall();
+      }
+    });
+    var contentContainer = document.querySelector('.content-container');
+    if (contentContainer) {
+      resizeObserver.observe(contentContainer);
+    }
+  </script>
+</body>
+</html>
