@@ -13,7 +13,7 @@ local function connect()
     local db, err = mysql:new()
     if not db then return nil, err end
     db:set_timeout(3000)
-    local ok, err = db:connect({ path = DB_SOCKET, database = "hexoyou" })
+    local ok, err = db:connect({ path = DB_SOCKET, database = "blogyou" })
     if not ok then return nil, err end
     return db
 end

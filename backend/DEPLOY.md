@@ -118,10 +118,10 @@ mariadbd \
 ```bash
 MYSQL="mariadb --socket=$DB_DIR/mysql.sock"
 
-$MYSQL -e "CREATE DATABASE IF NOT EXISTS hexoyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+$MYSQL -e "CREATE DATABASE IF NOT EXISTS blogyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 # 评论表
-$MYSQL hexoyou -e "
+$MYSQL blogyou -e "
 CREATE TABLE IF NOT EXISTS comments (
     id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     nick        VARCHAR(100)  NOT NULL,
@@ -140,7 +140,7 @@ CREATE TABLE IF NOT EXISTS comments (
 "
 
 # 动态表
-$MYSQL hexoyou -e "
+$MYSQL blogyou -e "
 CREATE TABLE IF NOT EXISTS talks (
     id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     content     TEXT       NOT NULL,
@@ -228,7 +228,7 @@ _M.data = {
     avatar = "/img/avatar.png",      -- 头像路径
     github = "https://github.com/",  -- GitHub 链接
     admin_user = "admin",            -- 管理员用户名
-    admin_pass = "hexoyou2025",      -- 管理员密码
+    admin_pass = "blogyou2025",      -- 管理员密码
 
     menu = {
         { name = "Home",  url = "/",          icon = "/icon/home.svg",    id = "home" },
@@ -382,7 +382,7 @@ curl -X POST /api/admin/posts \
 ### 7.2 默认凭据
 
 - 用户名：`admin`
-- 密码：`hexoyou2025`
+- 密码：`blogyou2025`
 
 ⚠️ **部署到公网前务必修改密码！** 在 `blog-backend/lua/config.lua` 中：
 

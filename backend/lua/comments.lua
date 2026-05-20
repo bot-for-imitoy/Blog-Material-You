@@ -8,7 +8,7 @@ local cjson = require("cjson")
 local _M = {}
 
 local DB_SOCKET = "/home/openclaw/workspace/Blog/blog/data/mysql/mysql.sock"
-local DB_NAME   = "hexoyou"
+local DB_NAME   = "blogyou"
 
 -- Quote a string value for SQL (escape single quotes)
 local function quote(val)
