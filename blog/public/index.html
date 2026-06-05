@@ -6,6 +6,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
   <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <!-- KaTeX: LaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <link rel="stylesheet" href="/css/root.css">
   <link rel="stylesheet" href="/css/content-container.css">
   <link rel="stylesheet" href="/css/navigation-drawer.css">
@@ -65,16 +69,16 @@
           <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
         </mdui-list-item>
         <mdui-list-item rounded href="/talks/" class="navigation-drawer-list-talks" data-route="/talks/">
-          Talks
+          Moments
           <mdui-icon src="/icon/chat.svg" slot="icon"></mdui-icon>
         </mdui-list-item>
         <mdui-list-item rounded href="/about/" class="navigation-drawer-list-about" data-route="/about/">
           About
           <mdui-icon src="/icon/person.svg" slot="icon"></mdui-icon>
         </mdui-list-item>
-        <mdui-list-item rounded href="/archives/" class="navigation-drawer-list-archives" data-route="/archives/">
-          Archives
-          <mdui-icon src="/icon/archive.svg" slot="icon"></mdui-icon>
+        <mdui-list-item rounded href="/status/" class="nav-item-status" data-route="/status/">
+          Status
+          <mdui-icon src="/icon/monitoring.svg" slot="icon"></mdui-icon>
         </mdui-list-item>
       </mdui-list>
       </div>
@@ -82,7 +86,7 @@
 
     <mdui-layout-main class="layout-main">
       <div class="content-container" id="content-container">
-        <div class="loading-placeholder">Loading...</div>
+        <div class="loading-placeholder" id="loading-placeholder">Loading...</div>
       </div>
     </mdui-layout-main>
   </mdui-layout>
@@ -94,6 +98,83 @@
     // Data store
     let blogConfig = null;
     let allPosts = null;
+
+    // ===== Bilingual support =====
+    const _LANG = navigator.language.startsWith('zh') ? 'zh' : 'en';
+    let _T = {};
+
+    // Minimal YAML parser for our flat structure
+    // Handles both flat (key: value) and nested (lang:\n  key: value) formats
+    function loadLocale(lang) {
+      return fetch('/locales.yml')
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+          var result = {}, currentSection = null;
+          text.split('\n').forEach(function(line) {
+            // Section header (e.g. "zh:" or "en:")
+            var section = line.match(/^(\w+):\s*$/);
+            if (section) { currentSection = section[1]; return; }
+            // Key-value line under a section
+            if (currentSection === lang) {
+              var m = line.match(/^\s{2}([\w-]+)\s*:\s*(.*)$/);
+              if (m) {
+                var val = m[2].trim();
+                val = val.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+                result[m[1]] = val;
+              }
+            }
+          });
+          _T = result;
+        })
+        .catch(function() { /* fallback: _T stays empty */ });
+    }
+
+    const _ = (key) => _T[key] || _EN_FALLBACK[key] || key;
+
+    // English fallback for initial render before YAML loads
+    const _EN_FALLBACK = {
+      home:'Home', posts:'Posts', tags:'Tags', categories:'Categories',
+      moments:'Moments', about:'About', status:'Status', archives:'Archives',
+      allPosts:'Posts', allPostsDesc:'All posts of the blog',
+      allTags:'Tags', allTagsDesc:'All tags of the blog',
+      allCats:'Categories', allCatsDesc:'All categories of the blog',
+      allArchives:'Archives', allArchivesDesc:'All archived posts',
+      loading:'Loading...', networkError:'Network error',
+      commentSuccess:'Comment submitted successfully', commentFail:'Failed to submit comment',
+      nickName:'Nick Name', email:'Email', website:'Website (optional)',
+      commentContent:'Comment', submit:'Submit', reply:'Reply',
+      noPosts:'No posts yet', noComments:'No comments yet', noTalks:'No moments yet',
+      serverOnline:'Online', serverOffline:'Offline',
+      cpr:'C 2025 Blog Material You', forward:'Read', postsYear:'',
+    };
+    function getTitle(p) { return _LANG === 'en' && p.title_en ? p.title_en : p.title; }
+    function getContent(p) { return _LANG === 'en' && p.content_en ? p.content_en : p.content; }
+    function getTags(p) { return _LANG === 'en' && p.tags_en && p.tags_en.length ? p.tags_en : (p.tags || []); }
+    function getCats(p) { return _LANG === 'en' && p.categories_en && p.categories_en.length ? p.categories_en : (p.categories || []); }
+
+    // Update nav labels after config load
+    function updateNavLabels() {
+      document.querySelectorAll('.navigation-drawer-list mdui-list-item').forEach(function(item) {
+        var route = item.getAttribute('data-route');
+        var key = null;
+        if (route === '/') key = 'home';
+        else if (route === '/posts/') key = 'posts';
+        else if (route === '/tags/') key = 'tags';
+        else if (route === '/categories/') key = 'categories';
+        else if (route === '/talks/') key = 'moments';
+        else if (route === '/about/') key = 'about';
+        else if (route === '/status/') key = 'status';
+        else if (route === '/archives/') key = 'archives';
+        if (key) {
+          var textNode = item.childNodes[0];
+          if (textNode) textNode.textContent = _(key);
+        }
+      });
+      var navName = document.getElementById('nav-name');
+      var navSlogan = document.getElementById('nav-slogan');
+      if (navName) navName.textContent = _LANG === 'zh' ? '博客' : 'Blog';
+      if (navSlogan) navSlogan.textContent = _LANG === 'zh' ? '简单优雅的主题。' : 'A simple and elegant theme.';
+    }
 
     // ===== Helpers =====
     function formatDate(dateStr) {
@@ -172,6 +253,8 @@
       const navAvatar = document.getElementById('nav-avatar');
       if (navAvatar && blogConfig.avatar) navAvatar.src = blogConfig.avatar;
       document.title = blogConfig.title || 'Blog Material You';
+      // Update bilingual nav labels
+      updateNavLabels();
       return blogConfig;
     }
 
@@ -221,54 +304,62 @@
       return apiFetch('/api/comments?type=count&path=' + encodeURIComponent(path));
     }
 
+
+    function useEn(post, field) {
+      if (_LANG === 'en' && post && post[field + '_en']) return post[field + '_en'];
+      return post ? post[field] : '';
+    }
+
     // ===== Renderers =====
 
     function renderHome() {
       const posts = allPosts || [];
       let html = `
-        <style>
-          @import url('/css/index.css');
-          @import url('/css/post-card.css');
-        </style>
-        <mdui-card variant="filled" class="index-header-card">
-          <div class="index-header-title">${escapeHtml(blogConfig.title)}</div>
-          <div class="index-header-content">${escapeHtml(blogConfig.description)}</div>
-        </mdui-card>
-        <div class="card-container" id="card-container">
-      `;
-
-      posts.forEach(function(post) {
-        const excerptText = (post.excerpt || post.content || '');
-        const excerpt = post.cover && post.cover !== 'null'
-          ? truncate(excerptText, 120)
-          : truncate(excerptText, 200);
-        const coverHtml = post.cover && post.cover !== 'null'
-          ? '<img src="' + post.cover + '" alt="' + escapeHtml(post.title) + '" class="post-card-cover post-card-meta">'
-          : '';
-
-        html += `
-          <mdui-card variant="elevated" class="post-card">
-            ${coverHtml}
-            <div class="post-card-main">
-              <div class="post-card-title post-card-meta">${escapeHtml(post.title)}</div>
-              <div class="post-card-content post-card-meta">${escapeHtml(excerpt)}</div>
-              <div class="post-card-date post-card-meta">
-                <mdui-icon src="/icon/calender.svg"></mdui-icon>
-                <span>${formatDate(post.date)}</span>
-              </div>
-              <mdui-card variant="filled" class="post-card-forward" href="/post/${encodeURIComponent(post.slug)}">
-                <div class="post-card-forward-div">
-                  <mdui-icon class="post-card-forward-icon" src="/icon/arrow-forward.svg"></mdui-icon>
-                </div>
-              </mdui-card>
-            </div>
+          <style>
+            @import url('/css/index.css');
+            @import url('/css/post-card.css');
+          </style>
+          <mdui-card variant="filled" class="index-header-card">
+            <div class="index-header-title">${escapeHtml(blogConfig.title)}</div>
+            <div class="index-header-content">${escapeHtml(blogConfig.description)}</div>
           </mdui-card>
+          <div class="card-container" id="card-container">
         `;
-      });
 
-      html += `</div><hr><div class="index-bottom"><mdui-chip>C 2025 Blog Material You</mdui-chip></div>`;
-      return html;
-    }
+        posts.forEach(function(post) {
+          const postTitle = getTitle(post);
+          const postContent = getContent(post);
+          const excerptText = (post.excerpt || postContent || '');
+          const excerpt = post.cover && post.cover !== 'null'
+            ? truncate(excerptText, 120)
+            : truncate(excerptText, 200);
+          const coverHtml = post.cover && post.cover !== 'null'
+            ? '<img src="' + post.cover + '" alt="' + escapeHtml(postTitle) + '" class="post-card-cover post-card-meta">'
+            : '';
+
+          html += `
+            <mdui-card variant="elevated" class="post-card">
+              ${coverHtml}
+              <div class="post-card-main">
+                <div class="post-card-title post-card-meta">${escapeHtml(postTitle)}</div>
+                <div class="post-card-content post-card-meta">${escapeHtml(excerpt)}</div>
+                <div class="post-card-date post-card-meta">
+                  <mdui-icon src="/icon/calender.svg"></mdui-icon>
+                  <span>${formatDate(post.date)}</span>
+                </div>
+                <mdui-card variant="filled" class="post-card-forward" href="/post/${encodeURIComponent(post.slug)}">
+                  <div class="post-card-forward-div">
+                    <mdui-icon class="post-card-forward-icon" src="/icon/arrow-forward.svg"></mdui-icon>
+                  </div>
+                </mdui-card>
+              </div>
+            </mdui-card>
+          `;
+        });
+
+        html += `</div><hr><div class="index-bottom"><mdui-chip>${_('cpr')}</mdui-chip></div>`;
+        return html;
+      }
 
     function renderPostsPage() {
       const posts = allPosts || [];
@@ -282,18 +373,19 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">Posts</div>
-          <div class="header-content">All posts of the blog</div>
+          <div class="header-title">${_('allPosts')}</div>
+          <div class="header-content">${_('allPostsDesc')}</div>
         </mdui-card>
       `;
 
       Object.keys(years).sort().reverse().forEach(function(year) {
-        html += '<h1 class="posts-year">' + escapeHtml(year) + '</h1><mdui-list class="posts-list">';
+        html += '<h1 class="posts-year">' + escapeHtml(year) + _('postsYear') + '</h1><mdui-list class="posts-list">';
         years[year].forEach(function(post) {
+          var listTitle = useEn(post, 'title');
           html += `
             <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
               <div class="mdui-list-item-content">
-                <div class="mdui-list-item-title">${escapeHtml(post.title)}</div>
+                <div class="mdui-list-item-title">${escapeHtml(listTitle)}</div>
                 <div class="mdui-list-item-text">${formatDate(post.date)}</div>
               </div>
             </mdui-list-item>
@@ -307,11 +399,15 @@
 
     function renderPostPage(post) {
       // Render raw Markdown content as simple HTML
-      const contentHtml = renderMarkdown(post.content || '');
+      const postContent = useEn(post, 'content');
+      const contentHtml = renderMarkdown(postContent || '');
+      const postTitle = useEn(post, 'title');
 
       let chipsHtml = '';
-      if (post.categories && post.categories.length) {
-        post.categories.forEach(function(cat) {
+      var cats = (_LANG === 'en' && post.categories_en) ? post.categories_en : (post.categories || []);
+      var tags = (_LANG === 'en' && post.tags_en) ? post.tags_en : (post.tags || []);
+      if (cats && cats.length) {
+        cats.forEach(function(cat) {
           chipsHtml += `
             <mdui-chip rounded href="/categories/${encodeURIComponent(cat)}" class="post-chip-category">
               <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
@@ -320,8 +416,8 @@
           `;
         });
       }
-      if (post.tags && post.tags.length) {
-        post.tags.forEach(function(tag) {
+      if (tags && tags.length) {
+        tags.forEach(function(tag) {
           chipsHtml += `
             <mdui-chip rounded href="/tags/${encodeURIComponent(tag)}" class="post-chip-tag">
               <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
@@ -332,7 +428,7 @@
       }
 
       const coverHtml = post.cover && post.cover !== 'null'
-        ? '<img src="' + post.cover + '" alt="' + escapeHtml(post.title) + '" class="post-header-cover post-header-meta">'
+        ? '<img src="' + post.cover + '" alt="' + escapeHtml(postTitle) + '" class="post-header-cover post-header-meta">'
         : '';
 
       const html = `
@@ -340,14 +436,14 @@
           @import url('/css/post-content.css');
           @import url('/css/code.css');
         </style>
-        <mdui-snackbar class="snackbar-network-error">Network error</mdui-snackbar>
-        <mdui-snackbar class="snackbar-comment-success">Comment submitted successfully</mdui-snackbar>
-        <mdui-snackbar class="snackbar-comment-failure">Failed to submit comment</mdui-snackbar>
+        <mdui-snackbar class="snackbar-network-error">${_('networkError')}</mdui-snackbar>
+        <mdui-snackbar class="snackbar-comment-success">${_('commentSuccess')}</mdui-snackbar>
+        <mdui-snackbar class="snackbar-comment-failure">${_('commentFail')}</mdui-snackbar>
         <div class="content">
           <mdui-card variant="elevated" class="post-header">
             ${coverHtml}
             <div class="post-header-main">
-              <div class="post-header-title post-header-meta">${escapeHtml(post.title)}</div>
+              <div class="post-header-title post-header-meta">${escapeHtml(postTitle)}</div>
               <div class="post-header-date post-header-meta">
                 <mdui-icon class="post-header-date-icon" src="/icon/calender.svg"></mdui-icon>
                 <span>${formatDate(post.date)}</span>
@@ -359,13 +455,13 @@
           <div class="markdown-content">${contentHtml}</div>
           <hr>
           <div class="comment-input">
-            <mdui-text-field id="comment-nick" label="Nick Name" variant="outlined" max-rows="1"></mdui-text-field>
-            <mdui-text-field id="comment-email" label="Email" variant="outlined" max-rows="1"></mdui-text-field>
-            <mdui-text-field id="comment-website" label="Website (optional)" variant="outlined" max-rows="1"></mdui-text-field>
-            <mdui-text-field id="comment-content" label="Comment" variant="outlined" max-rows="4" autosize></mdui-text-field>
-            <mdui-button id="comment-submit-button" variant="filled">Submit</mdui-button>
+            <mdui-text-field id="comment-nick" label="${_('nickName')}" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-email" label="${_('email')}" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-website" label="${_('website')}" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-content" label="${_('commentContent')}" variant="outlined" max-rows="4" autosize></mdui-text-field>
+            <mdui-button id="comment-submit-button" variant="filled">${_('submit')}</mdui-button>
           </div>
-          <h3 class="comment-section-title" id="comment-section-title">Comments</h3>
+          <h3 class="comment-section-title" id="comment-section-title">${_('commentTitle')}</h3>
           <mdui-list id="comments-container" class="comment-list"></mdui-list>
         </div>
       `;
@@ -376,8 +472,8 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">Tags</div>
-          <div class="header-content">All tags of the blog</div>
+          <div class="header-title">${_('allTags')}</div>
+          <div class="header-content">${_('allTagsDesc')}</div>
         </mdui-card>
         <div class="tags-container">
       `;
@@ -397,8 +493,8 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">Categories</div>
-          <div class="header-content">All categories of the blog</div>
+          <div class="header-title">${_('allCats')}</div>
+          <div class="header-content">${_('allCatsDesc')}</div>
         </mdui-card>
         <div class="tags-container">
       `;
@@ -425,10 +521,11 @@
         <mdui-list class="posts-list">
       `;
       items.forEach(function(item) {
+        var itemTitle = useEn(item, 'title');
         html += `
           <mdui-list-item href="/post/${encodeURIComponent(item.slug)}">
             <div class="mdui-list-item-content">
-              <div class="mdui-list-item-title">${escapeHtml(item.title)}</div>
+              <div class="mdui-list-item-title">${escapeHtml(itemTitle)}</div>
               <div class="mdui-list-item-text">${formatDate(item.date)}</div>
             </div>
           </mdui-list-item>
@@ -442,17 +539,18 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">Archives</div>
-          <div class="header-content">All archived posts</div>
+          <div class="header-title">${_('allArchives')}</div>
+          <div class="header-content">${_('allArchivesDesc')}</div>
         </mdui-card>
       `;
       Object.keys(archives).sort().reverse().forEach(function(year) {
-        html += '<h1 class="posts-year">' + escapeHtml(year) + '</h1><mdui-list class="posts-list">';
+        html += '<h1 class="posts-year">' + escapeHtml(year) + _('postsYear') + '</h1><mdui-list class="posts-list">';
         archives[year].forEach(function(post) {
+          var itemTitle = useEn(post, 'title');
           html += `
             <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
               <div class="mdui-list-item-content">
-                <div class="mdui-list-item-title">${escapeHtml(post.title)}</div>
+                <div class="mdui-list-item-title">${escapeHtml(itemTitle)}</div>
                 <div class="mdui-list-item-text">${formatDate(post.date)}</div>
               </div>
             </mdui-list-item>
@@ -464,6 +562,8 @@
     }
 
     function renderAboutPage(page) {
+      const pageContent = useEn(page, 'content');
+      const pageTitle = useEn(page, 'title');
       const html = `
         <style>
           @import url('/css/post-content.css');
@@ -471,13 +571,13 @@
           @import url('/css/about.css');
         </style>
         <div class="content">
-          <mdui-card variant="elevated" class="about-header">
-            <mdui-avatar src="${blogConfig.avatar}" class="about-avatar"></mdui-avatar>
-            <div class="about-title">${escapeHtml(blogConfig.title)}</div>
+          <mdui-card variant="elevated" class="about-header" id="about-header" style="cursor:pointer">
+            <mdui-avatar src="${blogConfig.avatar}" class="about-avatar" id="about-avatar"></mdui-avatar>
+            <div class="about-title">${escapeHtml(pageTitle || blogConfig.title)}</div>
             <div class="about-description">${escapeHtml(blogConfig.description)}</div>
           </mdui-card>
           <hr>
-          <div class="markdown-content">${renderMarkdown(page.content || '')}</div>
+          <div class="markdown-content">${renderMarkdown(pageContent || '')}</div>
           <hr>
         </div>
       `;
@@ -504,8 +604,8 @@
         </style>
         <div class="content">
           <mdui-card variant="elevated" class="about-header">
-            <div class="about-title">Talks</div>
-            <div class="about-description">说说 / 动态</div>
+            <div class="about-title">${_('moments')}</div>
+            <div class="about-description">${_('momentsDesc')}</div>
           </mdui-card>
           ${items}
           <hr>
@@ -613,7 +713,11 @@
           var slug = path.replace('/post/', '').replace(/\/$/, '');
           slug = decodeURIComponent(slug);
           var post = await loadPost(slug);
-          html = renderPostPage(post);
+          if (post && post.title) {
+            html = renderPostPage(post);
+          } else {
+            html = '<div class="loading-placeholder"><h2>' + (_LANG === 'zh' ? '404 — 文章不存在或无权限查看' : '404 — Post not found or access denied') + '</h2><p>' + (_LANG === 'zh' ? '该文章可能已被删除或暂时不可访问。' : 'This post may have been deleted or is temporarily unavailable.') + '</p></div>';
+          }
           updateNavActive('/posts/');
 
         } else if (path === '/tags/' || path === '/tags') {
@@ -624,7 +728,7 @@
         } else if (path.startsWith('/tags/')) {
           var tag = decodeURIComponent(path.replace('/tags/', '').replace(/\/$/, ''));
           var posts = await loadTagPosts(tag);
-          html = renderListPage(tag, 'Tag', posts);
+          html = renderListPage(tag, _('tagDesc'), posts);
           updateNavActive('/tags/');
 
         } else if (path === '/categories/' || path === '/categories') {
@@ -635,7 +739,7 @@
         } else if (path.startsWith('/categories/')) {
           var cat = decodeURIComponent(path.replace('/categories/', '').replace(/\/$/, ''));
           var posts2 = await loadCategoryPosts(cat);
-          html = renderListPage(cat, 'Category', posts2);
+          html = renderListPage(cat, _('catDesc'), posts2);
           updateNavActive('/categories/');
 
         } else if (path === '/archives/' || path === '/archives') {
@@ -647,14 +751,31 @@
           var page = await loadPage('about');
           html = renderAboutPage(page);
           updateNavActive('/about/');
+          _aboutClickCount = 0;
+
+        } else if (path === '/easter-egg/' || path === '/easter-egg') {
+          html = renderEasterEgg();
+          updateNavActive('/about/');
 
         } else if (path === '/talks/' || path === '/talks') {
           var talksList = await loadTalks();
           html = renderTalksPage(talksList);
           updateNavActive('/talks/');
 
+        } else if (path === '/status/' || path === '/status') {
+          html = renderStatusPage();
+          updateNavActive('/status/');
+
+        } else if (path === '/auth/' || path === '/auth') {
+          html = renderAuthPage();
+          updateNavActive('/about/');
+
+        } else if (path === '/calendar/' || path === '/calendar') {
+          html = '<div class="loading-placeholder"><p>' + (_LANG === 'zh' ? '日历已合并到 Status 页面。' : 'Calendar has been merged into the Status page.') + '</p><mdui-button variant="text" onclick="navigate(\'/status/\',true)">' + (_LANG === 'zh' ? '前往 Status' : 'Go to Status') + '</mdui-button></div>';
+          updateNavActive('/status/');
+
         } else {
-          html = '<div class="loading-placeholder"><h2>404 — Page Not Found</h2><p>The page you\'re looking for doesn\'t exist.</p></div>';
+          html = '<div class="loading-placeholder"><h2>' + (_LANG === 'zh' ? '404 — 页面未找到' : '404 — Page Not Found') + '</h2><p>' + (_LANG === 'zh' ? '您要查找的页面不存在。' : 'The page you\'re looking for doesn\'t exist.') + '</p></div>';
         }
 
         container.innerHTML = html;
@@ -693,6 +814,31 @@
 
       // 4. Attach click handlers to custom elements
       if (container) attachClickHandlers(container);
+
+      // 5. Render LaTeX math with KaTeX
+      renderMath();
+
+      // 6. Easter egg: track clicks on About page header/avatar
+      initAboutEasterEgg();
+    }
+
+    // ===== KaTeX Math Rendering =====
+    function renderMath() {
+      if (typeof renderMathInElement !== 'function') {
+        setTimeout(renderMath, 200);
+        return;
+      }
+      document.querySelectorAll('.markdown-content').forEach(function(el) {
+        renderMathInElement(el, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false}
+          ],
+          throwOnError: false
+        });
+      });
     }
 
     // ===== Waterfall Layout =====
@@ -911,12 +1057,15 @@
 
     // ===== Initialization =====
     document.addEventListener('DOMContentLoaded', function() {
-      // Attach SPA click handlers to ALL mdui elements on the page
-      // (nav drawer links are outside #content-container)
-      attachClickHandlers(document);
-
-      // Navigate to current path
-      navigate(window.location.pathname, false);
+      // Load locale file
+      loadLocale(_LANG).then(function() {
+        // Attach SPA click handlers and navigate
+        attachClickHandlers(document);
+        navigate(window.location.pathname, false);
+      }).catch(function() {
+        attachClickHandlers(document);
+        navigate(window.location.pathname, false);
+      });
 
       // Handle browser back/forward
       window.addEventListener('popstate', function(e) {
@@ -942,6 +1091,576 @@
     var contentContainer = document.querySelector('.content-container');
     if (contentContainer) {
       resizeObserver.observe(contentContainer);
+    }
+
+    // ===== Auth State =====
+    function getAuthEmail() { return localStorage.getItem('auth_email'); }
+    function getAuthName() { return localStorage.getItem('auth_name'); }
+    function getAuthPerms() { try { return JSON.parse(localStorage.getItem('auth_perms') || '[]'); } catch(e) { return []; } }
+    function hasPerm(p) { return getAuthPerms().indexOf(p) !== -1; }
+    function setAuth(email, name, perms) {
+      if (email) { localStorage.setItem('auth_email', email); localStorage.setItem('auth_name', name || email); localStorage.setItem('auth_perms', JSON.stringify(perms || [])); }
+      else { localStorage.removeItem('auth_email'); localStorage.removeItem('auth_name'); localStorage.removeItem('auth_perms'); }
+    }
+    function isAuthed() { return !!getAuthEmail(); }
+
+    // ===== Status Page =====
+    function renderStatusPage() {
+      fetch('/api/status').then(function(r) { return r.json(); }).then(function(d) {
+        var el = document.getElementById('status-online');
+        if (el) el.textContent = d.online ? (_LANG === 'zh' ? '✅ 在线' : '✅ Online') : (_LANG === 'zh' ? '❌ 离线' : '❌ Offline');
+        var el2 = document.getElementById('status-users');
+        if (el2) el2.textContent = '' + (d.registered_users || 0);
+      }).catch(function() {
+        var el = document.getElementById('status-online');
+        if (el) el.textContent = _LANG === 'zh' ? '❌ 无法连接' : '❌ Connection failed';
+      });
+      setTimeout(initStatusPage, 50);
+      var zh = _LANG === 'zh';
+      return ''
+        + '<style>'
+        + '  @import url("/css/post-content.css");'
+        + '  @import url("/css/header-card.css");'
+        + '</style>'
+        + '<div class="content">'
+        + '<mdui-card variant="filled" class="header-card">'
+        + '  <div class="header-title">' + _('status') + '</div>'
+        + '  <div class="header-content">' + _('statusDesc') + '</div>'
+        + '</mdui-card>'
+        + '<mdui-card variant="elevated" style="padding:24px;width:100%">'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '服务器状态' : 'Server Status') + '</span><span id="status-online">' + (zh ? '检测中...' : 'Checking...') + '</span></div>'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">🔒 ' + (zh ? '锁定状态' : 'Lock State') + '</span><span>' + (isAuthed() ? (zh ? '🔓 已认证' : '🔓 Authenticated') : (zh ? '🔒 未认证' : '🔒 Unauthenticated')) + '</span></div>'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '当前播放' : 'Now Playing') + '</span><span>' + getCurrentPlayback() + '</span></div>'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '注册用户' : 'Registered Users') + '</span><span id="status-users">-</span></div>'
+        + '</mdui-card>'
+        + (isAuthed() ? '<mdui-card variant="elevated" style="padding:16px;margin-top:12px;width:100%"><div style="font-size:14px">👤 ' + escapeHtml(getAuthName()) + ' (' + escapeHtml(getAuthEmail()) + ')</div><div style="font-size:12px;color:rgb(var(--mdui-color-outline));margin-top:4px">' + (zh ? '权限: ' : 'Permissions: ') + (getAuthPerms().join(', ') || (zh ? '无' : 'None')) + '</div></mdui-card>' : '')
+        + '<div id="status-calendar" style="margin-top:16px"><p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:16px">📅 ' + (zh ? '加载中...' : 'Loading...') + '</p></div>'
+        + '<mdui-button variant="text" style="margin-top:16px" onclick="navigate(\'/\', true)">' + (zh ? '← 返回首页' : '← Back to Home') + '</mdui-button>'
+        + '</div>';
+    }
+
+    function initStatusPage() {
+      updatePlaybackStatus();
+      loadStatusCalendar();
+    }
+
+    function loadStatusCalendar() {
+      var el = document.getElementById('status-calendar');
+      if (!el) return;
+      if (!isAuthed()) {
+        el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
+          + '<div style="font-size:36px;margin-bottom:12px">🔐</div>'
+          + '<div style="font-size:16px;margin-bottom:12px">' + (_LANG === 'zh' ? '日历 — 无法查看。你是谁？' : 'Calendar — Cannot view. Who are you?') + '</div>'
+          + '<mdui-button variant="filled" onclick="navigate(\'/auth/\',true)">' + (_LANG === 'zh' ? '前往认证' : 'Go to Auth') + '</mdui-button>'
+          + '</mdui-card>';
+        return;
+      }
+      if (!hasPerm('calendar')) {
+        el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
+          + '<div style="font-size:36px;margin-bottom:12px">🚫</div>'
+          + '<div style="font-size:16px;margin-bottom:12px">' + (_LANG === 'zh' ? '日历 — 无权限查看' : 'Calendar — No permission') + '</div>'
+          + '</mdui-card>';
+        return;
+      }
+      fetch('/api/calendar', { headers: { 'X-User-Email': getAuthEmail() } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var events = (data.errno === 0 && Array.isArray(data.data)) ? data.data : [];
+          renderCalendarInStatus(events);
+        })
+        .catch(function(e) {
+          el.innerHTML = '<p style="color:rgb(var(--mdui-color-error));text-align:center">加载失败: ' + escapeHtml(e.message) + '</p>';
+        });
+    }
+
+    function renderCalendarInStatus(events) {
+      var el = document.getElementById('status-calendar');
+      if (!el) return;
+      var html = '<mdui-card variant="elevated" style="padding:16px;width:100%">'
+        + '<h2 style="font-size:16px;font-weight:500;margin-bottom:12px">📅 ' + (_LANG === 'zh' ? '日历' : 'Calendar') + '</h2>';
+      if (events.length === 0) {
+        html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">' + (_LANG === 'zh' ? '暂无安排' : 'No upcoming events') + '</p>';
+      } else {
+        var today = new Date().toISOString().slice(0, 10);
+        events.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
+        var shown = 0;
+        events.forEach(function(e) {
+          if (shown >= 5) return;
+          if (e.date && e.date >= today) {
+            var isToday = e.date === today;
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.1)">'
+              + '<div><strong>' + escapeHtml(e.title) + '</strong>'
+              + (e.description ? '<div style="font-size:12px;color:rgb(var(--mdui-color-outline))">' + escapeHtml(e.description) + '</div>' : '')
+              + '</div>'
+              + '<div style="text-align:right;font-size:12px;color:rgb(var(--mdui-color-outline));flex-shrink:0;margin-left:12px">'
+              + (isToday ? '<span style="color:rgb(var(--mdui-color-primary));font-weight:500">' + (_LANG === 'zh' ? '今天' : 'Today') + '</span>' : e.date)
+              + (e.time ? ' ' + e.time : '')
+              + '</div></div>';
+            shown++;
+          }
+        });
+        if (shown === 0) {
+          html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">' + (_LANG === 'zh' ? '近期暂无安排' : 'No upcoming events') + '</p>';
+        }
+      }
+      html += '</mdui-card>';
+      el.innerHTML = html;
+    }
+
+    function getCurrentPlayback() {
+      var p = window._currentPlayback;
+      if (p) return '🎵 ' + escapeHtml(p);
+      // Check if any audio/video elements are playing
+      var media = document.querySelectorAll('audio,video');
+      for (var i = 0; i < media.length; i++) {
+        if (!media[i].paused) return '🎵 正在播放媒体';
+      }
+      return '⏸️ 无';
+    }
+
+    function updatePlaybackStatus() {
+      if (navigator.mediaSession && navigator.mediaSession.metadata) {
+        window._currentPlayback = navigator.mediaSession.metadata.title || '';
+      }
+      // Try AudioContext
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'running') {
+          if (!window._currentPlayback) window._currentPlayback = _LANG === 'zh' ? '音频活动中' : 'Audio active';
+        }
+      } catch(e) {}
+    }
+
+    // ===== Auth Page =====
+    function renderAuthPage() {
+      var authed = isAuthed();
+      var zh = _LANG === 'zh';
+      return '<div class="content" style="padding:32px;max-width:500px;margin:0 auto">'
+        + '<style>@import url("/css/header-card.css");</style>'
+        + '<mdui-card variant="filled" class="header-card"><div class="header-title">🔐 ' + (zh ? '访客认证' : 'Guest Auth') + '</div><div class="header-content">' + _('authDesc') + '</div></mdui-card>'
+        + (authed ? renderAuthLoggedIn() : renderAuthForm())
+        + '</div>';
+    }
+
+    function renderAuthLoggedIn() {
+      return '<mdui-card variant="elevated" style="padding:24px;margin-top:16px;text-align:center">'
+        + '<div style="font-size:48px;margin-bottom:12px">👤</div>'
+        + '<div style="font-size:18px;font-weight:500;margin-bottom:4px">' + escapeHtml(getAuthName()) + '</div>'
+        + '<div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-bottom:16px">' + escapeHtml(getAuthEmail()) + '</div>'
+        + '<div style="font-size:13px;margin-bottom:16px">' + (_LANG === 'zh' ? '权限: ' : 'Permissions: ') + (getAuthPerms().join(', ') || (_LANG === 'zh' ? '无' : 'None')) + '</div>'
+        + '<div style="display:flex;gap:8px;justify-content:center">'
+        + '<mdui-button variant="text" onclick="setAuth(null);navigate(\'/auth/\',true)">' + (_LANG === 'zh' ? '退出登录' : 'Logout') + '</mdui-button>'
+        + '<mdui-button variant="text" onclick="navigate(\'/\',true)">' + (_LANG === 'zh' ? '← 首页' : '← Home') + '</mdui-button>'
+        + '</div></mdui-card>';
+    }
+
+    function renderAuthForm() {
+      return '<mdui-card variant="elevated" style="padding:24px;margin-top:16px">'
+        + '<div class="form-group"><label>' + (_LANG === 'zh' ? '邮箱地址' : 'Email Address') + '</label><input id="auth-email-input" type="email" placeholder="you@example.com" style="width:100%;padding:10px 12px;border:1px solid rgba(var(--mdui-color-outline),0.4);border-radius:8px;font-size:14px;background:rgb(var(--mdui-color-surface));color:rgb(var(--mdui-color-on-surface))"></div>'
+        + '<div style="display:flex;gap:8px;margin-top:12px">'
+        + '<mdui-button variant="filled" id="auth-submit-btn" onclick="doAuth()">' + (_LANG === 'zh' ? '验证' : 'Verify') + '</mdui-button>'
+        + '<mdui-button variant="text" onclick="navigate(\'/\',true)">' + (_LANG === 'zh' ? '取消' : 'Cancel') + '</mdui-button>'
+        + '</div>'
+        + '<p id="auth-result" style="margin-top:12px;font-size:14px"></p>'
+        + '</mdui-card>';
+    }
+
+    async function doAuth() {
+      var email = document.getElementById('auth-email-input')?.value?.trim();
+      var resultEl = document.getElementById('auth-result');
+      if (!email || !email.match(/^[^@]+@[^@]+\.[^@]+$/)) {
+        resultEl.textContent = _LANG === 'zh' ? '请输入有效的邮箱地址' : 'Please enter a valid email address';
+        resultEl.style.color = 'rgb(var(--mdui-color-error))';
+        return;
+      }
+      try {
+        var res = await fetch('/api/auth/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        var data = await res.json();
+        if (data.errno === 0 && data.data) {
+          if (data.data.registered) {
+            setAuth(email, data.data.name, data.data.permissions);
+            resultEl.textContent = _LANG === 'zh' ? '✅ 认证成功！' : '✅ Auth success!';
+            resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
+            setTimeout(function() { navigate('/calendar/', true); }, 800);
+          } else {
+            // Not registered - show register option
+            resultEl.innerHTML = (_LANG === 'zh' ? '该邮箱尚未注册。<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 发送注册请求</mdui-button>' : 'Email not registered.<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 Send registration request</mdui-button>');
+            resultEl.style.color = 'rgb(var(--mdui-color-outline))';
+            window._pendingAuthEmail = email;
+          }
+        } else {
+          resultEl.textContent = (data.errmsg || (_LANG === 'zh' ? '验证失败' : 'Verification failed'));
+          resultEl.style.color = 'rgb(var(--mdui-color-error))';
+        }
+      } catch(e) {
+        resultEl.textContent = (_LANG === 'zh' ? '网络错误: ' : 'Network error: ') + e.message;
+        resultEl.style.color = 'rgb(var(--mdui-color-error))';
+      }
+    }
+
+    async function registerAuth() {
+      var email = window._pendingAuthEmail;
+      if (!email) return;
+      var resultEl = document.getElementById('auth-result');
+      try {
+        var res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        var data = await res.json();
+        if (data.errno === 0) {
+          resultEl.innerHTML = (_LANG === 'zh' ? '✅ 注册请求已提交！请等待管理员审核。<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← 返回首页</mdui-button>' : '✅ Registration request submitted! Please wait for admin approval.<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← Back to Home</mdui-button>');
+          resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
+        } else {
+          resultEl.textContent = data.errmsg || (_LANG === 'zh' ? '请求失败' : 'Request failed');
+          resultEl.style.color = 'rgb(var(--mdui-color-error))';
+        }
+      } catch(e) {
+        resultEl.textContent = (_LANG === 'zh' ? '网络错误: ' : 'Network error: ') + e.message;
+        resultEl.style.color = 'rgb(var(--mdui-color-error))';
+      }
+    }
+
+    // ===== Easter Egg: About Page Click Counter =====
+    let _aboutClickCount = 0;
+
+    function initAboutEasterEgg() {
+      if (window.location.pathname !== '/about/' && window.location.pathname !== '/about') return;
+      const header = document.getElementById('about-header');
+      const avatar = document.getElementById('about-avatar');
+      const targets = [];
+      if (header) targets.push(header);
+      if (avatar) targets.push(avatar);
+      targets.forEach(function(el) {
+        el.addEventListener('click', function(e) {
+          _aboutClickCount++;
+          // Visual feedback: avatar pulse
+          var a = document.getElementById('about-avatar');
+          if (a) {
+            a.style.transition = 'transform 0.15s';
+            a.style.transform = 'scale(1.15)';
+            setTimeout(function() { a.style.transform = 'scale(1)'; }, 150);
+          }
+          if (_aboutClickCount >= 7) {
+            _aboutClickCount = 0;
+            navigate('/easter-egg/', true);
+          }
+        });
+      });
+    }
+
+    // ===== 2048 Game =====
+    function renderEasterEgg() {
+      setTimeout(init2048Game, 50);
+      return `
+        <style>
+          .game-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgb(var(--mdui-color-surface));
+            z-index: 10000; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            animation: fadeIn 0.3s ease;
+          }
+          @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+          .game-container { text-align: center; }
+          .game-title { font-size: 28px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-primary)); }
+          .game-subtitle { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 12px; }
+          .game-header { display: flex; justify-content: space-between; align-items: center; max-width: 400px; margin: 0 auto 8px; padding: 0 4px; }
+          .game-score { font-size: 16px; font-weight: 600; color: rgb(var(--mdui-color-on-surface)); }
+          .game-score span { color: rgb(var(--mdui-color-primary)); font-size: 20px; }
+          .grid-2048 {
+            display: inline-grid; grid-template-columns: repeat(4, 88px); gap: 6px;
+            background: rgba(var(--mdui-color-outline), 0.15);
+            padding: 6px; border-radius: 8px; user-select: none;
+          }
+          .cell-2048 {
+            width: 88px; height: 88px; display: flex; align-items: center; justify-content: center;
+            font-size: 32px; font-weight: 700; border-radius: 4px;
+            background: rgba(var(--mdui-color-outline), 0.08);
+            color: rgb(var(--mdui-color-on-surface));
+            transition: all 0.08s ease;
+          }
+          .cell-0 { background: rgba(var(--mdui-color-outline), 0.08); }
+          .cell-2 { background: #eee4da; color: #776e65; }
+          .cell-4 { background: #ede0c8; color: #776e65; }
+          .cell-8 { background: #f2b179; color: #f9f6f2; }
+          .cell-16 { background: #f59563; color: #f9f6f2; }
+          .cell-32 { background: #f67c5f; color: #f9f6f2; }
+          .cell-64 { background: #f65e3b; color: #f9f6f2; }
+          .cell-128 { background: #edcf72; color: #f9f6f2; font-size: 28px; }
+          .cell-256 { background: #edcc61; color: #f9f6f2; font-size: 28px; }
+          .cell-512 { background: #edc850; color: #f9f6f2; font-size: 28px; }
+          .cell-1024 { background: #edc53f; color: #f9f6f2; font-size: 22px; }
+          .cell-2048 { background: #edc22e; color: #f9f6f2; font-size: 22px; box-shadow: 0 0 30px 10px rgba(237,194,46,0.3); }
+          .cell-super { background: #3c3a32; color: #f9f6f2; font-size: 18px; }
+          .game-controls { margin-top: 16px; display: flex; gap: 12px; justify-content: center; }
+          .game-hint { font-size: 13px; color: rgb(var(--mdui-color-outline)); margin-top: 10px; }
+          .game-close-btn {
+            position: fixed; top: 16px; right: 16px; z-index: 10002;
+            width: 40px; height: 40px; border-radius: 50%;
+            border: none; background: rgba(var(--mdui-color-outline), 0.2);
+            color: rgb(var(--mdui-color-on-surface)); font-size: 22px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+          }
+          .game-close-btn:hover { background: rgba(var(--mdui-color-outline), 0.4); }
+          .game-overlay-won, .game-overlay-lost {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center; border-radius: 8px;
+            animation: fadeIn 0.3s;
+          }
+          .game-overlay-won { background: rgba(237,194,46,0.5); }
+          .game-overlay-lost { background: rgba(0,0,0,0.4); }
+          .game-overlay-msg { padding: 24px; border-radius: 12px; text-align: center; background: rgb(var(--mdui-color-surface)); }
+          .game-overlay-msg h2 { font-size: 28px; margin-bottom: 8px; }
+          .game-grid-wrap { position: relative; }
+          @media (max-width: 480px) {
+            .grid-2048 { grid-template-columns: repeat(4, 68px); gap: 4px; padding: 4px; }
+            .cell-2048 { width: 68px; height: 68px; font-size: 24px; }
+            .cell-128, .cell-256, .cell-512 { font-size: 20px; }
+            .cell-1024, .cell-2048 { font-size: 16px; }
+            .cell-super { font-size: 14px; }
+          }
+        </style>
+        <div class="game-overlay" id="game-overlay">
+          <button class="game-close-btn" onclick="closeEasterEgg()">✕</button>
+          <div class="game-container">
+            <div class="game-title">2048</div>
+            <div class="game-subtitle">${zh ? '方向键滑动合并，达到 2048 即获胜！' : 'Swipe/Arrow keys to merge tiles, reach 2048 to win!'}</div>
+            <div class="game-header">
+              <div class="game-score">${zh ? '得分' : 'Score'}: <span id="game-score">0</span></div>
+              <div class="game-score">${zh ? '最高' : 'Best'}: <span id="game-best">0</span></div>
+            </div>
+            <div class="game-grid-wrap">
+              <div class="grid-2048" id="grid-2048"></div>
+            </div>
+            <div class="game-controls">
+              <mdui-button variant="filled" onclick="new2048Game()">${zh ? '新一局' : 'New Game'}</mdui-button>
+              <mdui-button variant="text" onclick="closeEasterEgg()">${zh ? '返回' : 'Back'}</mdui-button>
+            </div>
+            <div class="game-hint">← ↑ → ↓ / WASD ${zh ? '滑动手势' : 'Swipe'}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ===== 2048 Engine =====
+    var g2048 = null;
+    var g2048Best = parseInt(localStorage.getItem('g2048_best') || '0');
+
+    function new2048Game() {
+      // Remove any existing win/lose overlays
+      document.querySelectorAll('.game-overlay-won, .game-overlay-lost').forEach(function(el) { el.remove(); });
+      g2048 = {
+        grid: [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+        score: 0,
+        won: false,
+        over: false
+      };
+      addRandom2048();
+      addRandom2048();
+      render2048Grid();
+    }
+
+    function init2048Game() {
+      if (!g2048) new2048Game();
+      else render2048Grid();
+    }
+
+    function addRandom2048() {
+      var empty = [];
+      for (var r = 0; r < 4; r++)
+        for (var c = 0; c < 4; c++)
+          if (g2048.grid[r][c] === 0) empty.push([r, c]);
+      if (empty.length === 0) return;
+      var pos = empty[Math.floor(Math.random() * empty.length)];
+      g2048.grid[pos[0]][pos[1]] = Math.random() < 0.9 ? 2 : 4;
+    }
+
+    // Slide a single row to the left, return {row, score, moved}
+    function slideRow(row) {
+      // Remove zeros
+      var arr = row.filter(function(v) { return v !== 0; });
+      var score = 0;
+      // Merge adjacent equal numbers
+      for (var i = 0; i < arr.length - 1; i++) {
+        if (arr[i] === arr[i + 1]) {
+          arr[i] *= 2;
+          score += arr[i];
+          arr.splice(i + 1, 1);
+        }
+      }
+      // Pad with zeros
+      while (arr.length < 4) arr.push(0);
+      var moved = false;
+      for (var i = 0; i < 4; i++) {
+        if (arr[i] !== row[i]) { moved = true; break; }
+      }
+      return { row: arr, score: score, moved: moved };
+    }
+
+    function move2048(dir) {
+      if (!g2048 || g2048.over || g2048.won) return;
+
+      var totalMoved = false;
+      var totalScore = 0;
+
+      if (dir === 'left') {
+        for (var r = 0; r < 4; r++) {
+          var res = slideRow(g2048.grid[r]);
+          if (res.moved) totalMoved = true;
+          g2048.grid[r] = res.row;
+          totalScore += res.score;
+        }
+      } else if (dir === 'right') {
+        for (var r = 0; r < 4; r++) {
+          var rev = g2048.grid[r].slice().reverse();
+          var res = slideRow(rev);
+          if (res.moved) totalMoved = true;
+          g2048.grid[r] = res.row.reverse();
+          totalScore += res.score;
+        }
+      } else if (dir === 'up') {
+        for (var c = 0; c < 4; c++) {
+          var col = [g2048.grid[0][c], g2048.grid[1][c], g2048.grid[2][c], g2048.grid[3][c]];
+          var res = slideRow(col);
+          if (res.moved) totalMoved = true;
+          for (var r = 0; r < 4; r++) g2048.grid[r][c] = res.row[r];
+          totalScore += res.score;
+        }
+      } else if (dir === 'down') {
+        for (var c = 0; c < 4; c++) {
+          var col = [g2048.grid[3][c], g2048.grid[2][c], g2048.grid[1][c], g2048.grid[0][c]];
+          var res = slideRow(col);
+          if (res.moved) totalMoved = true;
+          for (var r = 0; r < 4; r++) g2048.grid[3 - r][c] = res.row[r];
+          totalScore += res.score;
+        }
+      }
+
+      if (totalMoved) {
+        g2048.score += totalScore;
+        addRandom2048();
+        check2048State();
+        render2048Grid();
+      }
+    }
+
+    function check2048State() {
+      // Check win
+      for (var r = 0; r < 4; r++)
+        for (var c = 0; c < 4; c++)
+          if (g2048.grid[r][c] === 2048) g2048.won = true;
+
+      // Check game over
+      if (!g2048.won) {
+        var hasEmpty = false;
+        for (var r = 0; r < 4 && !hasEmpty; r++)
+          for (var c = 0; c < 4 && !hasEmpty; c++)
+            if (g2048.grid[r][c] === 0) hasEmpty = true;
+
+        if (!hasEmpty) {
+          var canMerge = false;
+          for (var r = 0; r < 4 && !canMerge; r++)
+            for (var c = 0; c < 4 && !canMerge; c++) {
+              var v = g2048.grid[r][c];
+              if ((c < 3 && v === g2048.grid[r][c + 1]) ||
+                  (r < 3 && v === g2048.grid[r + 1][c])) canMerge = true;
+            }
+          if (!canMerge) g2048.over = true;
+        }
+      }
+
+      // Update best score
+      if (g2048.score > g2048Best) {
+        g2048Best = g2048.score;
+        localStorage.setItem('g2048_best', '' + g2048Best);
+      }
+    }
+
+    function render2048Grid() {
+      if (!g2048) return;
+      var grid = document.getElementById('grid-2048');
+      if (!grid) return;
+
+      var html = '';
+      for (var r = 0; r < 4; r++) {
+        for (var c = 0; c < 4; c++) {
+          var val = g2048.grid[r][c];
+          var cls = 'cell-2048 cell-' + val;
+          if (val > 2048) cls = 'cell-2048 cell-super';
+          html += '<div class="' + cls + '">' + (val || '') + '</div>';
+        }
+      }
+      grid.innerHTML = html;
+
+      document.getElementById('game-score').textContent = '' + g2048.score;
+      document.getElementById('game-best').textContent = '' + g2048Best;
+
+      // Overlay for win/lose
+      var wrap = grid.parentElement;
+      var oldOverlay = wrap.querySelector('.game-overlay-won, .game-overlay-lost');
+      if (oldOverlay) oldOverlay.remove();
+
+      if (g2048.won) {
+        var wonDiv = document.createElement('div');
+        wonDiv.className = 'game-overlay-won';
+        wonDiv.innerHTML = '<div class="game-overlay-msg"><h2>🎉 You Win!</h2><p style="margin-bottom:12px">' + (_LANG === 'zh' ? '你达到了 2048！' : 'You reached 2048!') + '</p><mdui-button variant="filled" onclick="new2048Game()">' + (_LANG === 'zh' ? '继续挑战' : 'Keep Going') + '</mdui-button></div>';
+        wrap.appendChild(wonDiv);
+      } else if (g2048.over) {
+        var lostDiv = document.createElement('div');
+        lostDiv.className = 'game-overlay-lost';
+        lostDiv.innerHTML = '<div class="game-overlay-msg"><h2>💀 Game Over</h2><p style="margin-bottom:12px;color:rgb(var(--mdui-color-outline))">' + (_LANG === 'zh' ? '得分' : 'Score') + ': ' + g2048.score + '</p><mdui-button variant="filled" onclick="new2048Game()">' + (_LANG === 'zh' ? '再来一局' : 'Play Again') + '</mdui-button></div>';
+        wrap.appendChild(lostDiv);
+      }
+    }
+
+    // Keyboard handler
+    document.addEventListener('keydown', function(e) {
+      if (!document.getElementById('game-overlay')) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+      var map = { ArrowLeft: 'left', ArrowUp: 'up', ArrowRight: 'right', ArrowDown: 'down',
+                  a: 'left', w: 'up', d: 'right', s: 'down',
+                  A: 'left', W: 'up', D: 'right', S: 'down' };
+      var dir = map[e.key];
+      if (dir) { e.preventDefault(); move2048(dir); }
+    });
+
+    // Touch/swipe support
+    document.addEventListener('touchstart', function(e) {
+      var overlay = document.getElementById('game-overlay');
+      if (!overlay) return;
+      var touch = e.touches[0];
+      window._swipeStartX = touch.clientX;
+      window._swipeStartY = touch.clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', function(e) {
+      var overlay = document.getElementById('game-overlay');
+      if (!overlay) return;
+      if (window._swipeStartX == null) return;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - window._swipeStartX;
+      var dy = touch.clientY - window._swipeStartY;
+      var absDx = Math.abs(dx), absDy = Math.abs(dy);
+      if (Math.max(absDx, absDy) < 30) return; // Too short
+      if (absDx > absDy) {
+        move2048(dx > 0 ? 'right' : 'left');
+      } else {
+        move2048(dy > 0 ? 'down' : 'up');
+      }
+      window._swipeStartX = null;
+      window._swipeStartY = null;
+    }, { passive: true });
+
+    function closeEasterEgg() {
+      g2048 = null;
+      navigate('/about/', true);
     }
   </script>
 </body>
