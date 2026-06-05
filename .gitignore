@@ -1,0 +1,15 @@
+# Blog Material You .gitignore
+
+# Runtime data
+blog/data/mysql/
+blog/data/auth/
+blog/data/calendar/
+backend/logs/
+backend/tmp/
+backend/data/
+backend/nginx.pid
+*.pid
+
+# OS
+.DS_Store
+Thumbs.db
