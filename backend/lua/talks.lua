@@ -6,7 +6,7 @@ local cjson = require("cjson")
 
 local _M = {}
 
-local DB_SOCKET = "/home/openclaw/workspace/Blog/blog/data/mysql/mysql.sock"
+local DB_SOCKET = ngx.config.prefix() .. "../blog/data/mysql/mysql.sock"
 
 local function connect()
     local mysql = require("resty.mysql")

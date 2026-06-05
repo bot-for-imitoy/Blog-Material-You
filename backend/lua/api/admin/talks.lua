@@ -6,10 +6,8 @@ local admin_auth = require("admin_auth")
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "*"
 
-local user = admin_auth.verify_basic_auth()
+local user = admin_auth.verify_admin()
 if not user then
-    ngx.status = 401
-    ngx.say(cjson.encode({ errno = -1, errmsg = "Unauthorized" }))
     return
 end
 
