@@ -82,7 +82,15 @@
       return dt.toISOString().slice(0, 10);
     }
 
-    // ===== Auth (Password login) =====
+    // ===== Auth (Password + optional TOTP 2FA) =====
+    let loginStep = 1;
+    let loginTempToken = null;
+
+    function resetLogin() {
+      loginStep = 1;
+      loginTempToken = null;
+      render();
+    }
 
     async function doLogin(username, password) {
       const res = await fetch(API + '/login', {
@@ -91,13 +99,43 @@
         body: JSON.stringify({ username, password })
       });
       const data = await res.json();
+      if (data.errno !== 0) {
+        toast('登录失败：' + (data.errmsg || '用户名或密码错误'));
+        return;
+      }
+      if (data.data && data.data.step === 2) {
+        // 2FA required — show TOTP input
+        loginStep = 2;
+        loginTempToken = data.data.temp_token;
+        render();
+        return;
+      }
+      if (data.data && data.data.token) {
+        authToken = data.data.token;
+        localStorage.setItem('admin_bearer_token', authToken);
+        loginStep = 1;
+        loginTempToken = null;
+        toast('登录成功 ✓');
+        render();
+      }
+    }
+
+    async function doTotpLogin(totpCode) {
+      const res = await fetch(API + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step: 2, temp_token: loginTempToken, totp: totpCode })
+      });
+      const data = await res.json();
       if (data.errno === 0 && data.data) {
         authToken = data.data.token;
         localStorage.setItem('admin_bearer_token', authToken);
+        loginStep = 1;
+        loginTempToken = null;
         toast('登录成功 ✓');
         render();
       } else {
-        toast('登录失败：' + (data.errmsg || '用户名或密码错误'));
+        toast('验证失败：' + (data.errmsg || '验证码错误'));
       }
     }
 
@@ -130,6 +168,20 @@
     }
 
     function loginPage() {
+      if (loginStep === 2) {
+        return `
+          <div class="login-container">
+            <mdui-card variant="elevated" class="login-card">
+              <h1>博客管理后台</h1>
+              <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))">请输入身份验证器中的6位动态验证码</p>
+              <form id="login-form-totp">
+                <mdui-text-field id="lf-totp" label="验证码" variant="outlined" maxlength="6" pattern="[0-9]*" inputmode="numeric"></mdui-text-field>
+                <mdui-button variant="filled" type="submit" style="width:100%">验证</mdui-button>
+              </form>
+              <mdui-button variant="text" onclick="resetLogin()" style="width:100%;margin-top:8px">返回上一步</mdui-button>
+            </mdui-card>
+          </div>`;
+      }
       return `
         <div class="login-container">
           <mdui-card variant="elevated" class="login-card">
@@ -144,6 +196,24 @@
     }
 
     function bindLoginEvents() {
+      if (loginStep === 2) {
+        const form = document.getElementById('login-form-totp');
+        if (form) {
+          form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const totp = document.getElementById('lf-totp')?.value || '';
+            if (!totp || totp.length !== 6) { toast('请输入6位验证码'); return; }
+            doTotpLogin(totp);
+          });
+          const input = document.getElementById('lf-totp');
+          if (input) {
+            input.addEventListener('input', function(e) {
+              if (e.target.value.length === 6) doTotpLogin(e.target.value);
+            });
+          }
+        }
+        return;
+      }
       document.getElementById('login-form')?.addEventListener('submit', function(e) {
         e.preventDefault();
         const username = document.getElementById('lf-user')?.value || '';
@@ -237,15 +307,137 @@
         </mdui-card>`;
     }
 
-    // ===== Security View (removed) =====
+    // ===== Security View (TOTP 2FA) =====
+    let totpState = {};
+
     async function securityView() {
+      const res = await api('/totp-setup');
+      if (res.errno !== 0 || !res.data) {
+        return '<p style="color:red">无法获取安全设置</p>';
+      }
+      const d = res.data;
+      totpState = d;
+      if (d.enabled) return renderTotpEnabled(d);
+      if (d.has_pending) return renderTotpVerify(d);
+      return renderTotpDisabled();
+    }
+
+    function renderTotpDisabled() {
       return `
         <div class="page-header"><h1>🔐 安全设置</h1></div>
         <mdui-card variant="elevated" style="padding:24px">
-          <p style="color:var(--mdui-color-outline);text-align:center;padding:32px 0">
-            此功能已移除。TOTP 两步验证已不再支持，仅使用密码认证。
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">两步验证 (TOTP / 2FA)</h2>
+          <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))">
+            状态：<span style="color:rgb(var(--mdui-color-outline))">🔴 未启用</span>
           </p>
+          <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))">
+            启用两步验证后，登录时需要同时输入密码和身份验证器应用中的6位动态验证码。
+          </p>
+          <mdui-button id="btn-totp-enable" variant="filled" onclick="startTotpSetup()">启用两步验证</mdui-button>
         </mdui-card>`;
+    }
+
+    function renderTotpVerify(d) {
+      return `
+        <div class="page-header"><h1>🔐 安全设置</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">验证绑定</h2>
+          <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))">
+            请使用 Google Authenticator、Authy、1Password 等应用扫描下方二维码或手动输入密钥，
+            然后输入应用生成的6位验证码以完成绑定。
+          </p>
+          <div class="form-group">
+            <label>密钥 (Secret)</label>
+            <input id="totp-secret" value="${escapeHtml(d.secret)}" readonly>
+            <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('已复制'))" style="margin-top:8px">📋 复制密钥</mdui-button>
+          </div>
+          <div class="form-group">
+            <label>TOTP URI (用于生成二维码)</label>
+            <textarea readonly style="min-height:60px;font-size:12px;word-break:break-all">${escapeHtml(d.provisioning_uri)}</textarea>
+          </div>
+          <div class="form-group">
+            <label>验证码</label>
+            <input id="totp-verify-code" placeholder="输入6位验证码" maxlength="6" style="font-size:18px;letter-spacing:4px;text-align:center;width:200px">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button id="btn-totp-verify" variant="filled" onclick="verifyTotpSetup()">验证并启用</mdui-button>
+            <mdui-button variant="text" onclick="cancelTotpSetup()">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+    }
+
+    function renderTotpEnabled(d) {
+      return `
+        <div class="page-header"><h1>🔐 安全设置</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">两步验证 (TOTP / 2FA)</h2>
+          <p style="margin-bottom:16px">
+            状态：<span style="color:rgb(var(--mdui-color-tertiary))">🟢 已启用</span>
+          </p>
+          <div class="form-group">
+            <label>密钥 (Secret)</label>
+            <input id="totp-secret" value="${escapeHtml(d.secret)}" readonly>
+            <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('已复制'))" style="margin-top:8px">📋 复制密钥</mdui-button>
+          </div>
+          <div class="form-group">
+            <label>TOTP URI</label>
+            <textarea readonly style="min-height:60px;font-size:12px;word-break:break-all">${escapeHtml(d.provisioning_uri)}</textarea>
+          </div>
+          <p style="font-size:13px;color:rgb(var(--mdui-color-error));margin-top:16px">
+            ⚠️ 如果更换设备，请先保存密钥再禁用，否则将无法登录！
+          </p>
+          <mdui-button variant="text" style="color:rgb(var(--mdui-color-error))" onclick="disableTotp()">🔴 禁用两步验证</mdui-button>
+        </mdui-card>`;
+    }
+
+    async function startTotpSetup() {
+      const res = await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'start' })
+      });
+      if (res.errno === 0) {
+        totpState = res.data;
+        renderContent();
+      } else {
+        toast('操作失败: ' + (res.errmsg || ''));
+      }
+    }
+
+    async function verifyTotpSetup() {
+      const code = document.getElementById('totp-verify-code')?.value?.trim();
+      if (!code || code.length !== 6) { toast('请输入6位验证码'); return; }
+      const res = await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'verify', code })
+      });
+      if (res.errno === 0) {
+        toast('✅ 两步验证已启用');
+        renderContent();
+      } else {
+        toast('验证失败: ' + (res.errmsg || '验证码错误'));
+      }
+    }
+
+    async function cancelTotpSetup() {
+      await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'disable' })
+      });
+      renderContent();
+    }
+
+    async function disableTotp() {
+      if (!confirm('确定禁用两步验证？\n\n如果未保存密钥，再次启用时需要重新绑定所有设备。')) return;
+      const res = await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'disable' })
+      });
+      if (res.errno === 0) {
+        toast('两步验证已禁用');
+        renderContent();
+      } else {
+        toast('操作失败');
+      }
     }
 
     // ===== Posts =====

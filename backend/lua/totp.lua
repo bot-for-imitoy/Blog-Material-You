@@ -29,7 +29,7 @@ local function base32_decode(str)
         bits_left = bits_left + 5
         if bits_left >= 8 then
             bits_left = bits_left - 8
-            bytes[#bytes + 1] = math.floor(buffer / (2 ^ bits_left)) % 256
+            bytes[#bytes + 1] = string.char(math.floor(buffer / (2 ^ bits_left)) % 256)
             buffer = buffer % (2 ^ bits_left)
         end
     end
