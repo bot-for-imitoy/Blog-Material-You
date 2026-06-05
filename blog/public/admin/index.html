@@ -30,7 +30,7 @@
     .post-info span { font-size: 13px; color: rgb(var(--mdui-color-outline)); }
     .post-actions { display: flex; gap: 8px; }
     .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .login-card { width: 360px; padding: 32px; }
+    .login-card { width: 400px; padding: 32px; }
     .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 24px; text-align: center; }
     .login-card mdui-text-field { width: 100%; margin-bottom: 16px; }
     .form-group { margin-bottom: 16px; }
@@ -56,7 +56,7 @@
 
   <script>
     const API = '/api/admin';
-    let authToken = localStorage.getItem('admin_token');
+    let authToken = localStorage.getItem('admin_bearer_token');
     let currentView = 'dashboard';
 
     // ===== Utils =====
@@ -70,9 +70,9 @@
 
     async function api(path, opts) {
       const headers = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = 'Basic ' + authToken;
+      if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
       const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) } });
-      if (res.status === 401) { authToken = null; localStorage.removeItem('admin_token'); render(); throw new Error('Unauthorized'); }
+      if (res.status === 401) { authToken = null; localStorage.removeItem('admin_bearer_token'); render(); throw new Error('Unauthorized'); }
       return res.json();
     }
 
@@ -82,7 +82,8 @@
       return dt.toISOString().slice(0, 10);
     }
 
-    // ===== Auth =====
+    // ===== Auth (Password login) =====
+
     async function doLogin(username, password) {
       const res = await fetch(API + '/login', {
         method: 'POST',
@@ -91,9 +92,9 @@
       });
       const data = await res.json();
       if (data.errno === 0 && data.data) {
-        authToken = btoa(username + ':' + password);
-        localStorage.setItem('admin_token', authToken);
-        toast('登录成功');
+        authToken = data.data.token;
+        localStorage.setItem('admin_bearer_token', authToken);
+        toast('登录成功 ✓');
         render();
       } else {
         toast('登录失败：' + (data.errmsg || '用户名或密码错误'));
@@ -102,7 +103,7 @@
 
     function logout() {
       authToken = null;
-      localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_bearer_token');
       render();
     }
 
@@ -111,13 +112,7 @@
       const app = document.getElementById('app');
       if (!authToken) {
         app.innerHTML = loginPage();
-        document.getElementById('login-form')?.addEventListener('submit', function(e) {
-          e.preventDefault();
-          doLogin(
-            document.querySelector('#login-form mdui-text-field[name="username"]')?.value || '',
-            document.querySelector('#login-form mdui-text-field[name="password"]')?.value || ''
-          );
-        });
+        bindLoginEvents();
         return;
       }
       app.innerHTML = layoutPage();
@@ -128,9 +123,9 @@
           renderContent();
           document.querySelectorAll('.nav-item').forEach(n => n.active = false);
           this.active = true;
-        });
+        }, true);
       });
-      document.getElementById('logout-btn')?.addEventListener('click', logout);
+      document.getElementById('logout-btn')?.addEventListener('click', logout, true);
       renderContent();
     }
 
@@ -140,12 +135,22 @@
           <mdui-card variant="elevated" class="login-card">
             <h1>博客管理后台</h1>
             <form id="login-form">
-              <mdui-text-field name="username" label="用户名" variant="outlined"></mdui-text-field>
-              <mdui-text-field name="password" label="密码" variant="outlined" type="password"></mdui-text-field>
+              <mdui-text-field id="lf-user" label="用户名" variant="outlined"></mdui-text-field>
+              <mdui-text-field id="lf-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
               <mdui-button variant="filled" type="submit" style="width:100%">登录</mdui-button>
             </form>
           </mdui-card>
         </div>`;
+    }
+
+    function bindLoginEvents() {
+      document.getElementById('login-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const username = document.getElementById('lf-user')?.value || '';
+        const password = document.getElementById('lf-pass')?.value || '';
+        if (!username || !password) { toast('请输入用户名和密码'); return; }
+        doLogin(username, password);
+      });
     }
 
     function layoutPage() {
@@ -159,6 +164,7 @@
               <mdui-list-item class="nav-item" data-view="comments" rounded>💬 评论</mdui-list-item>
               <mdui-list-item class="nav-item" data-view="talks" rounded>💭 动态</mdui-list-item>
               <mdui-list-item class="nav-item" data-view="pages" rounded>📑 页面</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="security" rounded>🔐 安全</mdui-list-item>
             </nav>
             <mdui-list-item class="logout" id="logout-btn" rounded>🚪 退出</mdui-list-item>
           </div>
@@ -175,6 +181,7 @@
         else if (currentView === 'comments') el.innerHTML = await commentsView();
         else if (currentView === 'talks') el.innerHTML = await talksView();
         else if (currentView === 'pages') el.innerHTML = await pagesView();
+        else if (currentView === 'security') el.innerHTML = await securityView();
         bindEventListeners();
       } catch(e) {
         el.innerHTML = '<p style="color:red">加载失败: ' + escapeHtml(e.message) + '</p>';
@@ -184,8 +191,11 @@
     function bindEventListeners() {
       document.querySelectorAll('[data-action]').forEach(el => {
         el.addEventListener('click', function(e) {
-          const action = this.dataset.action;
-          const args = this.dataset.args;
+          // Try to get action from the target element or its closest [data-action] parent
+          var target = e.target.closest('[data-action]');
+          if (!target) return;
+          const action = target.dataset.action;
+          const args = target.dataset.args;
           if (action === 'edit-post') editPost(args);
           else if (action === 'delete-post') deletePost(args);
           else if (action === 'delete-comment') deleteComment(args);
@@ -197,7 +207,7 @@
           else if (action === 'save-post') savePost();
           else if (action === 'save-page') savePage();
           else if (action === 'cancel-edit') renderContent();
-        });
+        }, true);
       });
     }
 
@@ -227,6 +237,17 @@
         </mdui-card>`;
     }
 
+    // ===== Security View (removed) =====
+    async function securityView() {
+      return `
+        <div class="page-header"><h1>🔐 安全设置</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <p style="color:var(--mdui-color-outline);text-align:center;padding:32px 0">
+            此功能已移除。TOTP 两步验证已不再支持，仅使用密码认证。
+          </p>
+        </mdui-card>`;
+    }
+
     // ===== Posts =====
     async function postsView() {
       const posts = await api('/posts');
@@ -246,7 +267,7 @@
     }
 
     function newPost() {
-      showEditor({ slug: '', title: '', date: new Date().toISOString().slice(0, 10), tags: [], categories: [], content: '', cover: '' });
+      showEditor({ slug: '', title: '', date: new Date().toISOString().slice(0, 10), tags: [], categories: [], content: '', cover: '', title_en: '', tags_en: [], categories_en: [], content_en: '' });
     }
 
     async function editPost(slug) {
@@ -281,6 +302,13 @@
           <div class="form-group"><label>封面图 URL</label><input id="ed-cover" value="${escapeHtml(post.cover || '')}" placeholder="/img/cover.jpg"></div>
           <div class="form-group"><label>标签 (逗号分隔)</label><input id="ed-tags" value="${escapeHtml(tagsStr)}" placeholder="javascript, web, design"></div>
           <div class="form-group"><label>分类 (逗号分隔)</label><input id="ed-cats" value="${escapeHtml(catsStr)}" placeholder="Tech, Design"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 英文内容</h3>
+          <div class="form-group"><label>英文标题</label><input id="ed-title-en" value="${escapeHtml(post.title_en || '')}" placeholder="English Title"></div>
+          <div class="form-group"><label>英文标签 (逗号分隔)</label><input id="ed-tags-en" value="${escapeHtml((post.tags_en || []).join(', '))}" placeholder="javascript, web, design"></div>
+          <div class="form-group"><label>英文分类 (逗号分隔)</label><input id="ed-cats-en" value="${escapeHtml((post.categories_en || []).join(', '))}" placeholder="Tech, Design"></div>
+          <div class="form-group"><label>英文正文</label><textarea id="ed-content-en">${escapeHtml(post.content_en || '')}</textarea></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
           <div class="editor-toolbar">
             <mdui-button-icon id="tb-bold"><b>B</b></mdui-button-icon>
             <mdui-button-icon id="tb-italic"><i>I</i></mdui-button-icon>
@@ -296,15 +324,14 @@
           </div>
         </mdui-card>`;
       bindEventListeners();
-      // Editor toolbar
       const ta = document.getElementById('ed-content');
       const tb = (id, txt) => document.getElementById(id)?.addEventListener('click', () => { ta.value += txt; ta.focus(); });
       tb('tb-bold', '**加粗**');
       tb('tb-italic', '*斜体*');
-      tb('tb-heading', '\n## 标题\n');
-      tb('tb-list', '\n- 列表项\n');
-      tb('tb-code', '\n```\n代码\n```\n');
-      tb('tb-quote', '\n> 引用\n');
+      tb('tb-heading', '\\n## 标题\\n');
+      tb('tb-list', '\\n- 列表项\\n');
+      tb('tb-code', '\\n```\\n代码\\n```\\n');
+      tb('tb-quote', '\\n> 引用\\n');
     }
 
     async function savePost() {
@@ -315,13 +342,17 @@
       const tags = document.getElementById('ed-tags').value.split(',').map(s => s.trim()).filter(Boolean);
       const categories = document.getElementById('ed-cats').value.split(',').map(s => s.trim()).filter(Boolean);
       const content = document.getElementById('ed-content').value;
+      const titleEn = document.getElementById('ed-title-en').value.trim();
+      const tagsEn = document.getElementById('ed-tags-en').value.split(',').map(s => s.trim()).filter(Boolean);
+      const catsEn = document.getElementById('ed-cats-en').value.split(',').map(s => s.trim()).filter(Boolean);
+      const contentEn = document.getElementById('ed-content-en').value;
 
       if (!slug || !title) { toast('Slug 和标题不能为空'); return; }
 
       const method = (await api('/posts')).some(p => p.slug === slug) ? 'PUT' : 'POST';
       const res = await api('/posts', {
         method,
-        body: JSON.stringify({ slug, title, date, tags, categories, cover, content })
+        body: JSON.stringify({ slug, title, date, tags, categories, cover, content, title_en: titleEn, tags_en: tagsEn, categories_en: catsEn, content_en: contentEn })
       });
       if (res.errno === 0) { toast('保存成功 ✓'); renderContent(); }
       else toast('保存失败: ' + (res.errmsg || ''));
@@ -418,6 +449,11 @@
             <div class="form-group"><label>Slug</label><input id="ed-slug" value="${escapeHtml(page?.slug || slug)}" disabled></div>
             <div class="form-group"><label>标题</label><input id="ed-title" value="${escapeHtml(page?.title || '')}"></div>
             <div class="form-group"><label>正文 (Markdown)</label><textarea id="ed-content">${escapeHtml(page?.content || '')}</textarea></div>
+            <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+            <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 英文内容</h3>
+            <div class="form-group"><label>英文标题</label><input id="ed-title-en" value="${escapeHtml(page?.title_en || '')}" placeholder="English Title"></div>
+            <div class="form-group"><label>英文正文</label><textarea id="ed-content-en">${escapeHtml(page?.content_en || '')}</textarea></div>
+            <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
             <div style="display:flex;gap:8px;margin-top:16px">
               <mdui-button data-action="save-page" variant="filled">保存</mdui-button>
               <mdui-button data-action="cancel-edit" variant="text">取消</mdui-button>
@@ -431,9 +467,11 @@
       const slug = document.getElementById('ed-slug').value.trim();
       const title = document.getElementById('ed-title').value.trim();
       const content = document.getElementById('ed-content').value;
+      const titleEn = document.getElementById('ed-title-en')?.value?.trim() || '';
+      const contentEn = document.getElementById('ed-content-en')?.value || '';
       const res = await api('/pages', {
         method: 'PUT',
-        body: JSON.stringify({ slug, title, content })
+        body: JSON.stringify({ slug, title, content, title_en: titleEn, content_en: contentEn })
       });
       if (res.errno === 0) { toast('页面已保存 ✓'); renderContent(); }
       else toast('保存失败');

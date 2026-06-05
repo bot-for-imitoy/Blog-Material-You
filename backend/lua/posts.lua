@@ -9,8 +9,8 @@ local cjson = require("cjson")
 
 local _M = {}
 
-local POSTS_DIR = "/home/openclaw/workspace/Blog/blog/posts"
-local PAGES_DIR = "/home/openclaw/workspace/Blog/blog/pages"
+local POSTS_DIR = ngx.config.prefix() .. "../blog/posts"
+local PAGES_DIR = ngx.config.prefix() .. "../blog/pages"
 
 -- Parse a single post file into a Lua table
 function _M.parse_post(filepath)
@@ -39,6 +39,10 @@ function _M.parse_post(filepath)
             date = "1970-01-01",
             tags = {},
             categories = {},
+            title_en = "",
+            tags_en = {},
+            categories_en = {},
+            content_en = "",
             cover = cjson.null,
             content = content,
             year = 1970,
@@ -58,6 +62,10 @@ function _M.parse_post(filepath)
         date = meta.date or "1970-01-01",
         tags = meta.tags or {},
         categories = meta.categories or {},
+        title_en = meta.title_en or "",
+        tags_en = meta.tags_en or {},
+        categories_en = meta.categories_en or {},
+        content_en = meta.content_en or "",
         cover = meta.cover or cjson.null,
         archived = (meta.archived == "true" or meta.archived == true) and true or false,
         content = body,
@@ -243,6 +251,10 @@ function _M.to_summary(post)
         date = post.date_formatted or post.date,
         tags = post.tags,
         categories = post.categories,
+        title_en = post.title_en,
+        tags_en = post.tags_en,
+        categories_en = post.categories_en,
+        content_en = post.content_en,
         cover = post.cover,
         excerpt = utils.truncate(excerpt, excerpt_len),
     }
@@ -256,9 +268,21 @@ function _M.load_page(slug)
     end
     local post, err = _M.parse_post(filepath)
     if post then
+        -- Load English content from separate JSON file if exists
+        local en_content = ""
+        local en_filepath = PAGES_DIR .. "/" .. slug .. ".en.json"
+        local en_data, en_err = utils.read_file(en_filepath)
+        if en_data then
+            local ok, parsed = pcall(cjson.decode, en_data)
+            if ok and parsed and parsed.content_en then
+                en_content = parsed.content_en
+            end
+        end
         return {
             title = post.title,
             content = post.content,
+            title_en = post.title_en or "",
+            content_en = en_content,
             slug = slug,
         }
     end

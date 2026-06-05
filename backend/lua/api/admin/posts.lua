@@ -6,14 +6,12 @@ local admin_auth = require("admin_auth")
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "*"
 
-local user = admin_auth.verify_basic_auth()
+local user = admin_auth.verify_admin()
 if not user then
-    ngx.status = 401
-    ngx.say(cjson.encode({ errno = -1, errmsg = "Unauthorized" }))
     return
 end
 
-local POSTS_DIR = "/home/openclaw/workspace/Blog/blog/posts"
+local POSTS_DIR = ngx.config.prefix() .. "../blog/posts"
 
 if ngx.req.get_method() == "GET" then
     -- List all posts with full content
@@ -54,6 +52,14 @@ elseif ngx.req.get_method() == "POST" then
     if data.categories and #data.categories > 0 then
         fm = fm .. "categories: [" .. table.concat(data.categories, ", ") .. "]\n"
     end
+    fm = fm .. "title_en: " .. (data.title_en or "") .. "\n"
+    if data.tags_en and #data.tags_en > 0 then
+        fm = fm .. "tags_en: [" .. table.concat(data.tags_en, ", ") .. "]\n"
+    end
+    if data.categories_en and #data.categories_en > 0 then
+        fm = fm .. "categories_en: [" .. table.concat(data.categories_en, ", ") .. "]\n"
+    end
+    fm = fm .. "content_en: " .. (data.content_en or "") .. "\n"
     if data.cover and data.cover ~= "" then
         fm = fm .. "cover: " .. data.cover .. "\n"
     end
@@ -104,6 +110,14 @@ elseif ngx.req.get_method() == "PUT" then
     if data.categories and #data.categories > 0 then
         fm = fm .. "categories: [" .. table.concat(data.categories, ", ") .. "]\n"
     end
+    fm = fm .. "title_en: " .. (data.title_en or "") .. "\n"
+    if data.tags_en and #data.tags_en > 0 then
+        fm = fm .. "tags_en: [" .. table.concat(data.tags_en, ", ") .. "]\n"
+    end
+    if data.categories_en and #data.categories_en > 0 then
+        fm = fm .. "categories_en: [" .. table.concat(data.categories_en, ", ") .. "]\n"
+    end
+    fm = fm .. "content_en: " .. (data.content_en or "") .. "\n"
     if data.cover and data.cover ~= "" then
         fm = fm .. "cover: " .. data.cover .. "\n"
     end
