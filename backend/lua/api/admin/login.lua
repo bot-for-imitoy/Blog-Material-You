@@ -1,7 +1,13 @@
--- /api/admin/login — verify credentials, return token
+-- /api/admin/login — single-step password login
+--
+-- POST { username, password }
+--   → { errno: 0, data: { token, user } } or 401
+--
+-- The bearer token is a session stored via session.create_session()
 local cjson = require("cjson")
 local config = require("config")
 local admin_auth = require("admin_auth")
+local session = require("session")
 
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "*"
@@ -11,33 +17,35 @@ if ngx.req.get_method() == "OPTIONS" then
     return
 end
 
--- Accept either Basic auth header or POST body
-local ok, user = pcall(admin_auth.verify_basic_auth)
-if not ok or not user then
-    -- Try POST body
-    ngx.req.read_body()
-    local body = ngx.req.get_body_data()
-    if body then
-        local ok2, data = pcall(cjson.decode, body)
-        if ok2 and data then
-            local cfg = config.get()
-            if data.username == cfg.admin_user and data.password == cfg.admin_pass then
-                user = data.username
-            end
-        end
-    end
+-- Parse body
+ngx.req.read_body()
+local body = ngx.req.get_body_data()
+local ok, data = pcall(cjson.decode, body or "{}")
+if not ok or not data then
+    ngx.say(cjson.encode({ errno = -1, errmsg = "Invalid JSON body" }))
+    return
 end
 
-if user then
-    local session = ngx.encode_base64(user .. ":" .. os.time())
-    ngx.say(cjson.encode({
-        errno = 0,
-        data = {
-            token = session,
-            user = user
-        }
-    }))
-else
+-- Validate credentials
+local cfg = config.get()
+if data.username ~= cfg.admin_user or data.password ~= cfg.admin_pass then
     ngx.status = 401
-    ngx.say(cjson.encode({ errno = -1, errmsg = "Invalid credentials" }))
+    ngx.say(cjson.encode({ errno = -1, errmsg = "用户名或密码错误" }))
+    return
 end
+
+-- Password verified — create bearer token
+local token, err = session.create_session(data.username)
+if not token then
+    ngx.status = 500
+    ngx.say(cjson.encode({ errno = -1, errmsg = "Internal error: " .. (err or "") }))
+    return
+end
+
+ngx.say(cjson.encode({
+    errno = 0,
+    data = {
+        token = token,
+        user = data.username
+    }
+}))
