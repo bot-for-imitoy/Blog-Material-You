@@ -1,0 +1,88 @@
+# Blog Material You — 界面文案 / UI Strings
+zh:
+  home: 首页
+  posts: 文章
+  tags: 标签
+  categories: 分类
+  moments: 动态
+  about: 关于
+  status: 状态
+  archives: 归档
+  allPosts: 文章
+  allPostsDesc: 博客所有文章
+  allTags: 标签
+  allTagsDesc: 博客所有标签
+  allCats: 分类
+  allCatsDesc: 博客所有分类
+  allArchives: 归档
+  allArchivesDesc: 所有已归档文章
+  momentsDesc: 动态
+  aboutDesc: 我的故事
+  statusDesc: 系统状态 & 设备信息
+  tagDesc: 标签
+  catDesc: 分类
+  loading: 加载中...
+  networkError: 网络错误
+  commentSuccess: 评论提交成功
+  commentFail: 评论提交失败
+  commentTitle: 评论
+  submit: 提交
+  nickName: 昵称
+  email: 邮箱
+  website: 网站（可选）
+  commentContent: 评论内容
+  reply: 回复
+  noPosts: 暂无文章
+  noComments: 暂无评论
+  noTalks: 暂无动态
+  serverOnline: 在线
+  serverOffline: 离线
+  authDesc: 输入已注册邮箱以访问受限内容
+  cpr: C 2025 Blog Material You
+  forward: 阅读
+  postsYear: 年
+  readMore: 阅读更多
+
+en:
+  home: Home
+  posts: Posts
+  tags: Tags
+  categories: Categories
+  moments: Moments
+  about: About
+  status: Status
+  archives: Archives
+  allPosts: Posts
+  allPostsDesc: All posts of the blog
+  allTags: Tags
+  allTagsDesc: All tags of the blog
+  allCats: Categories
+  allCatsDesc: All categories of the blog
+  allArchives: Archives
+  allArchivesDesc: All archived posts
+  momentsDesc: Moments
+  aboutDesc: My Story
+  statusDesc: System Status & Devices
+  tagDesc: Tag
+  catDesc: Category
+  loading: Loading...
+  networkError: Network error
+  commentSuccess: Comment submitted successfully
+  commentFail: Failed to submit comment
+  commentTitle: Comments
+  submit: Submit
+  nickName: Nick Name
+  email: Email
+  website: Website (optional)
+  commentContent: Comment
+  reply: Reply
+  noPosts: No posts yet
+  noComments: No comments yet
+  noTalks: No moments yet
+  serverOnline: Online
+  serverOffline: Offline
+  authDesc: Enter registered email to access restricted content
+  cpr: C 2025 Blog Material You
+  forward: Read
+  postsYear: ""
+  readMore: Read More
