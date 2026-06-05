@@ -6,14 +6,12 @@ local admin_auth = require("admin_auth")
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "*"
 
-local user = admin_auth.verify_basic_auth()
+local user = admin_auth.verify_admin()
 if not user then
-    ngx.status = 401
-    ngx.say(cjson.encode({ errno = -1, errmsg = "Unauthorized" }))
     return
 end
 
-local PAGES_DIR = "/home/openclaw/workspace/Blog/blog/pages"
+local PAGES_DIR = ngx.config.prefix() .. "../blog/pages"
 
 if ngx.req.get_method() == "GET" then
     local slugs = { "about", "talks" }
@@ -51,6 +49,9 @@ elseif ngx.req.get_method() == "PUT" then
 
     local fm = "---\n"
     fm = fm .. "title: " .. (data.title or slug) .. "\n"
+    if data.title_en and data.title_en ~= "" then
+        fm = fm .. "title_en: " .. data.title_en .. "\n"
+    end
     fm = fm .. "---\n\n"
 
     local filepath = PAGES_DIR .. "/" .. slug .. ".md"
@@ -62,6 +63,14 @@ elseif ngx.req.get_method() == "PUT" then
     end
     f:write(fm .. (data.content or ""))
     f:close()
+
+    -- Store English content in separate JSON file
+    local en_filepath = PAGES_DIR .. "/" .. slug .. ".en.json"
+    local en_f, en_err = io.open(en_filepath, "w")
+    if en_f then
+        en_f:write(cjson.encode({ content_en = data.content_en or "" }))
+        en_f:close()
+    end
 
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug } }))
 
