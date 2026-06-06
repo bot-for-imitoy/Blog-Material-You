@@ -277,6 +277,10 @@
           else if (action === 'save-post') savePost();
           else if (action === 'save-page') savePage();
           else if (action === 'cancel-edit') renderContent();
+          else if (action === 'totp-start') startTotpSetup();
+          else if (action === 'totp-verify') verifyTotpSetup();
+          else if (action === 'totp-cancel') cancelTotpSetup();
+          else if (action === 'totp-disable') disableTotp();
         }, true);
       });
     }
@@ -333,7 +337,7 @@
           <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))">
             启用两步验证后，登录时需要同时输入密码和身份验证器应用中的6位动态验证码。
           </p>
-          <mdui-button id="btn-totp-enable" variant="filled" onclick="startTotpSetup()">启用两步验证</mdui-button>
+          <mdui-button data-action="totp-start" variant="filled">启用两步验证</mdui-button>
         </mdui-card>`;
     }
 
@@ -360,8 +364,8 @@
             <input id="totp-verify-code" placeholder="输入6位验证码" maxlength="6" style="font-size:18px;letter-spacing:4px;text-align:center;width:200px">
           </div>
           <div style="display:flex;gap:8px;margin-top:16px">
-            <mdui-button id="btn-totp-verify" variant="filled" onclick="verifyTotpSetup()">验证并启用</mdui-button>
-            <mdui-button variant="text" onclick="cancelTotpSetup()">取消</mdui-button>
+            <mdui-button data-action="totp-verify" variant="filled">验证并启用</mdui-button>
+            <mdui-button data-action="totp-cancel" variant="text">取消</mdui-button>
           </div>
         </mdui-card>`;
     }
@@ -386,7 +390,7 @@
           <p style="font-size:13px;color:rgb(var(--mdui-color-error));margin-top:16px">
             ⚠️ 如果更换设备，请先保存密钥再禁用，否则将无法登录！
           </p>
-          <mdui-button variant="text" style="color:rgb(var(--mdui-color-error))" onclick="disableTotp()">🔴 禁用两步验证</mdui-button>
+          <mdui-button data-action="totp-disable" variant="text" style="color:rgb(var(--mdui-color-error))">🔴 禁用两步验证</mdui-button>
         </mdui-card>`;
     }
 
