@@ -70,6 +70,9 @@ else
     echo "Database already exists, skipping init"
 fi
 
+# Ensure nginx worker can access MySQL socket (directory gets 700 on fresh volume)
+chmod 755 "$DB_DIR" 2>/dev/null || true
+
 # ===== Start OpenResty =====
 echo "Starting OpenResty..."
 cd /app/backend
