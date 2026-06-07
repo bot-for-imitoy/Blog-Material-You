@@ -29,3 +29,9 @@ CREATE TABLE IF NOT EXISTS talks (
     create_time INT UNSIGNED NOT NULL,
     INDEX idx_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Create application user (replaces --skip-grant-tables)
+DROP USER IF EXISTS 'blogyou'@'localhost';
+CREATE USER 'blogyou'@'localhost' IDENTIFIED BY 'blog-db-pass-2025';
+GRANT SELECT, INSERT, UPDATE, DELETE ON blogyou.* TO 'blogyou'@'localhost';
+FLUSH PRIVILEGES;

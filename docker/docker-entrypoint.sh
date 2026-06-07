@@ -13,8 +13,9 @@ if [ -x /usr/sbin/nginx ]; then
     NGINX_CONF=/app/docker/nginx-docker.conf
     # Use Docker-specific admin config (no 127.0.0.1 restriction)
     cp -f /app/docker/31000-docker.conf /app/backend/conf/sites-available/31000.conf
-    # Ensure data directory is writable by nginx worker
-    chmod 777 /app/blog/data 2>/dev/null || true
+    # Ensure data directories have correct permissions
+    chmod 775 /app/blog/data 2>/dev/null || true  # nginx writes admin.json here
+    chown :nginx /app/blog/data 2>/dev/null || true
 elif [ -x /opt/openresty/bin/openresty ]; then
     NGINX_BIN=/opt/openresty/bin/openresty
     NGINX_CONF=/app/backend/conf/nginx.conf
@@ -36,9 +37,8 @@ mariadbd \
     --datadir="$DB_DIR" \
     --socket="$DB_SOCKET" \
     --port=3308 \
-    --skip-grant-tables \
     --skip-networking \
-    --user=root \
+    --user=mysql \
     --pid-file=/tmp/mariadb.pid &
 MARIADB_PID=$!
 
@@ -72,6 +72,7 @@ fi
 
 # Ensure nginx worker can access MySQL socket (directory gets 700 on fresh volume)
 chmod 755 "$DB_DIR" 2>/dev/null || true
+chown -R mysql:mysql "$DB_DIR" 2>/dev/null || true
 
 # ===== Start OpenResty =====
 echo "Starting OpenResty..."

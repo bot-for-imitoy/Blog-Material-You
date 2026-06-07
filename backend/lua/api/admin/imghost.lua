@@ -8,7 +8,7 @@ local admin_auth = require("admin_auth")
 local imghost = require("imghost")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 local user = admin_auth.verify_admin()
 if not user then

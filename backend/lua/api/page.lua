@@ -2,7 +2,7 @@
 local cjson = require("cjson")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 local slug = ngx.var.page_slug
 if not slug then

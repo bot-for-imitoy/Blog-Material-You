@@ -9,18 +9,8 @@ local _M = {}
 
 local DB_SOCKET = ngx.config.prefix() .. "../blog/data/mysql/mysql.sock"
 local DB_NAME   = "blogyou"
-
--- Quote a string value for SQL (escape single quotes)
-local function quote(val)
-    if val == nil then
-        return "NULL"
-    end
-    local s = tostring(val)
-    -- Escape single quotes and backslashes
-    s = s:gsub("\\", "\\\\")
-    s = s:gsub("'", "\\'")
-    return "'" .. s .. "'"
-end
+local DB_USER   = "blogyou"
+local DB_PASS   = "blog-db-pass-2025"
 
 -- Open a MariaDB connection
 local function connect()
@@ -34,6 +24,8 @@ local function connect()
     local ok, err = db:connect({
         path     = DB_SOCKET,
         database = DB_NAME,
+        user     = DB_USER,
+        password = DB_PASS,
     })
     if not ok then
         return nil, "failed to connect to MariaDB: " .. (err or "unknown")
@@ -57,9 +49,9 @@ function _M.load(url_path)
     end
 
     local sql = "SELECT id, nick, mail, comment, link, ua, create_time " ..
-                "FROM comments WHERE url = " .. quote(url_path) ..
-                " ORDER BY create_time ASC"
-    local res, err = db:query(sql)
+                "FROM comments WHERE url = ? " ..
+                "ORDER BY create_time ASC"
+    local res, err = db:query(sql, {url_path})
     close(db)
 
     if not res then
@@ -79,15 +71,9 @@ function _M.add(nick, mail, comment_text, url, link, ua)
     end
 
     local now = os.time()
-    local sql = "INSERT INTO comments (nick, mail, comment, link, ua, url, create_time) VALUES (" ..
-                quote(nick) .. ", " ..
-                quote(mail) .. ", " ..
-                quote(comment_text) .. ", " ..
-                quote(link or "") .. ", " ..
-                quote(ua or "") .. ", " ..
-                quote(url) .. ", " ..
-                now .. ")"
-    local res, err = db:query(sql)
+    local sql = "INSERT INTO comments (nick, mail, comment, link, ua, url, create_time) " ..
+                "VALUES (?, ?, ?, ?, ?, ?, ?)"
+    local res, err = db:query(sql, {nick, mail, comment_text, link or "", ua or "", url, now})
     close(db)
 
     if not res then
@@ -115,8 +101,8 @@ function _M.count(url_path)
         return 0
     end
 
-    local sql = "SELECT COUNT(*) AS cnt FROM comments WHERE url = " .. quote(url_path)
-    local res, err = db:query(sql)
+    local sql = "SELECT COUNT(*) AS cnt FROM comments WHERE url = ?"
+    local res, err = db:query(sql, {url_path})
     close(db)
 
     if not res or #res == 0 then

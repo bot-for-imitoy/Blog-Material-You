@@ -37,6 +37,9 @@ RUN mariadb-install-db --datadir=/app/blog/data/mysql --user=root --skip-test-db
 # Make entrypoint executable
 RUN chmod +x /app/docker/docker-entrypoint.sh
 
+# Fix MariaDB data dir ownership for mysql user
+RUN chown -R mysql:mysql /app/blog/data/mysql
+
 EXPOSE 30999 31000
 
 ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]

@@ -39,8 +39,7 @@ if not ok or not data then
 end
 
 local stored = admin_store.read()
--- TOTP 2FA temporarily disabled for password-only auth
-local is2fa = false
+local is2fa = totp_store.is_enabled()
 
 -- Verify credentials using admin_store (AES-256-CBC decryption check)
 local function check_password(input_user, input_pass)

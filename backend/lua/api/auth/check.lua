@@ -3,10 +3,9 @@
   POST { email: "..." }
 ]]
 local cjson = require("cjson")
-local data_store = require("data_store")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 if ngx.req.get_method() == "OPTIONS" then
   ngx.status = 204
@@ -32,24 +31,12 @@ if not email:match("^[^@]+@[^@]+%.[^@]+$") then
   return
 end
 
-local emails = data_store.get_emails()
-local entry = emails[email]
-
-if entry then
-  ngx.say(cjson.encode({
+-- Always return registered=false to prevent email enumeration.
+-- The actual registration status is never revealed to unauthenticated clients.
+ngx.say(cjson.encode({
     errno = 0,
     data = {
-      registered = true,
-      name = entry.name or email,
-      permissions = entry.permissions or {}
+        registered = false,
+        permissions = {}
     }
-  }))
-else
-  ngx.say(cjson.encode({
-    errno = 0,
-    data = {
-      registered = false,
-      permissions = {}
-    }
-  }))
-end
+}))

@@ -3,7 +3,7 @@ local cjson = require("cjson")
 local utils = require("utils")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 local tag = utils.url_decode(ngx.var.tag_name or "")
 if tag == "" then

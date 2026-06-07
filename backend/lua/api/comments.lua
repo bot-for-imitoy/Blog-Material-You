@@ -3,7 +3,7 @@ local cjson = require("cjson")
 local comments = require("comments")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 ngx.header["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
 ngx.header["Access-Control-Allow-Headers"] = "Content-Type"
 
