@@ -93,18 +93,25 @@
     }
 
     async function doLogin(username, password) {
+      var errEl = document.getElementById('login-error');
+      if (!username || !password) {
+        if (errEl) { errEl.textContent = '请输入用户名和密码'; errEl.style.display = ''; }
+        return;
+      }
+      if (errEl) errEl.style.display = 'none';
       const res = await fetch(API + '/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      const data = await res.json();
+      var data;
+      try { data = await res.json(); } catch(e) { data = { errno: -1, errmsg: '服务器返回格式错误' }; }
       if (data.errno !== 0) {
-        toast('登录失败：' + (data.errmsg || '用户名或密码错误'));
+        if (errEl) { errEl.textContent = data.errmsg || '登录失败'; errEl.style.display = ''; }
+        else toast('登录失败：' + (data.errmsg || '未知错误'));
         return;
       }
       if (data.data && data.data.step === 2) {
-        // 2FA required — show TOTP input
         loginStep = 2;
         loginTempToken = data.data.temp_token;
         render();
@@ -115,7 +122,6 @@
         localStorage.setItem('admin_bearer_token', authToken);
         loginStep = 1;
         loginTempToken = null;
-        toast('登录成功 ✓');
         render();
       }
     }
@@ -187,44 +193,17 @@
           <mdui-card variant="elevated" class="login-card">
             <h1>初始化管理员</h1>
             <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))">请设置管理员用户名和密码</p>
-            <form id="setup-form">
-              <mdui-text-field id="su-user" label="用户名" variant="outlined"></mdui-text-field>
-              <mdui-text-field id="su-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
-              <mdui-text-field id="su-pass2" label="确认密码" variant="outlined" type="password"></mdui-text-field>
-              <p id="setup-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin-bottom:8px;display:none"></p>
-              <mdui-button variant="filled" type="submit" style="width:100%">初始化</mdui-button>
-            </form>
+            <mdui-text-field id="su-user" label="用户名" variant="outlined"></mdui-text-field>
+            <mdui-text-field id="su-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
+            <mdui-text-field id="su-pass2" label="确认密码" variant="outlined" type="password"></mdui-text-field>
+            <p id="setup-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin:8px 0;display:none"></p>
+            <mdui-button data-action="setup-init" variant="filled" style="width:100%">初始化</mdui-button>
           </mdui-card>
         </div>`;
     }
 
     function bindSetupEvents() {
-      document.getElementById('setup-form')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        var user = document.getElementById('su-user')?.value?.trim();
-        var pass = document.getElementById('su-pass')?.value;
-        var pass2 = document.getElementById('su-pass2')?.value;
-        var errEl = document.getElementById('setup-error');
-        if (!user || !pass) { errEl.textContent = '用户名和密码不能为空'; errEl.style.display = ''; return; }
-        if (pass.length < 6) { errEl.textContent = '密码长度不少于6位'; errEl.style.display = ''; return; }
-        if (pass !== pass2) { errEl.textContent = '两次密码输入不一致'; errEl.style.display = ''; return; }
-        fetch(API + '/setup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'init', user: user, password: pass })
-        }).then(function(r) { return r.json(); }).then(function(d) {
-          if (d.errno === 0) {
-            toast('初始化成功 ✓');
-            render();
-          } else {
-            errEl.textContent = d.errmsg || '初始化失败';
-            errEl.style.display = '';
-          }
-        }).catch(function() {
-          errEl.textContent = '网络错误';
-          errEl.style.display = '';
-        });
-      });
+      // Handled by data-action="setup-init" in bindEventListeners (capture phase)
     }
 
     function loginPage() {
@@ -246,11 +225,10 @@
         <div class="login-container">
           <mdui-card variant="elevated" class="login-card">
             <h1>博客管理后台</h1>
-            <form id="login-form">
-              <mdui-text-field id="lf-user" label="用户名" variant="outlined"></mdui-text-field>
-              <mdui-text-field id="lf-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
-              <mdui-button variant="filled" type="submit" style="width:100%">登录</mdui-button>
-            </form>
+            <mdui-text-field id="lf-user" label="用户名" variant="outlined"></mdui-text-field>
+            <mdui-text-field id="lf-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
+            <p id="login-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin:8px 0;display:none"></p>
+            <mdui-button data-action="login" variant="filled" style="width:100%">登录</mdui-button>
           </mdui-card>
         </div>`;
     }
@@ -274,13 +252,7 @@
         }
         return;
       }
-      document.getElementById('login-form')?.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const username = document.getElementById('lf-user')?.value || '';
-        const password = document.getElementById('lf-pass')?.value || '';
-        if (!username || !password) { toast('请输入用户名和密码'); return; }
-        doLogin(username, password);
-      });
+      // Step 1 login: handled by data-action="login" in bindEventListeners (capture phase)
     }
 
     function layoutPage() {
@@ -342,6 +314,11 @@
           else if (action === 'totp-cancel') cancelTotpSetup();
           else if (action === 'totp-disable') disableTotp();
           else if (action === 'change-password') changePassword();
+          else if (action === 'login') doLogin(
+            document.getElementById('lf-user')?.value || '',
+            document.getElementById('lf-pass')?.value || ''
+          );
+          else if (action === 'setup-init') doSetupInit();
         }, true);
       });
     }
@@ -538,6 +515,33 @@
         renderContent();
       } else {
         errEl.textContent = res.errmsg || '更改失败';
+      }
+    }
+
+    async function doSetupInit() {
+      var user = document.getElementById('su-user')?.value?.trim();
+      var pass = document.getElementById('su-pass')?.value;
+      var pass2 = document.getElementById('su-pass2')?.value;
+      var errEl = document.getElementById('setup-error');
+      if (!user || !pass) { errEl.textContent = '用户名和密码不能为空'; errEl.style.display = ''; return; }
+      if (pass.length < 6) { errEl.textContent = '密码长度不少于6位'; errEl.style.display = ''; return; }
+      if (pass !== pass2) { errEl.textContent = '两次密码输入不一致'; errEl.style.display = ''; return; }
+      errEl.style.display = 'none';
+      try {
+        var res = await fetch(API + '/setup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'init', user: user, password: pass })
+        });
+        var d = await res.json();
+        if (d.errno === 0) {
+          render();
+        } else {
+          errEl.textContent = d.errmsg || '初始化失败';
+          errEl.style.display = '';
+        }
+      } catch(e) {
+        errEl.textContent = '网络错误: ' + e.message;
+        errEl.style.display = '';
       }
     }
 
