@@ -56,6 +56,8 @@ DB_EXISTS=$($MYSQL_CMD -e "SHOW DATABASES LIKE 'blogyou'" 2>/dev/null | grep blo
 if [ -z "$DB_EXISTS" ]; then
     echo "Initializing database schema..."
     $MYSQL_CMD < /app/docker/db_init.sql
+    # Fresh start: clear any leftover admin credentials
+    rm -f /app/blog/data/admin.json 2>/dev/null || true
     echo "Database initialized"
 else
     echo "Database already exists, skipping init"
