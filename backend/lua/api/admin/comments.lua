@@ -3,7 +3,7 @@ local cjson = require("cjson")
 local admin_auth = require("admin_auth")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 local user = admin_auth.verify_admin()
 if not user then
@@ -31,7 +31,7 @@ if ngx.req.get_method() == "GET" then
     local db, err = connect()
     if not db then
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "DB error: " .. (err or "") }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "DB error" }))
         return
     end
 
@@ -62,7 +62,7 @@ elseif ngx.req.get_method() == "DELETE" then
         return
     end
 
-    local res, err = db:query("DELETE FROM comments WHERE id = " .. id)
+    local res, err = db:query("DELETE FROM comments WHERE id = ?", id)
     close(db)
 
     ngx.say(cjson.encode({ errno = 0, data = { deleted = true } }))

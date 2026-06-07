@@ -2,9 +2,10 @@
 local cjson = require("cjson")
 local posts = require("posts")
 local admin_auth = require("admin_auth")
+local security = require("security")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 local user = admin_auth.verify_admin()
 if not user then
@@ -46,6 +47,7 @@ elseif ngx.req.get_method() == "PUT" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Missing slug" }))
         return
     end
+    if not security.require_valid_slug(slug) then return end
 
     local fm = "---\n"
     fm = fm .. "title: " .. (data.title or slug) .. "\n"

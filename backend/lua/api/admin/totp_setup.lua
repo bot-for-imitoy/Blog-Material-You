@@ -12,7 +12,7 @@ local totp = require("totp")
 local totp_store = require("totp_store")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 if ngx.req.get_method() == "OPTIONS" then
     ngx.status = 204
@@ -61,10 +61,16 @@ end
 local action = data.action or ""
 
 if action == "start" then
-    -- Generate a new TOTP secret (valid base32: A-Z, 2-7)
-    local raw = ngx.encode_base64(
+    -- Generate a new TOTP secret using CSPRNG (/dev/urandom)
+    local f = io.open("/dev/urandom", "rb")
+    local raw_bytes = f and f:read(20) or ngx.encode_base64(
         ngx.hmac_sha1(tostring(os.time()) .. tostring(math.random()), "totp-gen")
-    ):gsub("=", ""):gsub("\n", "")
+    )
+    if f then f:close() end
+    local raw = type(raw_bytes) == "string" and raw_bytes or ""
+    if #raw < 20 then raw = raw .. ngx.encode_base64(
+        ngx.hmac_sha1(tostring(os.time()) .. tostring(math.random()), "totp-gen")
+    ) end
     -- Filter to valid base32 chars only
     local b32chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
     local new_secret = ""

@@ -2,9 +2,10 @@
 local cjson = require("cjson")
 local posts = require("posts")
 local admin_auth = require("admin_auth")
+local security = require("security")
 
 ngx.header["Content-Type"] = "application/json"
-ngx.header["Access-Control-Allow-Origin"] = "*"
+ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
 local user = admin_auth.verify_admin()
 if not user then
@@ -41,6 +42,7 @@ elseif ngx.req.get_method() == "POST" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Missing slug" }))
         return
     end
+    if not security.require_valid_slug(slug) then return end
 
     -- Build frontmatter
     local fm = "---\n"
@@ -69,7 +71,7 @@ elseif ngx.req.get_method() == "POST" then
     local f, err = io.open(filepath, "w")
     if not f then
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to write: " .. (err or "") }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to write" }))
         return
     end
     f:write(fm .. (data.content or ""))
@@ -100,6 +102,7 @@ elseif ngx.req.get_method() == "PUT" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Missing slug" }))
         return
     end
+    if not security.require_valid_slug(slug) then return end
 
     local fm = "---\n"
     fm = fm .. "title: " .. (data.title or slug) .. "\n"
@@ -127,7 +130,7 @@ elseif ngx.req.get_method() == "PUT" then
     local f, err = io.open(filepath, "w")
     if not f then
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to write: " .. (err or "") }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to write" }))
         return
     end
     f:write(fm .. (data.content or ""))
@@ -143,12 +146,13 @@ elseif ngx.req.get_method() == "DELETE" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Missing slug parameter" }))
         return
     end
+    if not security.require_valid_slug(slug) then return end
 
     local filepath = POSTS_DIR .. "/" .. slug .. ".md"
     local ok, err = os.remove(filepath)
     if not ok then
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to delete: " .. (err or "") }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to delete" }))
         return
     end
 
@@ -174,7 +178,7 @@ elseif ngx.req.get_method() == "PATCH" then
         ngx.say(cjson.encode({ errno = 0, data = { slug = data.slug } }))
     else
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed: " .. (err or "") }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed" }))
     end
 
 else
