@@ -22,5 +22,7 @@ backend/nginx.pid
 .DS_Store
 Thumbs.db
 
-# Docker
-docker/
+# Docker build context (exclude docker/ from COPY)
+# Entrypoint is at docker/docker-entrypoint.sh
+!docker/docker-entrypoint.sh
+!docker/db_init.sql

@@ -7,6 +7,22 @@ set -e
 DB_DIR=/app/blog/data/mysql
 DB_SOCKET=$DB_DIR/mysql.sock
 
+# Detect correct nginx binary
+if [ -x /usr/sbin/nginx ]; then
+    NGINX_BIN=/usr/sbin/nginx
+    NGINX_CONF=/app/docker/nginx-docker.conf
+    # Use Docker-specific admin config (no 127.0.0.1 restriction)
+    cp -f /app/docker/31000-docker.conf /app/backend/conf/sites-available/31000.conf
+    # Ensure data directory is writable by nginx worker
+    chmod 777 /app/blog/data 2>/dev/null || true
+elif [ -x /opt/openresty/bin/openresty ]; then
+    NGINX_BIN=/opt/openresty/bin/openresty
+    NGINX_CONF=/app/backend/conf/nginx.conf
+else
+    echo "ERROR: No nginx/openresty binary found"
+    exit 1
+fi
+
 # ===== Start MariaDB =====
 echo "Starting MariaDB..."
 mariadbd \
@@ -15,6 +31,7 @@ mariadbd \
     --port=3308 \
     --skip-grant-tables \
     --skip-networking \
+    --user=root \
     --pid-file=/tmp/mariadb.pid &
 MARIADB_PID=$!
 
@@ -49,10 +66,10 @@ echo "Starting OpenResty..."
 cd /app/backend
 mkdir -p logs tmp/body tmp/proxy tmp/fastcgi tmp/uwsgi tmp/scgi
 
-/opt/openresty/bin/openresty -p /app/backend -c conf/nginx.conf
+$NGINX_BIN -p /app/backend -c "$NGINX_CONF" 2>&1 || true
 sleep 1
 
-if pgrep -x nginx > /dev/null 2>&1; then
+if pgrep nginx > /dev/null 2>&1; then
     echo "✅ Blog Material You is running"
     echo "   Frontend: http://localhost:30999/"
     echo "   Admin:    http://localhost:31000/"
