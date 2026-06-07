@@ -10,6 +10,9 @@ backend/data/
 backend/nginx.pid
 *.pid
 
+# Secrets (create from .env.example)
+.env
+
 # OS
 .DS_Store
 Thumbs.db

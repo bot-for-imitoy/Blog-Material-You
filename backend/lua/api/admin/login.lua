@@ -11,6 +11,7 @@ local config = require("config")
 local session = require("session")
 local totp = require("totp")
 local totp_store = require("totp_store")
+local password = require("password")
 
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "*"
@@ -34,7 +35,7 @@ local is2fa = totp_store.is_enabled()
 
 if not is2fa then
     -- ====== Single-step login (2FA disabled) ======
-    if data.username ~= cfg.admin_user or data.password ~= cfg.admin_pass then
+    if data.username ~= cfg.admin_user or not password.verify(data.password, cfg.admin_pass, cfg.admin_pass_hash, cfg.admin_pass_salt) then
         ngx.status = 401
         ngx.say(cjson.encode({ errno = -1, errmsg = "用户名或密码错误" }))
         return
@@ -54,7 +55,7 @@ local step = tonumber(data.step) or 1
 
 if step == 1 then
     -- Step 1: Password verification
-    if data.username ~= cfg.admin_user or data.password ~= cfg.admin_pass then
+    if data.username ~= cfg.admin_user or not password.verify(data.password, cfg.admin_pass, cfg.admin_pass_hash, cfg.admin_pass_salt) then
         ngx.status = 401
         ngx.say(cjson.encode({ errno = -1, errmsg = "用户名或密码错误" }))
         return
