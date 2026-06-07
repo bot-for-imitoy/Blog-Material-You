@@ -1,0 +1,21 @@
+services:
+  blog:
+    build: .
+    container_name: blog-material-you
+    ports:
+      - "30999:30999"
+      - "31000:31000"
+    volumes:
+      # Persist MariaDB data
+      - blog_data:/app/blog/data/mysql
+      # Persist admin credentials
+      - blog_data_etc:/app/blog/data
+      # Mount posts directory for easy editing
+      - ./blog/posts:/app/blog/posts
+      # Mount pages directory
+      - ./blog/pages:/app/blog/pages
+    restart: unless-stopped
+
+volumes:
+  blog_data:
+  blog_data_etc:
