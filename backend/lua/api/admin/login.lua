@@ -1,5 +1,8 @@
 -- /api/admin/login — login with optional TOTP 2FA
 --
+-- Admin credentials are stored encrypted in blog/data/admin.json.
+-- If not initialized, all login attempts return "not set up" error.
+--
 -- If 2FA is not enabled (default): single-step login
 --   POST { username, password } → { errno: 0, data: { token, user } }
 --
@@ -7,17 +10,22 @@
 --   Step 1: POST { step: 1, username, password } → { errno: 0, data: { step: 2, temp_token } }
 --   Step 2: POST { step: 2, temp_token, totp }  → { errno: 0, data: { token, user } }
 local cjson = require("cjson")
-local config = require("config")
 local session = require("session")
 local totp = require("totp")
 local totp_store = require("totp_store")
-local password = require("password")
+local admin_store = require("admin_store")
 
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "*"
 
 if ngx.req.get_method() == "OPTIONS" then
     ngx.status = 204
+    return
+end
+
+-- Check if admin is initialized
+if not admin_store.is_setup_done() then
+    ngx.say(cjson.encode({ errno = -1, errmsg = "管理员尚未初始化，请先访问 /admin/setup/ 进行初始化" }))
     return
 end
 
@@ -30,12 +38,19 @@ if not ok or not data then
     return
 end
 
-local cfg = config.get()
+local stored = admin_store.read()
 local is2fa = totp_store.is_enabled()
+
+-- Verify credentials using admin_store (AES-256-CBC decryption check)
+local function check_password(input_user, input_pass)
+    if not input_user or not input_pass then return false end
+    if input_user ~= stored.user then return false end
+    return admin_store.verify(stored, input_pass)
+end
 
 if not is2fa then
     -- ====== Single-step login (2FA disabled) ======
-    if data.username ~= cfg.admin_user or not password.verify(data.password, cfg.admin_pass, cfg.admin_pass_hash, cfg.admin_pass_salt) then
+    if not check_password(data.username, data.password) then
         ngx.status = 401
         ngx.say(cjson.encode({ errno = -1, errmsg = "用户名或密码错误" }))
         return
@@ -43,7 +58,7 @@ if not is2fa then
     local token, err = session.create_session(data.username)
     if not token then
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Internal error: " .. (err or "") }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Internal error" }))
         return
     end
     ngx.say(cjson.encode({ errno = 0, data = { token = token, user = data.username } }))
@@ -55,7 +70,7 @@ local step = tonumber(data.step) or 1
 
 if step == 1 then
     -- Step 1: Password verification
-    if data.username ~= cfg.admin_user or not password.verify(data.password, cfg.admin_pass, cfg.admin_pass_hash, cfg.admin_pass_salt) then
+    if not check_password(data.username, data.password) then
         ngx.status = 401
         ngx.say(cjson.encode({ errno = -1, errmsg = "用户名或密码错误" }))
         return
@@ -73,28 +88,26 @@ if step == 1 then
 
 elseif step == 2 then
     -- Step 2: TOTP verification
-    local temp_token = data.temp_token
-    local totp_code = data.totp
-    local username, err = session.verify_temp(temp_token)
+    local username, err = session.verify_temp(data.temp_token)
     if not username then
         ngx.status = 401
         ngx.say(cjson.encode({ errno = -1, errmsg = err or "Session expired" }))
         return
     end
     local secret = totp_store.get_secret()
-    local totp_ok, totp_err = totp.verify(secret, totp_code)
+    local totp_ok, totp_err = totp.verify(secret, data.totp)
     if not totp_ok then
         ngx.status = 401
         ngx.say(cjson.encode({ errno = -1, errmsg = totp_err or "验证码错误" }))
         return
     end
-    local token, err2 = session.create_session(username)
-    if not token then
+    local token2, err2 = session.create_session(username)
+    if not token2 then
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Internal error: " .. (err2 or "") }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Internal error" }))
         return
     end
-    ngx.say(cjson.encode({ errno = 0, data = { token = token, user = username } }))
+    ngx.say(cjson.encode({ errno = 0, data = { token = token2, user = username } }))
 else
     ngx.status = 400
     ngx.say(cjson.encode({ errno = -1, errmsg = "Invalid step" }))

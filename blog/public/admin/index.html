@@ -149,8 +149,19 @@
     function render() {
       const app = document.getElementById('app');
       if (!authToken) {
-        app.innerHTML = loginPage();
-        bindLoginEvents();
+        // Check if admin needs initial setup
+        fetch(API + '/setup').then(r => r.json()).then(d => {
+          if (d.errno === 0 && d.data && !d.data.setup_done) {
+            app.innerHTML = setupPage();
+            bindSetupEvents();
+          } else {
+            app.innerHTML = loginPage();
+            bindLoginEvents();
+          }
+        }).catch(function() {
+          app.innerHTML = loginPage();
+          bindLoginEvents();
+        });
         return;
       }
       app.innerHTML = layoutPage();
@@ -165,6 +176,55 @@
       });
       document.getElementById('logout-btn')?.addEventListener('click', logout, true);
       renderContent();
+    }
+
+    // ===== Login =====
+    var setupState = { user: '', error: '' };
+
+    function setupPage() {
+      return `
+        <div class="login-container">
+          <mdui-card variant="elevated" class="login-card">
+            <h1>初始化管理员</h1>
+            <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))">请设置管理员用户名和密码</p>
+            <form id="setup-form">
+              <mdui-text-field id="su-user" label="用户名" variant="outlined"></mdui-text-field>
+              <mdui-text-field id="su-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
+              <mdui-text-field id="su-pass2" label="确认密码" variant="outlined" type="password"></mdui-text-field>
+              <p id="setup-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin-bottom:8px;display:none"></p>
+              <mdui-button variant="filled" type="submit" style="width:100%">初始化</mdui-button>
+            </form>
+          </mdui-card>
+        </div>`;
+    }
+
+    function bindSetupEvents() {
+      document.getElementById('setup-form')?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var user = document.getElementById('su-user')?.value?.trim();
+        var pass = document.getElementById('su-pass')?.value;
+        var pass2 = document.getElementById('su-pass2')?.value;
+        var errEl = document.getElementById('setup-error');
+        if (!user || !pass) { errEl.textContent = '用户名和密码不能为空'; errEl.style.display = ''; return; }
+        if (pass.length < 6) { errEl.textContent = '密码长度不少于6位'; errEl.style.display = ''; return; }
+        if (pass !== pass2) { errEl.textContent = '两次密码输入不一致'; errEl.style.display = ''; return; }
+        fetch(API + '/setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'init', user: user, password: pass })
+        }).then(function(r) { return r.json(); }).then(function(d) {
+          if (d.errno === 0) {
+            toast('初始化成功 ✓');
+            render();
+          } else {
+            errEl.textContent = d.errmsg || '初始化失败';
+            errEl.style.display = '';
+          }
+        }).catch(function() {
+          errEl.textContent = '网络错误';
+          errEl.style.display = '';
+        });
+      });
     }
 
     function loginPage() {
@@ -281,6 +341,7 @@
           else if (action === 'totp-verify') verifyTotpSetup();
           else if (action === 'totp-cancel') cancelTotpSetup();
           else if (action === 'totp-disable') disableTotp();
+          else if (action === 'change-password') changePassword();
         }, true);
       });
     }
@@ -311,15 +372,19 @@
         </mdui-card>`;
     }
 
-    // ===== Security View (TOTP 2FA) =====
+    // ===== Security View (TOTP 2FA + change password) =====
     let totpState = {};
 
     async function securityView() {
-      const res = await api('/totp-setup');
-      if (res.errno !== 0 || !res.data) {
+      const [totpRes, setupRes] = await Promise.all([
+        api('/totp-setup'),
+        api('/setup')
+      ]);
+      if (totpRes.errno !== 0 || !totpRes.data) {
         return '<p style="color:red">无法获取安全设置</p>';
       }
-      const d = res.data;
+      const d = totpRes.data;
+      d.user = (setupRes.errno === 0 && setupRes.data) ? setupRes.data.user : '';
       totpState = d;
       if (d.enabled) return renderTotpEnabled(d);
       if (d.has_pending) return renderTotpVerify(d);
@@ -391,6 +456,15 @@
             ⚠️ 如果更换设备，请先保存密钥再禁用，否则将无法登录！
           </p>
           <mdui-button data-action="totp-disable" variant="text" style="color:rgb(var(--mdui-color-error))">🔴 禁用两步验证</mdui-button>
+        </mdui-card>
+        <mdui-card variant="elevated" style="padding:24px;margin-top:16px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">更改密码</h2>
+          <div class="form-group"><label>当前密码</label><input id="cp-old" type="password"></div>
+          <div class="form-group"><label>新用户名（可选）</label><input id="cp-user" value="${escapeHtml(d.user || '')}"></div>
+          <div class="form-group"><label>新密码</label><input id="cp-new" type="password"></div>
+          <div class="form-group"><label>确认新密码</label><input id="cp-new2" type="password"></div>
+          <p id="cp-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin-bottom:8px"></p>
+          <mdui-button data-action="change-password" variant="filled">保存更改</mdui-button>
         </mdui-card>`;
     }
 
@@ -441,6 +515,29 @@
         renderContent();
       } else {
         toast('操作失败');
+      }
+    }
+
+    async function changePassword() {
+      var oldPass = document.getElementById('cp-old')?.value;
+      var newUser = document.getElementById('cp-user')?.value?.trim();
+      var newPass = document.getElementById('cp-new')?.value;
+      var newPass2 = document.getElementById('cp-new2')?.value;
+      var errEl = document.getElementById('cp-error');
+      if (!oldPass) { errEl.textContent = '请输入当前密码'; return; }
+      if (!newPass) { errEl.textContent = '请输入新密码'; return; }
+      if (newPass.length < 6) { errEl.textContent = '新密码长度不少于6位'; return; }
+      if (newPass !== newPass2) { errEl.textContent = '两次密码输入不一致'; return; }
+      errEl.textContent = '保存中...';
+      const res = await api('/setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'change', old_password: oldPass, new_password: newPass, new_user: newUser })
+      });
+      if (res.errno === 0) {
+        toast('✅ 密码已更改');
+        renderContent();
+      } else {
+        errEl.textContent = res.errmsg || '更改失败';
       }
     }
 

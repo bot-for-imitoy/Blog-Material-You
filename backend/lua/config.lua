@@ -1,8 +1,7 @@
 --[[
   config.lua — Blog configuration module.
-  Reads sensitive values from environment variables when available:
-    BMY_ADMIN_USER     — admin username (fallback: "admin")
-    BMY_ADMIN_PASS     — admin password (fallback: "bmy2025")
+  Admin credentials are stored encrypted in blog/data/admin.json.
+  Sensitive values can also be overridden via environment variables:
     BMY_SESSION_SECRET — HMAC signing key (fallback: hardcoded default)
 ]]
 local _M = {}
@@ -22,14 +21,10 @@ _M.data = {
     avatar = "/img/avatar.png",
     github = "https://github.com/",
 
-    -- Admin credentials (override via BMY_ADMIN_USER / BMY_ADMIN_PASS env vars)
-    admin_user = env("BMY_ADMIN_USER", "admin"),
-    admin_pass = env("BMY_ADMIN_PASS", "bmy2025"),
-
-    -- Password hash (HMAC-SHA1 with salt). When set, takes precedence over admin_pass.
-    -- Generate: python3 -c "import hmac,hashlib,base64; print(base64.b64encode(hmac.new(b'salt', b'password', hashlib.sha1).digest()).decode())"
-    admin_pass_hash = "IKQ8CJhvms/u2Xl2DH1NBDboGIY=",
-    admin_pass_salt = "bmy-salt-v1",
+    -- Admin credentials loaded from encrypted store at runtime.
+    -- See admin_store.lua and blog/data/admin.json.
+    admin_user = "",    -- populated by login.lua
+    admin_pass = "",    -- NOT USED for auth; kept for backward compat
 
     -- Session token HMAC secret (override via BMY_SESSION_SECRET env var)
     session_secret = env("BMY_SESSION_SECRET", "bmy-session-secret-k8x9m2p4v6"),
