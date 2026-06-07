@@ -220,6 +220,7 @@
             <mdui-text-field id="su-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
             <mdui-text-field id="su-pass2" label="确认密码" variant="outlined" type="password"></mdui-text-field>
             <p id="setup-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin:8px 0;display:none"></p>
+            <p id="setup-warning" style="color:rgb(var(--mdui-color-tertiary));font-size:13px;margin:8px 0;display:none"></p>
             <mdui-button data-action="setup-init" variant="filled" style="width:100%">初始化</mdui-button>
           </mdui-card>
         </div>`;
@@ -559,7 +560,13 @@
         });
         var d = await res.json();
         if (d.errno === 0) {
-          render();
+          // Show security warning about changing default password
+          var warnEl = document.getElementById('setup-warning');
+          if (warnEl) {
+            warnEl.style.display = '';
+            warnEl.textContent = '⚠️ 初始化成功！建议立即修改密码。';
+          }
+          setTimeout(function() { render(); }, 2000);
         } else {
           errEl.textContent = d.errmsg || '初始化失败';
           errEl.style.display = '';

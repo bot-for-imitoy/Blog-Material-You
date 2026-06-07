@@ -53,6 +53,12 @@ if action == "init" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "密码长度不少于6位" }))
         return
     end
+    -- Reject common/weak passwords leaked from git history
+    local weak_passwords = {["bmy2025"]=true, ["admin"]=true, ["password"]=true, ["123456"]=true, ["admin123"]=true, ["12345678"]=true, ["qwerty"]=true}
+    if weak_passwords[password:lower()] then
+        ngx.say(cjson.encode({ errno = -1, errmsg = "密码过于简单，请使用更安全的密码" }))
+        return
+    end
     local entry = admin_store.encrypt(user, password)
     if not entry then
         ngx.status = 500
@@ -68,7 +74,20 @@ if action == "init" then
     ngx.say(cjson.encode({ errno = 0, data = { setup_done = true, user = user } }))
 
 elseif action == "change" then
-    -- Change password (requires authentication via old password)
+    -- Change password (requires valid session AND old password verification)
+    local session = require("session")
+    local token = session.get_bearer_token()
+    if not token then
+        ngx.status = 401
+        ngx.say(cjson.encode({ errno = -1, errmsg = "请先登录后再修改密码" }))
+        return
+    end
+    local session_user, sess_err = session.verify_session(token)
+    if not session_user then
+        ngx.status = 401
+        ngx.say(cjson.encode({ errno = -1, errmsg = "会话已过期，请重新登录" }))
+        return
+    end
     local stored = admin_store.read()
     if not stored then
         ngx.say(cjson.encode({ errno = -1, errmsg = "管理员未初始化" }))

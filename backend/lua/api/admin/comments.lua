@@ -11,13 +11,16 @@ if not user then
 end
 
 local DB_SOCKET = ngx.config.prefix() .. "../blog/data/mysql/mysql.sock"
+local DB_NAME = "blogyou"
+local DB_USER = "blogyou"
+local DB_PASS = "blog-db-pass-2025"
 
 local function connect()
     local mysql = require("resty.mysql")
     local db, err = mysql:new()
     if not db then return nil, err end
     db:set_timeout(3000)
-    local ok, err = db:connect({ path = DB_SOCKET, database = "blogyou" })
+    local ok, err = db:connect({ path = DB_SOCKET, database = DB_NAME, user = DB_USER, password = DB_PASS })
     if not ok then return nil, err end
     return db
 end
