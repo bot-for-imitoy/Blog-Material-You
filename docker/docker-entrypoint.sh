@@ -23,6 +23,13 @@ else
     exit 1
 fi
 
+# ===== Generate session secret if not set =====
+if [ -z "$BMY_SESSION_SECRET" ]; then
+    BMY_SESSION_SECRET=$(dd if=/dev/urandom bs=32 count=1 2>/dev/null | od -An -tx1 | tr -d ' \n')
+    export BMY_SESSION_SECRET
+    echo "Generated random BMY_SESSION_SECRET"
+fi
+
 # ===== Start MariaDB =====
 echo "Starting MariaDB..."
 mariadbd \

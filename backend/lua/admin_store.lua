@@ -17,7 +17,7 @@ function _M.encrypt(user, password)
     local salt = ngx.encode_base64(ngx.hmac_sha1(tostring(os.time()) .. tostring(math.random()), "salt-gen"))
     salt = salt:gsub("\n", ""):sub(1, 8)
 
-    local cipher, err = aes:new(password, salt, aes.cipher(256, "cbc"), aes.hash.sha256, 1000, 16)
+    local cipher, err = aes:new(password, salt, aes.cipher(256, "cbc"), aes.hash.sha256, 600000, 16)
     if not cipher then ngx.log(ngx.ERR, "aes:new failed: ", err); return nil, "Failed to create cipher" end
 
     local encrypted, err = cipher:encrypt(VERIFY_TEXT)
@@ -39,7 +39,7 @@ function _M.verify(stored, input_password)
     local encrypted = ngx.decode_base64(stored.data)
     if not encrypted then return false end
 
-    local cipher = aes:new(input_password, stored.salt, aes.cipher(256, "cbc"), aes.hash.sha256, 1000, 16)
+    local cipher = aes:new(input_password, stored.salt, aes.cipher(256, "cbc"), aes.hash.sha256, 600000, 16)
     if not cipher then return false end
 
     local decrypted, err = cipher:decrypt(encrypted)

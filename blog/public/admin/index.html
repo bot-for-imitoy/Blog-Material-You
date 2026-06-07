@@ -56,7 +56,7 @@
 
   <script>
     const API = '/api/admin';
-    let authToken = localStorage.getItem('admin_bearer_token');
+    let authToken = null;
     let currentView = 'dashboard';
 
     // ===== Utils =====
@@ -70,9 +70,8 @@
 
     async function api(path, opts) {
       const headers = { 'Content-Type': 'application/json' };
-      if (authToken) headers['Authorization'] = 'Bearer ' + authToken;
-      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) } });
-      if (res.status === 401) { authToken = null; localStorage.removeItem('admin_bearer_token'); render(); throw new Error('Unauthorized'); }
+      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
+      if (res.status === 401) { authToken = null; render(); throw new Error('Unauthorized'); }
       return res.json();
     }
 
@@ -119,7 +118,6 @@
       }
       if (data.data && data.data.token) {
         authToken = data.data.token;
-        localStorage.setItem('admin_bearer_token', authToken);
         loginStep = 1;
         loginTempToken = null;
         render();
@@ -135,7 +133,6 @@
       const data = await res.json();
       if (data.errno === 0 && data.data) {
         authToken = data.data.token;
-        localStorage.setItem('admin_bearer_token', authToken);
         loginStep = 1;
         loginTempToken = null;
         toast('登录成功 ✓');
@@ -147,7 +144,7 @@
 
     function logout() {
       authToken = null;
-      localStorage.removeItem('admin_bearer_token');
+      fetch(API + '/logout', { method: 'POST', credentials: 'same-origin' }).catch(function(){});
       render();
     }
 
@@ -155,19 +152,45 @@
     function render() {
       const app = document.getElementById('app');
       if (!authToken) {
-        // Check if admin needs initial setup
-        fetch(API + '/setup').then(r => r.json()).then(d => {
-          if (d.errno === 0 && d.data && !d.data.setup_done) {
-            app.innerHTML = setupPage();
-            bindSetupEvents();
-          } else {
+        // Token not in memory — try cookie auth via a protected endpoint first
+        var checkAuth = function() {
+          fetch(API + '/posts', { credentials: 'same-origin' }).then(function(r) {
+            if (r.ok) {
+              // Cookie-authenticated
+              authToken = 'cookie';
+              app.innerHTML = layoutPage();
+              document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  currentView = this.dataset.view;
+                  renderContent();
+                  document.querySelectorAll('.nav-item').forEach(n => n.active = false);
+                  this.active = true;
+                }, true);
+              });
+              document.getElementById('logout-btn')?.addEventListener('click', logout, true);
+              renderContent();
+              return;
+            }
+            // Not authenticated — check if setup is needed
+            fetch(API + '/setup').then(function(r2) { return r2.json(); }).then(function(d) {
+              if (d.errno === 0 && d.data && !d.data.setup_done) {
+                app.innerHTML = setupPage();
+                bindSetupEvents();
+              } else {
+                app.innerHTML = loginPage();
+                bindLoginEvents();
+              }
+            }).catch(function() {
+              app.innerHTML = loginPage();
+              bindLoginEvents();
+            });
+          }).catch(function() {
             app.innerHTML = loginPage();
             bindLoginEvents();
-          }
-        }).catch(function() {
-          app.innerHTML = loginPage();
-          bindLoginEvents();
-        });
+          });
+        };
+        checkAuth();
         return;
       }
       app.innerHTML = layoutPage();

@@ -39,7 +39,8 @@ if not ok or not data then
 end
 
 local stored = admin_store.read()
-local is2fa = totp_store.is_enabled()
+-- TOTP 2FA temporarily disabled for password-only auth
+local is2fa = false
 
 -- Verify credentials using admin_store (AES-256-CBC decryption check)
 local function check_password(input_user, input_pass)
@@ -61,6 +62,8 @@ if not is2fa then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Internal error" }))
         return
     end
+    -- Set HttpOnly cookie for browser-based auth
+    session.set_session_cookie(token)
     ngx.say(cjson.encode({ errno = 0, data = { token = token, user = data.username } }))
     return
 end
@@ -107,6 +110,8 @@ elseif step == 2 then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Internal error" }))
         return
     end
+    -- Set HttpOnly cookie for browser-based auth
+    session.set_session_cookie(token2)
     ngx.say(cjson.encode({ errno = 0, data = { token = token2, user = username } }))
 else
     ngx.status = 400

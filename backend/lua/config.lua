@@ -26,8 +26,9 @@ _M.data = {
     admin_user = "",    -- populated by login.lua
     admin_pass = "",    -- NOT USED for auth; kept for backward compat
 
-    -- Session token HMAC secret (override via BMY_SESSION_SECRET env var)
-    session_secret = env("BMY_SESSION_SECRET", "bmy-session-secret-k8x9m2p4v6"),
+    -- Session token HMAC secret (must be set via BMY_SESSION_SECRET env var)
+    -- Docker entrypoint auto-generates this on startup; no hardcoded fallback.
+    session_secret = env("BMY_SESSION_SECRET", nil),
 
     menu = {
         { name = "Home",       url = "/",          icon = "/icon/home.svg",    id = "home" },
