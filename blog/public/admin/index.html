@@ -227,6 +227,7 @@
 
     function bindSetupEvents() {
       // Handled by data-action="setup-init" in bindEventListeners (capture phase)
+      bindEventListeners();
     }
 
     function loginPage() {
@@ -276,6 +277,7 @@
         return;
       }
       // Step 1 login: handled by data-action="login" in bindEventListeners (capture phase)
+      bindEventListeners();
     }
 
     function layoutPage() {
