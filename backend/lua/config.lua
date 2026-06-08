@@ -17,7 +17,7 @@ _M.data = {
     desc_key = "site_desc",
 
     -- Avatar
-    avatar = "/img/avatar.png",
+    avatar = "/img/avatar.jpg",
 
     -- Blog info
     title = "imitoy's Blog",

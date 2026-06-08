@@ -3,8 +3,8 @@
 
 zh:
   # Site header
-  site_name: 博客
-  site_desc: 简单优雅的主题。
+  site_name: imitoy'Blog
+  site_desc: No blog desc
   # Navigation
   nav_home: 首页
   nav_posts: 文章
@@ -15,21 +15,21 @@ zh:
   nav_archives: 归档
   # Page titles and descriptions
   page_posts: 文章
-  page_posts_desc: 博客的全部文章
+  page_posts_desc: 全部文章
   # Aliases for backward compatibility
   allPosts: 文章
-  allPostsDesc: 博客的全部文章
+  allPostsDesc: 全部文章
   allTags: 标签
-  allTagsDesc: 博客的全部标签
+  allTagsDesc: 全部标签
   page_tags: 标签
-  page_tags_desc: 博客的全部标签
+  page_tags_desc: 全部标签
   page_categories: 分类
-  page_categories_desc: 博客的全部分类
+  page_categories_desc: 全部分类
   page_moments: 动态
-  page_moments_desc: 博客的点滴记录
+  page_moments_desc: 点滴记录
   # Aliases for backward compatibility
   moments: 动态
-  momentsDesc: 博客的点滴记录
+  momentsDesc: 点滴记录
   page_archives: 归档
   page_archives_desc: 已归档的旧文章
   # UI text
@@ -100,179 +100,3 @@ en:
   # Status page
   status: Status
   statusDesc: Service Status
-
-fr:
-  site_name: Blog
-  site_desc: Un thème simple et élégant.
-  nav_home: Accueil
-  nav_posts: Articles
-  nav_tags: Étiquettes
-  nav_categories: Catégories
-  nav_moments: Moments
-  nav_about: À propos
-  nav_archives: Archives
-  page_posts: Articles
-  page_posts_desc: Tous les articles du blog
-  page_tags: Étiquettes
-  page_tags_desc: Toutes les étiquettes du blog
-  page_categories: Catégories
-  page_categories_desc: Toutes les catégories du blog
-  page_moments: Moments
-  page_moments_desc: Moments
-  page_archives: Archives
-  page_archives_desc: Tous les articles archivés
-  loading: Chargement...
-  networkError: Erreur réseau, veuillez vérifier votre connexion
-  commentSuccess: Commentaire envoyé avec succès
-  commentFail: Échec de l'envoi du commentaire
-  nickName: Pseudonyme
-  email: E-mail
-  website: Site web (facultatif)
-  commentContent: Commentaire
-  submit: Envoyer
-  reply: Répondre
-  noPosts: Aucun article
-  noComments: Aucun commentaire
-  noTalks: Aucun moment
-  serverOnline: En ligne
-  serverOffline: Hors ligne
-  cpr: © 2025 Blog Material You
-  forward: Lire
-  postsYear: ""
-  commentTitle: Commentaires
-  back: Retour
-  # Status page
-  status: Statut
-  statusDesc: État du service
-
-es:
-  site_name: Blog
-  site_desc: Un tema simple y elegante.
-  nav_home: Inicio
-  nav_posts: Artículos
-  nav_tags: Etiquetas
-  nav_categories: Categorías
-  nav_moments: Momentos
-  nav_about: Acerca de
-  nav_archives: Archivo
-  page_posts: Artículos
-  page_posts_desc: Todos los artículos del blog
-  page_tags: Etiquetas
-  page_tags_desc: Todas las etiquetas del blog
-  page_categories: Categorías
-  page_categories_desc: Todas las categorías del blog
-  page_moments: Momentos
-  page_moments_desc: Momentos
-  page_archives: Archivo
-  page_archives_desc: Todos los artículos archivados
-  loading: Cargando...
-  networkError: Error de red, verifique su conexión
-  commentSuccess: Comentario enviado con éxito
-  commentFail: Error al enviar comentario
-  nickName: Nombre
-  email: Correo electrónico
-  website: Sitio web (opcional)
-  commentContent: Comentario
-  submit: Enviar
-  reply: Responder
-  noPosts: Sin artículos
-  noComments: Sin comentarios
-  noTalks: Sin momentos
-  serverOnline: En línea
-  serverOffline: Fuera de línea
-  cpr: © 2025 Blog Material You
-  forward: Leer
-  postsYear: ""
-  commentTitle: Comentarios
-  back: Volver
-  # Status page
-  status: Estado
-  statusDesc: Estado del servicio
-
-ru:
-  site_name: Блог
-  site_desc: Простая и элегантная тема.
-  nav_home: Главная
-  nav_posts: Статьи
-  nav_tags: Теги
-  nav_categories: Категории
-  nav_moments: Моменты
-  nav_about: О сайте
-  nav_archives: Архив
-  page_posts: Статьи
-  page_posts_desc: Все статьи блога
-  page_tags: Теги
-  page_tags_desc: Все теги блога
-  page_categories: Категории
-  page_categories_desc: Все категории блога
-  page_moments: Моменты
-  page_moments_desc: Моменты
-  page_archives: Архив
-  page_archives_desc: Все архивные статьи
-  loading: Загрузка...
-  networkError: Ошибка сети, проверьте подключение
-  commentSuccess: Комментарий успешно отправлен
-  commentFail: Ошибка отправки комментария
-  nickName: Имя
-  email: Эл. почта
-  website: Сайт (необязательно)
-  commentContent: Комментарий
-  submit: Отправить
-  reply: Ответить
-  noPosts: Нет статей
-  noComments: Нет комментариев
-  noTalks: Нет моментов
-  serverOnline: В сети
-  serverOffline: Не в сети
-  cpr: © 2025 Blog Material You
-  forward: Читать
-  postsYear: ""
-  commentTitle: Комментарии
-  back: Назад
-  # Status page
-  status: Статус
-  statusDesc: Состояние сервиса
-
-ar:
-  site_name: مدونة
-  site_desc: سمة بسيطة وأنيقة.
-  nav_home: الرئيسية
-  nav_posts: المقالات
-  nav_tags: الوسوم
-  nav_categories: التصنيفات
-  nav_moments: لحظات
-  nav_about: حول
-  nav_archives: الأرشيف
-  page_posts: المقالات
-  page_posts_desc: جميع مقالات المدونة
-  page_tags: الوسوم
-  page_tags_desc: جميع وسوم المدونة
-  page_categories: التصنيفات
-  page_categories_desc: جميع تصنيفات المدونة
-  page_moments: لحظات
-  page_moments_desc: لحظات
-  page_archives: الأرشيف
-  page_archives_desc: جميع المقالات المؤرشفة
-  loading: جار التحميل...
-  networkError: خطأ في الشبكة، يرجى التحقق من اتصالك
-  commentSuccess: تم إرسال التعليق بنجاح
-  commentFail: فشل إرسال التعليق
-  nickName: الاسم
-  email: البريد الإلكتروني
-  website: الموقع الإلكتروني (اختياري)
-  commentContent: تعليق
-  submit: إرسال
-  reply: رد
-  noPosts: لا توجد مقالات
-  noComments: لا توجد تعليقات
-  noTalks: لا توجد لحظات
-  serverOnline: متصل
-  serverOffline: غير متصل
-  cpr: © 2025 Blog Material You
-  forward: قراءة
-  postsYear: ""
-  commentTitle: تعليقات
-  back: رجوع
-  # Status page
-  status: الحالة
-  statusDesc: حالة الخدمة
