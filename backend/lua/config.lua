@@ -20,7 +20,7 @@ _M.data = {
     avatar = "/img/avatar.png",
 
     -- Blog info
-    title = "Blog Material You",
+    title = "imitoy's Blog",
     github = "https://github.com/",
 
     -- Admin credentials loaded from encrypted store at runtime.
@@ -44,28 +44,28 @@ _M.data = {
         {
             text_key = "nav_posts",
             page_title_key = "page_posts",
-            page_desc_key = "page_posts_desc",
+            page_desc_key = nil,
             icon = "/icon/article.svg",
             route = "/posts/",
         },
         {
             text_key = "nav_tags",
             page_title_key = "page_tags",
-            page_desc_key = "page_tags_desc",
+            page_desc_key = nil,
             icon = "/icon/tag.svg",
             route = "/tags/",
         },
         {
             text_key = "nav_categories",
             page_title_key = "page_categories",
-            page_desc_key = "page_categories_desc",
+            page_desc_key = nil,
             icon = "/icon/category.svg",
             route = "/categories/",
         },
         {
             text_key = "nav_moments",
             page_title_key = "page_moments",
-            page_desc_key = "page_moments_desc",
+            page_desc_key = nil,
             icon = "/icon/chat.svg",
             route = "/talks/",
         },
@@ -79,7 +79,7 @@ _M.data = {
         {
             text_key = "nav_archives",
             page_title_key = "page_archives",
-            page_desc_key = "page_archives_desc",
+            page_desc_key = nil,
             icon = "/icon/archive.svg",
             route = "/archives/",
         },
