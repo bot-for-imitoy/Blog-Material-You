@@ -48,38 +48,11 @@
       <div class="navigation-drawer-container">
       <div class="navigation-drawer-header">
         <mdui-avatar src="/img/avatar.png" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
-        <div class="navigation-drawer-header-title" id="nav-name">Blog Material You</div>
+        <div class="navigation-drawer-header-title" id="nav-name">Blog</div>
         <div class="navigation-drawer-header-subtitle" id="nav-slogan">A simple and elegant theme.</div>
       </div>
-      <mdui-list class="navigation-drawer-list">
-        <mdui-list-item rounded href="/" class="navigation-drawer-list-home" data-route="/">
-          Home
-          <mdui-icon src="/icon/home.svg" slot="icon"></mdui-icon>
-        </mdui-list-item>
-        <mdui-list-item rounded href="/posts/" class="navigation-drawer-list-posts" data-route="/posts/">
-          Posts
-          <mdui-icon src="/icon/article.svg" slot="icon"></mdui-icon>
-        </mdui-list-item>
-        <mdui-list-item rounded href="/tags/" class="navigation-drawer-list-tags" data-route="/tags/">
-          Tags
-          <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
-        </mdui-list-item>
-        <mdui-list-item rounded href="/categories/" class="navigation-drawer-list-categories" data-route="/categories/">
-          Categories
-          <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
-        </mdui-list-item>
-        <mdui-list-item rounded href="/talks/" class="navigation-drawer-list-talks" data-route="/talks/">
-          Moments
-          <mdui-icon src="/icon/chat.svg" slot="icon"></mdui-icon>
-        </mdui-list-item>
-        <mdui-list-item rounded href="/about/" class="navigation-drawer-list-about" data-route="/about/">
-          About
-          <mdui-icon src="/icon/person.svg" slot="icon"></mdui-icon>
-        </mdui-list-item>
-        <mdui-list-item rounded href="/status/" class="nav-item-status" data-route="/status/">
-          Status
-          <mdui-icon src="/icon/monitoring.svg" slot="icon"></mdui-icon>
-        </mdui-list-item>
+      <mdui-list class="navigation-drawer-list" id="sidebar-list">
+        <!-- Sidebar items rendered dynamically from sidebar config -->
       </mdui-list>
       </div>
     </mdui-navigation-drawer>
@@ -99,8 +72,16 @@
     let blogConfig = null;
     let allPosts = null;
 
-    // ===== Bilingual support =====
-    const _LANG = navigator.language.startsWith('zh') ? 'zh' : 'en';
+    // ===== Multilingual support (UN 6 languages) =====
+    const _LANG = (function() {
+      var lang = navigator.language || navigator.userLanguage || '';
+      if (lang.startsWith('zh')) return 'zh';
+      if (lang.startsWith('fr')) return 'fr';
+      if (lang.startsWith('es')) return 'es';
+      if (lang.startsWith('ru')) return 'ru';
+      if (lang.startsWith('ar')) return 'ar';
+      return 'en';
+    })();
     let _T = {};
 
     // Minimal YAML parser for our flat structure
@@ -133,12 +114,16 @@
 
     // English fallback for initial render before YAML loads
     const _EN_FALLBACK = {
-      home:'Home', posts:'Posts', tags:'Tags', categories:'Categories',
-      moments:'Moments', about:'About', status:'Status', archives:'Archives',
-      allPosts:'Posts', allPostsDesc:'All posts of the blog',
-      allTags:'Tags', allTagsDesc:'All tags of the blog',
-      allCats:'Categories', allCatsDesc:'All categories of the blog',
-      allArchives:'Archives', allArchivesDesc:'All archived posts',
+      site_name:'Blog', site_desc:'A simple and elegant theme.',
+      nav_home:'Home', nav_posts:'Posts', nav_tags:'Tags',
+      nav_categories:'Categories', nav_moments:'Moments', nav_about:'About',
+      nav_archives:'Archives',
+      page_posts:'Posts', page_posts_desc:'All posts of the blog',
+      page_tags:'Tags', page_tags_desc:'All tags of the blog',
+      page_categories:'Categories', page_categories_desc:'All categories of the blog',
+      page_moments:'Moments', page_moments_desc:'Moments',
+      page_archives:'Archives', page_archives_desc:'All archived posts',
+      status:'Status', statusDesc:'Service Status',
       loading:'Loading...', networkError:'Network error',
       commentSuccess:'Comment submitted successfully', commentFail:'Failed to submit comment',
       nickName:'Nick Name', email:'Email', website:'Website (optional)',
@@ -152,28 +137,24 @@
     function getTags(p) { return _LANG === 'en' && p.tags_en && p.tags_en.length ? p.tags_en : (p.tags || []); }
     function getCats(p) { return _LANG === 'en' && p.categories_en && p.categories_en.length ? p.categories_en : (p.categories || []); }
 
-    // Update nav labels after config load
-    function updateNavLabels() {
-      document.querySelectorAll('.navigation-drawer-list mdui-list-item').forEach(function(item) {
-        var route = item.getAttribute('data-route');
-        var key = null;
-        if (route === '/') key = 'home';
-        else if (route === '/posts/') key = 'posts';
-        else if (route === '/tags/') key = 'tags';
-        else if (route === '/categories/') key = 'categories';
-        else if (route === '/talks/') key = 'moments';
-        else if (route === '/about/') key = 'about';
-        else if (route === '/status/') key = 'status';
-        else if (route === '/archives/') key = 'archives';
-        if (key) {
-          var textNode = item.childNodes[0];
-          if (textNode) textNode.textContent = _(key);
-        }
+    // Build sidebar from config and update nav labels
+    function renderSidebar() {
+      var list = document.getElementById('sidebar-list');
+      if (!list || !blogConfig || !blogConfig.menu) return;
+      var html = '';
+      blogConfig.menu.forEach(function(item) {
+        var label = _(item.text_key) || item.text_key;
+        html += '<mdui-list-item rounded href="' + item.route + '" data-route="' + item.route + '">' +
+                label +
+                '<mdui-icon src="' + item.icon + '" slot="icon"></mdui-icon>' +
+                '</mdui-list-item>';
       });
+      list.innerHTML = html;
+
       var navName = document.getElementById('nav-name');
       var navSlogan = document.getElementById('nav-slogan');
-      if (navName) navName.textContent = _LANG === 'zh' ? '博客' : 'Blog';
-      if (navSlogan) navSlogan.textContent = _LANG === 'zh' ? '简单优雅的主题。' : 'A simple and elegant theme.';
+      if (navName) navName.textContent = _(blogConfig.name_key || 'site_name');
+      if (navSlogan) navSlogan.textContent = _(blogConfig.desc_key || 'site_desc');
     }
 
     // ===== Helpers =====
@@ -253,8 +234,8 @@
       const navAvatar = document.getElementById('nav-avatar');
       if (navAvatar && blogConfig.avatar) navAvatar.src = blogConfig.avatar;
       document.title = blogConfig.title || 'Blog Material You';
-      // Update bilingual nav labels
-      updateNavLabels();
+      // Build sidebar and update multilingual labels
+      renderSidebar();
       return blogConfig;
     }
 
@@ -373,8 +354,8 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('allPosts')}</div>
-          <div class="header-content">${_('allPostsDesc')}</div>
+          <div class="header-title">${_('page_posts')}</div>
+          <div class="header-content">${_('page_posts_desc')}</div>
         </mdui-card>
       `;
 
@@ -472,8 +453,8 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('allTags')}</div>
-          <div class="header-content">${_('allTagsDesc')}</div>
+          <div class="header-title">${_('page_tags')}</div>
+          <div class="header-content">${_('page_tags_desc')}</div>
         </mdui-card>
         <div class="tags-container">
       `;
@@ -493,8 +474,8 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('allCats')}</div>
-          <div class="header-content">${_('allCatsDesc')}</div>
+          <div class="header-title">${_('page_categories')}</div>
+          <div class="header-content">${_('page_categories_desc')}</div>
         </mdui-card>
         <div class="tags-container">
       `;
@@ -539,8 +520,8 @@
       let html = `
         <style>@import url('/css/header-card.css');</style>
         <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('allArchives')}</div>
-          <div class="header-content">${_('allArchivesDesc')}</div>
+          <div class="header-title">${_('page_archives')}</div>
+          <div class="header-content">${_('page_archives_desc')}</div>
         </mdui-card>
       `;
       Object.keys(archives).sort().reverse().forEach(function(year) {
@@ -604,8 +585,8 @@
         </style>
         <div class="content">
           <mdui-card variant="elevated" class="about-header">
-            <div class="about-title">${_('moments')}</div>
-            <div class="about-description">${_('momentsDesc')}</div>
+            <div class="about-title">${_('page_moments')}</div>
+            <div class="about-description">${_('page_moments_desc')}</div>
           </mdui-card>
           ${items}
           <hr>

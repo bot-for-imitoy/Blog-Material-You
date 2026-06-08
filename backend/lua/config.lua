@@ -1,8 +1,7 @@
 --[[
   config.lua — Blog configuration module.
-  Admin credentials are stored encrypted in blog/data/admin.json.
-  Sensitive values can also be overridden via environment variables:
-    BMY_SESSION_SECRET — HMAC signing key (fallback: hardcoded default)
+  All user-facing text uses locale keys (translated in locales.yml).
+  The menu defines the sidebar navigation — each item refers to a locale key.
 ]]
 local _M = {}
 
@@ -13,37 +12,78 @@ local function env(key, default)
 end
 
 _M.data = {
-    name = "Blog Material You",
-    slogan = "Material You, Your Blog.",
-    description = "A blog themed with Material You Design.",
-    index_description = "A blog built with MDUI 2 and Material Design 3.",
-    title = "Blog Material You",
+    -- Sidebar header (locale keys)
+    name_key = "site_name",
+    desc_key = "site_desc",
+
+    -- Avatar
     avatar = "/img/avatar.png",
+
+    -- Blog info
+    title = "Blog Material You",
     github = "https://github.com/",
 
     -- Admin credentials loaded from encrypted store at runtime.
-    -- See admin_store.lua and blog/data/admin.json.
-    admin_user = "",    -- populated by login.lua
-    admin_pass = "",    -- NOT USED for auth; kept for backward compat
+    admin_user = "",
+    admin_pass = "",
 
-    -- Session token HMAC secret (must be set via BMY_SESSION_SECRET env var)
-    -- Docker entrypoint auto-generates this on startup; no hardcoded fallback.
+    -- Session token HMAC secret
     session_secret = env("BMY_SESSION_SECRET", nil),
 
+    -- Sidebar navigation menu
+    -- Each item: { text_key, page_title_key?, page_desc_key?, icon, route }
+    -- If page_desc_key is omitted or empty, the description element is hidden.
     menu = {
-        { name = "Home",       url = "/",          icon = "/icon/home.svg",    id = "home" },
-        { name = "Posts",      url = "/posts/",    icon = "/icon/article.svg", id = "posts",
-          page = { name = "Posts", description = "All posts of the blog." } },
-        { name = "Tags",       url = "/tags/",     icon = "/icon/tag.svg",     id = "tags",
-          page = { name = "Tags", description = "All tags of the blog." } },
-        { name = "Moments",    url = "/talks/",    icon = "/icon/chat.svg",    id = "talks",
-          page = { name = "Moments", description = "Moments" } },
-        { name = "About",      url = "/about/",    icon = "/icon/person.svg",  id = "about" },
-        { name = "Categories", url = "/categories/", icon = "/icon/category.svg", id = "categories",
-          page = { name = "Categories", description = "All categories of the blog." } },
-        { name = "Archives",   url = "/archives/", icon = "/icon/archive.svg", id = "archives",
-          page = { name = "Archives", description = "All archived posts" } },
-    }
+        {
+            text_key = "nav_home",
+            page_title_key = nil,
+            page_desc_key = nil,
+            icon = "/icon/home.svg",
+            route = "/",
+        },
+        {
+            text_key = "nav_posts",
+            page_title_key = "page_posts",
+            page_desc_key = "page_posts_desc",
+            icon = "/icon/article.svg",
+            route = "/posts/",
+        },
+        {
+            text_key = "nav_tags",
+            page_title_key = "page_tags",
+            page_desc_key = "page_tags_desc",
+            icon = "/icon/tag.svg",
+            route = "/tags/",
+        },
+        {
+            text_key = "nav_categories",
+            page_title_key = "page_categories",
+            page_desc_key = "page_categories_desc",
+            icon = "/icon/category.svg",
+            route = "/categories/",
+        },
+        {
+            text_key = "nav_moments",
+            page_title_key = "page_moments",
+            page_desc_key = "page_moments_desc",
+            icon = "/icon/chat.svg",
+            route = "/talks/",
+        },
+        {
+            text_key = "nav_about",
+            page_title_key = nil,
+            page_desc_key = nil,
+            icon = "/icon/person.svg",
+            route = "/about/",
+        },
+        {
+            text_key = "nav_archives",
+            page_title_key = "page_archives",
+            page_desc_key = "page_archives_desc",
+            icon = "/icon/archive.svg",
+            route = "/archives/",
+        },
+    },
 }
 
 function _M.get()
