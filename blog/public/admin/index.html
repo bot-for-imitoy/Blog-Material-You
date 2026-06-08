@@ -319,9 +319,7 @@
     function bindEventListeners() {
       document.querySelectorAll('[data-action]').forEach(el => {
         el.addEventListener('click', function(e) {
-          // Try to get action from the target element or its closest [data-action] parent
-          var target = e.target.closest('[data-action]');
-          if (!target) return;
+          const target = e.currentTarget;
           const action = target.dataset.action;
           const args = target.dataset.args;
           if (action === 'edit-post') editPost(args);
@@ -608,13 +606,17 @@
     async function deletePost(slug) {
       if (!confirm('确定删除 "' + slug + '"？')) return;
       const res = await api('/posts?slug=' + encodeURIComponent(slug), { method: 'DELETE' });
-      if (res.errno === 0) { toast('已删除'); renderContent(); }
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已删除'); renderContent(); }
       else toast('删除失败');
     }
 
     async function toggleArchive(slug) {
       const res = await api('/posts', { method: 'PATCH', body: JSON.stringify({ slug }) });
-      if (res.errno === 0) { toast('操作成功 ✓，重启 OpenResty 后生效'); renderContent(); }
+      if (res.errno === 0) {
+        await api('/reload', { method: 'POST' });
+        toast('操作成功 ✓');
+        renderContent();
+      }
       else toast('操作失败: ' + (res.errmsg || ''));
     }
 
@@ -683,7 +685,7 @@
         method,
         body: JSON.stringify({ slug, title, date, tags, categories, cover, content, title_en: titleEn, tags_en: tagsEn, categories_en: catsEn, content_en: contentEn })
       });
-      if (res.errno === 0) { toast('保存成功 ✓'); renderContent(); }
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('保存成功 ✓'); renderContent(); }
       else toast('保存失败: ' + (res.errmsg || ''));
     }
 
@@ -707,7 +709,7 @@
     async function deleteComment(id) {
       if (!confirm('确定删除这条评论？')) return;
       const res = await api('/comments?id=' + id, { method: 'DELETE' });
-      if (res.errno === 0) { toast('已删除'); renderContent(); }
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已删除'); renderContent(); }
       else toast('删除失败');
     }
 
@@ -742,14 +744,14 @@
       const content = document.getElementById('talk-content').value.trim();
       if (!content) { toast('内容不能为空'); return; }
       const res = await api('/talks', { method: 'POST', body: JSON.stringify({ content }) });
-      if (res.errno === 0) { toast('已发布 ✓'); renderContent(); }
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已发布 ✓'); renderContent(); }
       else toast('发布失败');
     }
 
     async function deleteTalk(id) {
       if (!confirm('确定删除这条动态？')) return;
       const res = await api('/talks?id=' + id, { method: 'DELETE' });
-      if (res.errno === 0) { toast('已删除'); renderContent(); }
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已删除'); renderContent(); }
       else toast('删除失败');
     }
 
@@ -802,7 +804,7 @@
         method: 'PUT',
         body: JSON.stringify({ slug, title, content, title_en: titleEn, content_en: contentEn })
       });
-      if (res.errno === 0) { toast('页面已保存 ✓'); renderContent(); }
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('页面已保存 ✓'); renderContent(); }
       else toast('保存失败');
     }
 

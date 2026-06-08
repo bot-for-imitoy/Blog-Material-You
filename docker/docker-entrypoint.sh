@@ -16,6 +16,9 @@ if [ -x /usr/sbin/nginx ]; then
     # Ensure data directories have correct permissions
     chmod 775 /app/blog/data 2>/dev/null || true  # nginx writes admin.json here
     chown :nginx /app/blog/data 2>/dev/null || true
+    # Posts and pages bind mounts: make group-writable for nginx worker
+    chmod -R g+w /app/blog/posts /app/blog/pages 2>/dev/null || true
+    chown -R :nginx /app/blog/posts /app/blog/pages 2>/dev/null || true
 elif [ -x /opt/openresty/bin/openresty ]; then
     NGINX_BIN=/opt/openresty/bin/openresty
     NGINX_CONF=/app/backend/conf/nginx.conf

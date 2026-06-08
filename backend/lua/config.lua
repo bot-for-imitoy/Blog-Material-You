@@ -27,8 +27,8 @@ _M.data = {
     admin_user = "",
     admin_pass = "",
 
-    -- Session token HMAC secret
-    session_secret = env("BMY_SESSION_SECRET", nil),
+    -- Session token HMAC secret (default for dev, always override in production)
+    session_secret = env("BMY_SESSION_SECRET", "bmy-default-dev-secret-2024"),
 
     -- Sidebar navigation menu
     -- Each item: { text_key, page_title_key?, page_desc_key?, icon, route }

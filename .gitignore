@@ -1,9 +1,7 @@
 # Blog Material You .gitignore
 
 # Runtime data
-blog/data/mysql/
-blog/data/auth/
-blog/data/calendar/
+blog/data/
 backend/logs/
 backend/tmp/
 backend/data/
