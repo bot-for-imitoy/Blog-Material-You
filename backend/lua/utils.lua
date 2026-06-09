@@ -87,11 +87,30 @@ function _M.strip_html(str)
     return str:gsub("<[^>]*>", "")
 end
 
--- Truncate text to a given length
-function _M.truncate(str, len)
+-- Truncate text to a given number of UTF-8 characters
+function _M.truncate(str, max_chars)
     if not str then return "" end
-    if #str <= len then return str end
-    return str:sub(1, len) .. "..."
+    local total_bytes = #str
+    local chars = 0
+    local pos = 1
+    while pos <= total_bytes do
+        local byte = string.byte(str, pos)
+        chars = chars + 1
+        if chars > max_chars then
+            return str:sub(1, pos - 1) .. "..."
+        end
+        -- Advance past this UTF-8 character
+        if byte < 128 then
+            pos = pos + 1           -- 1-byte ASCII
+        elseif byte < 224 then
+            pos = pos + 2           -- 2-byte
+        elseif byte < 240 then
+            pos = pos + 3           -- 3-byte (CJK, etc.)
+        else
+            pos = pos + 4           -- 4-byte
+        end
+    end
+    return str
 end
 
 -- Trim whitespace
