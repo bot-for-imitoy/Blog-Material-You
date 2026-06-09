@@ -181,10 +181,12 @@ end
 function _M.load_by_tag(tag, all_posts)
     local result = {}
     for _, post in ipairs(all_posts) do
-        for _, t in ipairs(post.tags) do
-            if t == tag then
-                table.insert(result, post)
-                break
+        if type(post.tags) == "table" then
+            for _, t in ipairs(post.tags) do
+                if t == tag then
+                    table.insert(result, post)
+                    break
+                end
             end
         end
     end
@@ -195,10 +197,12 @@ end
 function _M.load_by_category(cat, all_posts)
     local result = {}
     for _, post in ipairs(all_posts) do
-        for _, c in ipairs(post.categories) do
-            if c == cat then
-                table.insert(result, post)
-                break
+        if type(post.categories) == "table" then
+            for _, c in ipairs(post.categories) do
+                if c == cat then
+                    table.insert(result, post)
+                    break
+                end
             end
         end
     end
@@ -209,8 +213,10 @@ end
 function _M.build_tag_index(all_posts)
     local tags = {}
     for _, post in ipairs(all_posts) do
-        for _, tag in ipairs(post.tags) do
-            tags[tag] = (tags[tag] or 0) + 1
+        if type(post.tags) == "table" then
+            for _, t in ipairs(post.tags) do
+                tags[t] = (tags[t] or 0) + 1
+            end
         end
     end
     return tags
@@ -220,8 +226,10 @@ end
 function _M.build_category_index(all_posts)
     local cats = {}
     for _, post in ipairs(all_posts) do
-        for _, cat in ipairs(post.categories) do
-            cats[cat] = (cats[cat] or 0) + 1
+        if type(post.categories) == "table" then
+            for _, cat in ipairs(post.categories) do
+                cats[cat] = (cats[cat] or 0) + 1
+            end
         end
     end
     return cats

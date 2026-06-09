@@ -23,17 +23,19 @@ end
 local all_posts = cjson.decode(raw)
 local result = {}
 for _, post in ipairs(all_posts) do
-    for _, t in ipairs(post.tags) do
-        if t == tag then
-            table.insert(result, {
-                slug = post.slug,
-                title = post.title,
-                date = post.date_formatted or post.date,
-                tags = post.tags,
-                categories = post.categories,
-                cover = post.cover,
-            })
-            break
+    if type(post.tags) == "table" then
+        for _, t in ipairs(post.tags) do
+            if t == tag then
+                table.insert(result, {
+                    slug = post.slug,
+                    title = post.title,
+                    date = post.date_formatted or post.date,
+                    tags = post.tags,
+                    categories = post.categories,
+                    cover = post.cover,
+                })
+                break
+            end
         end
     end
 end

@@ -3,6 +3,7 @@ local cjson = require("cjson")
 local posts = require("posts")
 local admin_auth = require("admin_auth")
 local security = require("security")
+local utils = require("utils")
 
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
@@ -21,11 +22,10 @@ if ngx.req.get_method() == "GET" then
 
 elseif ngx.req.get_method() == "POST" then
     -- Create a new post
-    ngx.req.read_body()
-    local body = ngx.req.get_body_data()
+    local body, err = utils.read_request_body()
     if not body then
         ngx.status = 400
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Empty body" }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = err or "Empty body" }))
         return
     end
 
@@ -81,11 +81,10 @@ elseif ngx.req.get_method() == "POST" then
 
 elseif ngx.req.get_method() == "PUT" then
     -- Update an existing post
-    ngx.req.read_body()
-    local body = ngx.req.get_body_data()
+    local body, err = utils.read_request_body()
     if not body then
         ngx.status = 400
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Empty body" }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = err or "Empty body" }))
         return
     end
 
@@ -160,11 +159,10 @@ elseif ngx.req.get_method() == "DELETE" then
 
 elseif ngx.req.get_method() == "PATCH" then
     -- Toggle archive status
-    ngx.req.read_body()
-    local body = ngx.req.get_body_data()
+    local body, err = utils.read_request_body()
     if not body then
         ngx.status = 400
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Empty body" }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = err or "Empty body" }))
         return
     end
     local ok, data = pcall(cjson.decode, body)

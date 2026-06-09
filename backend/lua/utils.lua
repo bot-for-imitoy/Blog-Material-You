@@ -81,6 +81,27 @@ function _M.parse_frontmatter(yaml_str)
     return result
 end
 
+-- Read request body, handling both in-memory and temp-file cases
+-- Returns the body string or nil + error message
+function _M.read_request_body()
+    ngx.req.read_body()
+    local body = ngx.req.get_body_data()
+    if body then
+        return body
+    end
+    local filepath = ngx.req.get_body_file()
+    if filepath then
+        local f, err = io.open(filepath, "r")
+        if f then
+            body = f:read("*all")
+            f:close()
+            return body
+        end
+        return nil, "Cannot read body file: " .. (err or "unknown")
+    end
+    return nil, "Empty body"
+end
+
 -- Strip HTML tags
 function _M.strip_html(str)
     if not str then return "" end
