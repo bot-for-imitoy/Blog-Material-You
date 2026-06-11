@@ -1,13 +1,13 @@
 --[[
   imghost.lua — SFTP image hosting module.
+  Config stored in DB config table (key: "imghost_config").
   Uses scp command to upload images to a remote SFTP server.
-  Config stored in data/imghost.json.
 ]]
 local cjson = require("cjson")
-
+local db = require("db")
 local _M = {}
 
-local CONFIG_PATH = ngx.config.prefix() .. "data/imghost.json"
+local CONFIG_KEY = "imghost_config"
 
 -- Default config
 local DEFAULT_CONFIG = {
@@ -21,18 +21,16 @@ local DEFAULT_CONFIG = {
     filename_template = "{yy}-{mm}-{dd}.{file_extension}"
 }
 
--- Load config from file
+-- Load config from DB
 function _M.load_config()
-    local f, err = io.open(CONFIG_PATH, "r")
-    if not f then
-        -- Return defaults if file doesn't exist
+    local res, err = db.query("SELECT `value` FROM config WHERE `key` = ?", {CONFIG_KEY})
+    if not res or #res == 0 then
+        -- Return defaults if no entry exists
         local cfg = {}
         for k, v in pairs(DEFAULT_CONFIG) do cfg[k] = v end
         return cfg
     end
-    local content = f:read("*a")
-    f:close()
-    local ok, cfg = pcall(cjson.decode, content)
+    local ok, cfg = pcall(cjson.decode, res[1].value)
     if not ok or type(cfg) ~= "table" then
         local cfg = {}
         for k, v in pairs(DEFAULT_CONFIG) do cfg[k] = v end
@@ -45,7 +43,7 @@ function _M.load_config()
     return cfg
 end
 
--- Save config to file
+-- Save config to DB
 function _M.save_config(cfg)
     -- Validate required fields when enabled
     if cfg.enabled then
@@ -69,16 +67,15 @@ function _M.save_config(cfg)
         end
     end
 
-    local dir = ngx.config.prefix() .. "data"
-    local cmd = "mkdir -p " .. dir
-    os.execute(cmd)
-
-    local f, err = io.open(CONFIG_PATH, "w")
-    if not f then
-        return nil, "无法写入配置文件: " .. (err or "")
+    local value = cjson.encode(cfg)
+    local now = os.time()
+    local res, err = db.query(
+        "REPLACE INTO config (`key`, `value`, updated_at) VALUES (?, ?, ?)",
+        {CONFIG_KEY, value, now}
+    )
+    if not res then
+        return nil, "无法写入配置: " .. (err or "")
     end
-    f:write(cjson.encode(cfg))
-    f:close()
     return true
 end
 
@@ -148,11 +145,11 @@ function _M.upload(temp_path, original_filename)
     local cmd = string.format(
         "scp%s -i '%s' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes '%s' '%s@%s:%s' 2>&1",
         port_arg,
-        cfg.ssh_key_path:gsub("'", "'\\''"),
-        temp_path:gsub("'", "'\\''"),
-        cfg.username:gsub("'", "'\\''"),
-        cfg.host:gsub("'", "'\\''"),
-        remote_path:gsub("'", "'\\''")
+        cfg.ssh_key_path:gsub("'", "'\\\\''"),
+        temp_path:gsub("'", "'\\\\''"),
+        cfg.username:gsub("'", "'\\\\''"),
+        cfg.host:gsub("'", "'\\\\''"),
+        remote_path:gsub("'", "'\\\\''")
     )
 
     local handle = io.popen(cmd)
@@ -186,9 +183,9 @@ function _M.test_connection()
     local cmd = string.format(
         "ssh%s -i '%s' -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o BatchMode=yes -o ConnectTimeout=10 '%s@%s' 'echo OK' 2>&1",
         port_arg,
-        cfg.ssh_key_path:gsub("'", "'\\''"),
-        cfg.username:gsub("'", "'\\''"),
-        cfg.host:gsub("'", "'\\''")
+        cfg.ssh_key_path:gsub("'", "'\\\\''"),
+        cfg.username:gsub("'", "'\\\\''"),
+        cfg.host:gsub("'", "'\\\\''")
     )
 
     local handle = io.popen(cmd)

@@ -1,15 +1,15 @@
 --[[
   admin_store.lua — Encrypted admin credentials store.
-  File: blog/data/admin.json
+  Stored in DB config table (key: "admin_creds") instead of admin.json.
   Uses AES-256-CBC: password-derived key encrypts a fixed verification token.
-  If the file doesn't exist, the blog is in "uninitialized" state.
+  If no entry exists, the blog is in "uninitialized" state.
 ]]
 local cjson = require("cjson")
 local aes = require("resty.aes")
+local db = require("db")
 local _M = {}
 
-local STORE_DIR = ngx.config.prefix() .. "../blog/data"
-local STORE_FILE = STORE_DIR .. "/admin.json"
+local CONFIG_KEY = "admin_creds"
 local VERIFY_TEXT = "BLOG-ADMIN-VERIFIED"
 
 -- Encrypt password -> store entry
@@ -51,24 +51,24 @@ function _M.verify(stored, input_password)
     return decrypted == VERIFY_TEXT
 end
 
--- Read store from disk
+-- Read store from DB
 function _M.read()
-    local f = io.open(STORE_FILE, "r")
-    if not f then return nil end
-    local content = f:read("*all")
-    f:close()
-    local ok, data = pcall(cjson.decode, content)
+    local res, err = db.query("SELECT `value` FROM config WHERE `key` = ?", {CONFIG_KEY})
+    if not res or #res == 0 then return nil end
+    local ok, data = pcall(cjson.decode, res[1].value)
     if not ok then return nil end
     return data
 end
 
--- Write store to disk
+-- Write store to DB
 function _M.write(data)
-    os.execute("mkdir -p " .. STORE_DIR)
-    local f = io.open(STORE_FILE, "w")
-    if not f then return nil, "Cannot write store" end
-    f:write(cjson.encode(data))
-    f:close()
+    local value = cjson.encode(data)
+    local now = os.time()
+    local res, err = db.query(
+        "REPLACE INTO config (`key`, `value`, updated_at) VALUES (?, ?, ?)",
+        {CONFIG_KEY, value, now}
+    )
+    if not res then return nil, "Cannot write store: " .. (err or "unknown") end
     return true
 end
 

@@ -48,14 +48,9 @@ for _, p in ipairs(pending) do
 end
 
 -- Add to pending
-table.insert(pending, {
-  email = email,
-  time = os.time(),
-  name = data.name or ""
-})
-data_store.write_json("auth/pending.json", pending)
+data_store.add_pending(email, data.name or "")
 
 ngx.say(cjson.encode({
-  errno = 0,
-  data = { message = "注册请求已提交，请等待管理员审核" }
+    errno = 0,
+    data = { message = "注册请求已提交，请等待管理员审核" }
 }))

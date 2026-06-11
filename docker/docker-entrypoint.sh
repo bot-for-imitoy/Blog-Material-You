@@ -36,6 +36,10 @@ fi
 
 # ===== Start MariaDB =====
 echo "Starting MariaDB..."
+
+# Remove stale socket from previous run (volume persists it, fools readiness check)
+rm -f "$DB_SOCKET"
+
 mariadbd \
     --datadir="$DB_DIR" \
     --socket="$DB_SOCKET" \
@@ -45,17 +49,22 @@ mariadbd \
     --pid-file=/tmp/mariadb.pid &
 MARIADB_PID=$!
 
-# Wait for MariaDB socket
-for i in $(seq 1 15); do
-    if [ -S "$DB_SOCKET" ]; then
+# Wait for MariaDB to actually accept connections (not just create socket file)
+MYSQL_CMD="mariadb --socket=$DB_SOCKET"
+for i in $(seq 1 30); do
+    if $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
         echo "MariaDB ready (PID: $MARIADB_PID)"
         break
     fi
     sleep 1
 done
 
-if [ ! -S "$DB_SOCKET" ]; then
-    echo "ERROR: MariaDB failed to start"
+if ! $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
+    echo "ERROR: MariaDB failed to start within 30 seconds"
+    # Dump error log for debugging
+    if [ -f "$DB_DIR/$(hostname).err" ]; then
+        tail -30 "$DB_DIR/$(hostname).err"
+    fi
     exit 1
 fi
 
@@ -70,12 +79,157 @@ if [ -z "$DB_EXISTS" ]; then
     rm -f /app/blog/data/admin.json 2>/dev/null || true
     echo "Database initialized"
 else
-    echo "Database already exists, skipping init"
+    echo "Database already exists, applying any pending schema migrations..."
+    # Run only the DDL portion (CREATE TABLE IF NOT EXISTS — safe to re-run)
+    $MYSQL_CMD blogyou -e "
+        CREATE TABLE IF NOT EXISTS config (
+            \`key\` VARCHAR(100) PRIMARY KEY,
+            \`value\` TEXT NOT NULL,
+            updated_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        CREATE TABLE IF NOT EXISTS emails (
+            email VARCHAR(255) PRIMARY KEY,
+            permissions TEXT NOT NULL DEFAULT '[]',
+            created_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        CREATE TABLE IF NOT EXISTS pending_registrations (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(255) NOT NULL,
+            \`name\` VARCHAR(100) NOT NULL DEFAULT '',
+            created_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        CREATE TABLE IF NOT EXISTS calendar_events (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL DEFAULT '',
+            \`date\` VARCHAR(20) NOT NULL,
+            description TEXT,
+            color VARCHAR(20) DEFAULT '',
+            created_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        CREATE TABLE IF NOT EXISTS page_content (
+            slug VARCHAR(100) PRIMARY KEY,
+            content_en TEXT,
+            updated_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    "
+    echo "Schema migration done"
 fi
 
 # Ensure nginx worker can access MySQL socket (directory gets 700 on fresh volume)
 chmod 755 "$DB_DIR" 2>/dev/null || true
 chown -R mysql:mysql "$DB_DIR" 2>/dev/null || true
+
+# ===== Run JSON→DB migration (if not yet done) =====
+echo "Running JSON→DB migration if needed..."
+
+# Write migration script to temp file to avoid inline quoting hell
+cat > /tmp/migrate.lua << 'LUA_SCRIPT'
+package.cpath = package.cpath .. ";/usr/lib/nginx/lualib/?.so"
+local cjson = require("cjson")
+local DB_SOCKET = "/app/blog/data/mysql/mysql.sock"
+local DATA_DIR  = "/app/blog/data"
+
+local function run(sql)
+    local f = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N 2>/dev/null", "w")
+    if f then f:write(sql); f:close() end
+end
+
+local function readfile(path)
+    local f = io.open(path, "r")
+    if not f then return nil end
+    local c = f:read("*a"); f:close()
+    return c
+end
+
+-- Check if already done
+local h = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT 1 FROM config WHERE `key`='_migration_done_v1'\" 2>/dev/null")
+local already = h and h:read("*a") or ""
+if h then h:close() end
+if already:match("1") then io.stderr:write("[migrate] Already done\n"); return end
+
+io.stderr:write("[migrate] Starting migration...\n")
+
+-- 1) Config blobs
+local function mig_cfg(key, file)
+    local c = readfile(file)
+    if not c then return end
+    local q = c:gsub("'", "''")
+    run("REPLACE INTO config (`key`, `value`, updated_at) VALUES ('" .. key .. "','" .. q .. "'," .. os.time() .. ");\n")
+    io.stderr:write("[migrate] OK " .. file .. "\n")
+end
+
+mig_cfg("admin_creds", DATA_DIR .. "/admin.json")
+mig_cfg("totp_state", DATA_DIR .. "/totp.json")
+mig_cfg("imghost_config", DATA_DIR .. "/imghost.json")
+
+-- 2) emails.json → emails table
+local c = readfile(DATA_DIR .. "/auth/emails.json")
+if c then
+    local ok, data = pcall(cjson.decode, c)
+    if ok and type(data) == "table" then
+        for email, entry in pairs(data) do
+            local p = cjson.encode(entry.permissions or {})
+            local t = entry.created_at or os.time()
+            run("REPLACE INTO emails (email, permissions, created_at) VALUES (" .. cjson.encode(email) .. "," .. cjson.encode(p) .. "," .. t .. ");\n")
+        end
+    end
+    io.stderr:write("[migrate] OK auth/emails.json\n")
+end
+
+-- 3) pending.json → pending_registrations
+c = readfile(DATA_DIR .. "/auth/pending.json")
+if c then
+    local ok, data = pcall(cjson.decode, c)
+    if ok and type(data) == "table" then
+        for _, entry in ipairs(data) do
+            local t = entry.time or entry.created_at or os.time()
+            run("INSERT IGNORE INTO pending_registrations (email, name, created_at) VALUES (" .. cjson.encode(entry.email) .. "," .. cjson.encode(entry.name or "") .. "," .. t .. ");\n")
+        end
+    end
+    io.stderr:write("[migrate] OK auth/pending.json\n")
+end
+
+-- 4) calendar/events.json
+c = readfile(DATA_DIR .. "/calendar/events.json")
+if c then
+    local ok, data = pcall(cjson.decode, c)
+    if ok and type(data) == "table" then
+        for _, ev in ipairs(data) do
+            run("INSERT INTO calendar_events (title, date, description, color, created_at) VALUES (" .. cjson.encode(ev.title or "") .. "," .. cjson.encode(ev.date or "") .. "," .. cjson.encode(ev.description or "") .. "," .. cjson.encode(ev.color or "") .. "," .. os.time() .. ");\n")
+        end
+    end
+    io.stderr:write("[migrate] OK calendar/events.json\n")
+end
+
+-- 5) pages/*.en.json
+local pages_handle = io.popen("ls /app/blog/pages/*.en.json 2>/dev/null")
+if pages_handle then
+    local count = 0
+    for file in pages_handle:lines() do
+        local slug = file:match("/([^/]+)%.en%.json$")
+        if slug then
+            local fc = readfile(file)
+            if fc then
+                local ok2, parsed = pcall(cjson.decode, fc)
+                if ok2 and parsed then
+                    run("REPLACE INTO page_content (slug, content_en, updated_at) VALUES (" .. cjson.encode(slug) .. "," .. cjson.encode(parsed.content_en or "") .. "," .. os.time() .. ");\n")
+                    count = count + 1
+                end
+            end
+        end
+    end
+    pages_handle:close()
+    io.stderr:write("[migrate] OK pages/*.en.json (" .. count .. ")\n")
+end
+
+-- Mark done
+run("REPLACE INTO config (`key`, `value`, updated_at) VALUES ('_migration_done_v1','1'," .. os.time() .. ");\n")
+io.stderr:write("[migrate] Complete\n")
+LUA_SCRIPT
+
+luajit /tmp/migrate.lua 2>&1
+rm -f /tmp/migrate.lua
+echo "Migration check done"
 
 # ===== Start OpenResty =====
 echo "Starting OpenResty..."

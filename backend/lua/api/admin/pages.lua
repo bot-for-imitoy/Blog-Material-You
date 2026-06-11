@@ -66,13 +66,13 @@ elseif ngx.req.get_method() == "PUT" then
     f:write(fm .. (data.content or ""))
     f:close()
 
-    -- Store English content in separate JSON file
-    local en_filepath = PAGES_DIR .. "/" .. slug .. ".en.json"
-    local en_f, en_err = io.open(en_filepath, "w")
-    if en_f then
-        en_f:write(cjson.encode({ content_en = data.content_en or "" }))
-        en_f:close()
-    end
+    -- Store English content in DB (was pages/*.en.json)
+    local db = require("db")
+    local now = os.time()
+    db.query(
+        "REPLACE INTO page_content (slug, content_en, updated_at) VALUES (?, ?, ?)",
+        {slug, data.content_en or "", now}
+    )
 
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug } }))
 

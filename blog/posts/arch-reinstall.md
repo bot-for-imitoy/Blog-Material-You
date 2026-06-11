@@ -1,0 +1,502 @@
+---
+title: Arch Linux 云服务器极限重装
+date: 2025-11-11
+title_en: 
+content_en: 
+---
+
+# [](<#背景> "背景")背景
+
+前几天买了一台硅云服务器，直接上手了 Arch Linux，这才发现最新的镜像是 2022 年的，MMP，这都什么年头了？问了客服，告诉我 2026 年年初才能更新镜像。没办法，只有两条路了，一个更新，一个重装。
+
+首先，更新，就意味着需要修复 2022~2025 年出现的所有滚挂的错误。我心想还是重装吧。
+
+不过，现在有几大问题：
+
+  1. 硅云不支持自定义镜像，只能使用他们提供的镜像。（TNND 最新的镜像还是 2022 年啊）
+  2. 只有一个系统盘，不能插 USB，想要其他盘只能多交费。
+  3. 内存只有 1G，连 Arch ISO（1.4G）都放不下。
+
+
+
+嗯，看起来挑战挺大的，甚至都没办法了。
+
+# [](<#整理思路> "整理思路")整理思路
+
+~~肯定还是有办法的，不然就不会有这篇文章了~~
+
+既然要重装系统，那肯定是需要一个额外的 Arch Live ISO 环境。我的硅云服务器有一个 VNC 功能，能在开机看到 GRUB 界面，在 GRUB 中可以进入本地的 Arch Live ISO 环境。
+
+因为没有其他盘（也 TNND 不支持自定义镜像），所以就只能通过 GRUB 进入。
+
+那就又产生了一个问题，内存放不下 ISO。~~通过向 Gemini 询问，发现~~ 实际上，ISO 并不是完全复制到内存中，而是只加载一部分到内存中，剩下的部分都是以**挂载** 的方式加载。所以内存中的数据比 1G 要小得多。
+
+不过这就带来了另一个问题，那既然是挂载，那就得保证原文件不被破坏，但是我们还要格盘，那格完挂载的东西不就没了吗？
+
+那就只能不格盘，然后把除了 ISO 文件的其他文件都删咯。
+
+# [](<#操作> "操作")操作
+
+首先下载 ISO 文件
+    
+    
+    1  
+    
+
+| 
+    
+    
+    curl https://mirrors.tuna.tsinghua.edu.cn/archlinux/iso/2025.11.01/archlinux-2025.11.01-x86_64.iso -o /archlinux.iso  
+      
+  
+---|---  
+  
+因为硅云给我限速，所以等了挺长时间的。
+
+然后在 GRUB 中添加使用 ISO 启动：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    vim /etc/grub.d/40_custom  
+      
+  
+---|---  
+  
+加入以下内容：
+    
+    
+    1  
+    2  
+    3  
+    4  
+    5  
+    6  
+    7  
+    
+
+| 
+    
+    
+    menuentry "Arch Linux ISO" {  
+    	set isofile="/archlinux.iso"  
+    	search --set=root --file $isofile  
+    	loopback loop $isofile  
+    	linux (loop)/arch/boot/x86_64/vmlinuz-linux img_dev=/dev/vda2 img_loop=$isofile  
+    	initrd (loop)/arch/boot/x86_64/initramfs-linux.img  
+    }  
+      
+  
+---|---  
+  
+我的云服务使用 BIOS 启动。这里的 `img_dev` 填了 `/dev/vda2`，是因为 `archlinux.iso` 在这个分区内。
+
+然后编辑 `/etc/default/grub`，把开机启动的 GRUB 停留时间改为300秒：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    GRUB_TIMEOUT=300  
+      
+  
+---|---  
+  
+最后生成配置。
+    
+    
+    1  
+    
+
+| 
+    
+    
+    grub-mkconfig -o /boot/grub/grub.cfg  
+      
+  
+---|---  
+  
+重启之前别忘了看一下需要安装什么包，因为有些包可能是云服务器必须安装的。
+    
+    
+    1  
+    
+
+| 
+    
+    
+    pacman -Qe  
+      
+  
+---|---  
+  
+结果如下：（因为我已经装好了，所以实际版本号不是 2022 年的）
+    
+    
+    1  
+    2  
+    3  
+    4  
+    5  
+    6  
+    7  
+    8  
+    9  
+    10  
+    
+
+| 
+    
+    
+    base 3-2  
+    btrfs-progs 6.17.1-1  
+    cloud-guest-utils 0.33-3  
+    cloud-init 25.3-1  
+    grub 2:2.14rc1-2  
+    linux 6.17.7.arch1-1  
+    vim 9.1.1841-1  
+    openresty 1.27.1.2-3  
+    openssh 10.2p1-2  
+    sudo 1.9.17.p2-1  
+      
+  
+---|---  
+  
+好的，记录下来这些软件包，然后重启，重启后进入 GRUB 页面，选择 ISO 启动。
+
+启动之后看到一大堆字符串滚过，引人注意的就是 `cloud-init` 服务，所以先记一下一会要使用 `systemctl` 启动它。
+
+进入之后，首先换源（香港的嘛其实也无所谓了，主要是习惯）
+    
+    
+    1  
+    2  
+    3  
+    
+
+| 
+    
+    
+    cd /etc/pacman.d  
+    rm mirrorlist  
+    vim mirrorlist  
+      
+  
+---|---  
+  
+加入：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    Server = https://mirrors.aliyun.com/archlinux/$repo/os/$arch  
+      
+  
+---|---  
+  
+然后在 `/etc/pacman.conf` 中加入 `multilib` 和 `archlinuxcn`，不加也没事，主要是以后可能会用到：
+    
+    
+    1  
+    2  
+    3  
+    4  
+    5  
+    
+
+| 
+    
+    
+    [multilib]  
+    Include = /etc/pacman.d/mirrorlist  
+      
+    [archlinuxcn]  
+    Server = https://mirrors.aliyun.com/archlinuxcn/$arch  
+      
+  
+---|---  
+  
+运行命令同步
+    
+    
+    1  
+    
+
+| 
+    
+    
+    pacman -Sy  
+      
+  
+---|---  
+  
+然后接下来准备进行安装操作。一般情况下 `/dev/vda2` 会自动挂载到 `/run/archiso/img_dev` 中的，但是是只读挂载。我们需要修改这个分区，就得给读写权限，需要重新挂载：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    mount -o remount,rw /dev/vda2 /run/archiso/img_dev  
+      
+  
+---|---  
+  
+因为内存只有 1G，而且包管理器会把软件包下载到缓存里~~（Gemini 是这么说的，尽管我觉得不是，但还是保险起见）~~ ，所以我们修改一下包管理器的缓存位置，指定到硬盘中：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    vim /etc/pacman.conf  
+      
+  
+---|---  
+  
+然后加入（或者取消注释）：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    CacheDir    = /run/archiso/img_dev/pacman_cache  
+      
+  
+---|---  
+  
+接着，把原系统的内容全都删除。**因为原系统中可能有一些和新系统不一样的配置，所以不建议直接删除。** 我是直接把除了 `/archlinux.iso` 的所有文件都移动到了 `/backup` 文件夹里。
+
+移动之后注入系统：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    pacstrap /run/archiso/img_dev base btrfs-progs cloud-guest-utils cloud-init grub linux vim openresty openssh sudo  
+      
+  
+---|---  
+  
+编译内核的时候可能会失败，提示 `/etc/vconsole.conf` 不存在，不用着急，可以先不下载 `linux` 包，等 `arch-chroot` 进入之后再下载。
+
+进入后在 `/etc/vconsole.conf` 中添加：
+    
+    
+    1  
+    2  
+    
+
+| 
+    
+    
+    KEYMAP=us  
+    FONT=lat9w-16  
+      
+  
+---|---  
+  
+然后再编译内核或者安装 `linux` 包。
+    
+    
+    1  
+    
+
+| 
+    
+    
+    mkinitcpio -P  
+      
+  
+---|---  
+  
+进行常规设置：
+    
+    
+    1  
+    2  
+    3  
+    
+
+| 
+    
+    
+    passwd  
+    vim /etc/sudoers  
+    echo "archlinux" > /etc/hostname  
+      
+  
+---|---  
+  
+~~时区啥的好像就不用设置了吧~~
+
+然后启动一些服务
+    
+    
+    1  
+    2  
+    
+
+| 
+    
+    
+    systemctl enable sshd  
+    systemctl enable cloud-init  
+      
+  
+---|---  
+  
+接着编辑 `/etc/grub.d/40-custom`，把 ISO 添加进去（添加内容和上面一样），防止进不去系统，给自己留一条路。
+
+最后安装 GRUB 配置，因为是 BIOS 启动，所以不能用 EFI。
+    
+    
+    1  
+    2  
+    
+
+| 
+    
+    
+    grub-install --target=i386-pc /dev/vda  
+    grub-mkconfig -o /boot/grub/grub.cfg  
+      
+  
+---|---  
+  
+好，现在应该配置完成了。重启试试
+    
+    
+    1  
+    
+
+| 
+    
+    
+    reboot  
+      
+  
+---|---  
+  
+重启之后发现不能 ssh 远程登录了，不慌~~，先问 Gemini~~
+
+经过查询，我的系统使用 `systemd-networkd` 来管理网络。所以先启动服务：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    sudo systemctl enable --now systemd-networkd  
+      
+  
+---|---  
+  
+然后再添加配置：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    vim /etc/systemd/network/20-static-cloud.network  
+      
+  
+---|---  
+  
+添加：
+    
+    
+    1  
+    2  
+    3  
+    4  
+    5  
+    6  
+    7  
+    8  
+    9  
+    10  
+    11  
+    12  
+    
+
+| 
+    
+    
+    [Match]  
+    Name=ens3 # 网卡名称  
+      
+    [Network]  
+    Address=1.2.3.4/24 # 私网 IP 和掩码，一般在服务台可以查到  
+    Gateway=1.2.3.1    # 网关，一般私网后加 .1 就是  
+    DNS=8.8.8.8  
+    DNS=1.1.1.1  
+      
+    [Route]  
+    Gateway=1.2.3.1  
+    Destination=0.0.0.0/0  
+      
+  
+---|---  
+  
+然后添加 DNS 服务器：
+    
+    
+    1  
+    
+
+| 
+    
+    
+    vim /etc/resolv.conf  
+      
+  
+---|---  
+      
+    
+    1  
+    2  
+    
+
+| 
+    
+    
+    nameserver 8.8.8.8  
+    nameserver 1.1.1.1  
+      
+  
+---|---  
+  
+保存，现在就可以联网了！（尽量重启一下服务或重启服务器）
+
+* * *
+
+Submit
+
+### Comments

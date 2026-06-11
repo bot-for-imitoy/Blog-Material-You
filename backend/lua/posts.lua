@@ -276,14 +276,23 @@ function _M.load_page(slug)
     end
     local post, err = _M.parse_post(filepath)
     if post then
-        -- Load English content from separate JSON file if exists
+        -- Load English content from DB (fallback to file if DB unavailable, e.g. during init_worker)
         local en_content = ""
-        local en_filepath = PAGES_DIR .. "/" .. slug .. ".en.json"
-        local en_data, en_err = utils.read_file(en_filepath)
-        if en_data then
-            local ok, parsed = pcall(cjson.decode, en_data)
-            if ok and parsed and parsed.content_en then
-                en_content = parsed.content_en
+        local ok, res = pcall(function()
+            local db = require("db")
+            return db.query("SELECT content_en FROM page_content WHERE slug = ?", {slug})
+        end)
+        if ok and res and #res > 0 and res[1].content_en then
+            en_content = res[1].content_en
+        else
+            -- Fallback: read from .en.json file (legacy, also works during init_worker)
+            local en_filepath = PAGES_DIR .. "/" .. slug .. ".en.json"
+            local en_data, en_err = utils.read_file(en_filepath)
+            if en_data then
+                local parsed_ok, parsed = pcall(cjson.decode, en_data)
+                if parsed_ok and parsed and parsed.content_en then
+                    en_content = parsed.content_en
+                end
             end
         end
         return {
