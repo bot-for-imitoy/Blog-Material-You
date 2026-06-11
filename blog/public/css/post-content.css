@@ -116,7 +116,7 @@
     mask-size: auto 8px;
 }
 
-.content > table{
+.markdown-content table{
     border-spacing: 0;
     border: 1px solid rgb(var(--mdui-color-outline));
     border-radius: 24px;
@@ -126,32 +126,32 @@
     overflow: hidden;
 }
 
-.content > table th {
+.markdown-content table th {
     padding: 8px 16px;
     background-color: rgb(var(--mdui-color-secondary-container));
     border: 0;
     color: rgb(var(--mdui-color-on-secondary-container));
 }
 
-.content > table th:not(:last-of-type) {
+.markdown-content table th:not(:last-of-type) {
     border-right: 1px solid rgb(var(--mdui-color-outline));
 }
 
-.content > table tr > th {
+.markdown-content table tr > th {
     border-bottom: 1px solid rgb(var(--mdui-color-outline));
 }
 
-.content > table td {
+.markdown-content table td {
     border: 0;
     padding: 8px 16px;
     color: inherit;
 }
 
-.content > table td:not(:last-of-type) {
+.markdown-content table td:not(:last-of-type) {
     border-right: 1px solid rgb(var(--mdui-color-outline));
 }
 
-.content > table tr:not(:last-of-type) > td {
+.markdown-content table tr:not(:last-of-type) > td {
     border-bottom: 1px solid rgb(var(--mdui-color-outline));
 }
 
