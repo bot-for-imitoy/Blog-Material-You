@@ -3,8 +3,8 @@ services:
     build: .
     container_name: blog-material-you
     ports:
-      - "8000:30999"
-      - "8002:31000"
+      - "30999:30999"
+      - "31000:31000"
     volumes:
       # Persist MariaDB data
       - blog_data:/app/blog/data/mysql
