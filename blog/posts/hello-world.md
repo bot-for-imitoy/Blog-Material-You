@@ -1,80 +1,43 @@
 ---
+abbrlink: ''
+categories: []
+date: ''
+tags: []
 title: Hello World
-date: 2026-06-09
-title_en: 
-content_en: 
+updated: '2026-03-13T17:43:00.610+08:00'
 ---
+Welcome to [Hexo](https://hexo.io/)! This is your very first post. Check [documentation](https://hexo.io/docs/) for more info. If you get any problems when using Hexo, you can find the answer in [troubleshooting](https://hexo.io/docs/troubleshooting.html) or you can ask me on [GitHub](https://github.com/hexojs/hexo/issues).
 
-Welcome to [Hexo](<https://hexo.io/>)! This is your very first post. Check [documentation](<https://hexo.io/docs/>) for more info. If you get any problems when using Hexo, you can find the answer in [troubleshooting](<https://hexo.io/docs/troubleshooting.html>) or you can ask me on [GitHub](<https://github.com/hexojs/hexo/issues>).
+## Quick Start
 
-## [](<#Quick-Start> "Quick Start")Quick Start
+### Create a new post
 
-### [](<#Create-a-new-post> "Create a new post")Create a new post
-    
-    
-    1  
-    
+```bash
+$ hexo new "My New Post"
+```
 
-| 
-    
-    
-    $ hexo new "My New Post"  
-      
-  
----|---  
-  
-More info: [Writing](<https://hexo.io/docs/writing.html>)
+More info: [Writing](https://hexo.io/docs/writing.html)
 
-### [](<#Run-server> "Run server")Run server
-    
-    
-    1  
-    
+### Run server
 
-| 
-    
-    
-    $ hexo server  
-      
-  
----|---  
-  
-More info: [Server](<https://hexo.io/docs/server.html>)
+```bash
+$ hexo server
+```
 
-### [](<#Generate-static-files> "Generate static files")Generate static files
-    
-    
-    1  
-    
+More info: [Server](https://hexo.io/docs/server.html)
 
-| 
-    
-    
-    $ hexo generate  
-      
-  
----|---  
-  
-More info: [Generating](<https://hexo.io/docs/generating.html>)
+### Generate static files
 
-### [](<#Deploy-to-remote-sites> "Deploy to remote sites")Deploy to remote sites
-    
-    
-    1  
-    
+```bash
+$ hexo generate
+```
 
-| 
-    
-    
-    $ hexo deploy  
-      
-  
----|---  
-  
-More info: [Deployment](<https://hexo.io/docs/one-command-deployment.html>)
+More info: [Generating](https://hexo.io/docs/generating.html)
 
-* * *
+### Deploy to remote sites
 
-Submit
+```bash
+$ hexo deploy
+```
 
-### Comments
+More info: [Deployment](https://hexo.io/docs/one-command-deployment.html)
