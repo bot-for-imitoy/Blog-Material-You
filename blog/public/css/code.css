@@ -76,8 +76,16 @@
     background-color: rgba(var(--mdui-color-primary-container), 0.3);
 }
 
+/* Inline code — only applies to <code> NOT inside <pre> (code blocks) */
 code {
     background-color: rgb(var(--mdui-color-secondary-container));
     padding: 2px 4px;
     border-radius: 8px;
+}
+
+/* Code blocks (<pre><code>) reset inline code styles */
+pre code {
+    background: none;
+    padding: 0;
+    border-radius: 0;
 }
