@@ -413,11 +413,10 @@
         ? '<img src="' + post.cover + '" alt="' + escapeHtml(postTitle) + '" class="post-header-cover post-header-meta">'
         : '';
 
+      loadCSS('/css/post-content.css');
+      loadCSS('/css/code.css');
       const html = `
-        <style>
-          @import url('/css/post-content.css');
-          @import url('/css/code.css');
-        </style>
+        <style></style>
         <mdui-snackbar class="snackbar-network-error">${_('networkError')}</mdui-snackbar>
         <mdui-snackbar class="snackbar-comment-success">${_('commentSuccess')}</mdui-snackbar>
         <mdui-snackbar class="snackbar-comment-failure">${_('commentFail')}</mdui-snackbar>
@@ -546,12 +545,11 @@
     function renderAboutPage(page) {
       const pageContent = useEn(page, 'content');
       const pageTitle = useEn(page, 'title');
+      loadCSS('/css/post-content.css');
+      loadCSS('/css/code.css');
+      loadCSS('/css/about.css');
       const html = `
-        <style>
-          @import url('/css/post-content.css');
-          @import url('/css/code.css');
-          @import url('/css/about.css');
-        </style>
+        <style></style>
         <div class="content">
           <mdui-card variant="elevated" class="about-header" id="about-header" style="cursor:pointer">
             <mdui-avatar src="${blogConfig.avatar}" class="about-avatar" id="about-avatar"></mdui-avatar>
@@ -578,12 +576,11 @@
         items += '<hr><div class="talk-item" style="padding:8px 0"><div class="markdown-content">' + renderMarkdown(t.content || '') + '</div>' +
                  '<span style="font-size:12px;color:rgb(var(--mdui-color-outline))">' + dateStr + '</span></div>';
       });
+      loadCSS('/css/post-content.css');
+      loadCSS('/css/code.css');
+      loadCSS('/css/about.css');
       const html = `
-        <style>
-          @import url('/css/post-content.css');
-          @import url('/css/code.css');
-          @import url('/css/about.css');
-        </style>
+        <style></style>
         <div class="content">
           <mdui-card variant="elevated" class="about-header">
             <div class="about-title">${_('page_moments')}</div>
@@ -596,7 +593,18 @@
       return html;
     }
 
-    // ===== Markdown Renderer (minimal client-side) =====
+    // ===== CSS Loader (cross-browser: Firefox doesn't support @import in dynamic <style>) =====
+    var _cssLoaded = {};
+    function loadCSS(path) {
+      if (_cssLoaded[path]) return;
+      _cssLoaded[path] = true;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = path;
+      document.head.appendChild(link);
+    }
+
+    // ===== Markdown Renderer =====
     function renderMarkdown(text) {
       if (!text) return '';
       // Use marked library for proper GFM markdown parsing
@@ -1039,9 +1047,9 @@
       });
       setTimeout(initStatusPage, 50);
       var zh = _LANG === 'zh';
+      loadCSS('/css/post-content.css');
       return ''
         + '<style>'
-        + '  @import url("/css/post-content.css");'
         + '  @import url("/css/header-card.css");'
         + '</style>'
         + '<div class="content">'
