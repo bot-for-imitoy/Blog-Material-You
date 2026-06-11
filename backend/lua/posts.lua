@@ -56,15 +56,21 @@ function _M.parse_post(filepath)
     local slug = filepath:match("/([^/]+)%.md$")
 
     -- Build the post object
+    -- Helper: ensure tags/categories are empty arrays (not empty objects)
+    local function ensure_array(val)
+        if type(val) ~= "table" then return cjson.empty_array end
+        if next(val) == nil then return cjson.empty_array end
+        return val
+    end
     local post = {
         slug = slug,
         title = meta.title or slug or "Untitled",
         date = meta.date or "1970-01-01",
-        tags = meta.tags or cjson.empty_array,
-        categories = meta.categories or cjson.empty_array,
+        tags = ensure_array(meta.tags),
+        categories = ensure_array(meta.categories),
         title_en = meta.title_en or "",
-        tags_en = meta.tags_en or cjson.empty_array,
-        categories_en = meta.categories_en or cjson.empty_array,
+        tags_en = ensure_array(meta.tags_en),
+        categories_en = ensure_array(meta.categories_en),
         content_en = meta.content_en or "",
         cover = meta.cover or cjson.null,
         archived = (meta.archived == "true" or meta.archived == true) and true or false,
