@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
   <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <script src="https://unpkg.com/marked@15.0.0/marked.min.js"></script>
   <!-- KaTeX: LaTeX math rendering -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
@@ -598,70 +599,8 @@
     // ===== Markdown Renderer (minimal client-side) =====
     function renderMarkdown(text) {
       if (!text) return '';
-      let html = text;
-
-      // Code blocks (fenced, with lang)
-      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(match, lang, code) {
-        const langClass = lang ? ' language-' + escapeHtml(lang) : '';
-        return '<div class="highlight"><div class="code"><pre class="line-numbers"><code class="' + langClass + '">' + escapeHtml(code.trim()) + '</code></pre></div></div>';
-      });
-
-      // Inline code
-      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-      // Images
-      html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
-
-      // Links
-      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
-
-      // Bold + italic
-      html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
-      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
-
-      // Headings
-      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-
-      // Blockquotes
-      html = html.replace(/^> (.+)$/gm, '<blockquote><p>$1</p></blockquote>');
-
-      // Horizontal rules
-      html = html.replace(/^---$/gm, '<hr>');
-
-      // Tables (simplified) — match whole table block at once, preserve position
-      html = html.replace(/^(\|.+\|\n\|[-:| ]+\|\n(?:\|.+\|\n?)*)/gm, function(match) {
-        var rows = match.trim().split('\n');
-        var result = '<table>';
-        var headerDone = false; // first non-separator row = <th>, rest = <td>
-        for (var i = 0; i < rows.length; i++) {
-          var cells = rows[i].split('|');
-          // Skip separator row (contains ---)
-          if (cells.length > 0 && cells[1] && cells[1].trim().match(/^[-:]+\s*[-:]*$/)) {
-            headerDone = true; // next data row becomes header
-            continue;
-          }
-          var tag = headerDone ? 'td' : 'th';
-          headerDone = true;
-          result += '<tr>';
-          for (var j = 1; j < cells.length - 1; j++) {
-            result += '<' + tag + '>' + cells[j].trim() + '</' + tag + '>';
-          }
-          result += '</tr>';
-        }
-        return result + '</table>';
-      });
-
-      // Paragraphs
-      html = html.replace(/\n\n/g, '</p><p>');
-      html = '<p>' + html + '</p>';
-      // Fix nested paragraphs around block-level elements
-      html = html.replace(/<p>\s*<(h\d|div|blockquote|table|hr|ul|ol)/g, '<$1');
-      html = html.replace(/<\/(h\d|div|blockquote|table|hr|ul|ol)>\s*<\/p>/g, '</$1>');
-
-      return html;
+      // Use marked library for proper GFM markdown parsing
+      return marked.parse(text);
     }
 
     // ===== Router =====
