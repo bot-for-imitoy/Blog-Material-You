@@ -12,7 +12,7 @@ function showCommentFailureSnackbar() {
 async function getCommentsCount() {
     
     try {
-        const response = await fetch(`/api/comment?type=count&url=${encodeURIComponent(url)}`);
+        const response = await fetch(`/api/comments?type=count&path=${encodeURIComponent(url)}`);
         const result = await response.json();
 
         if (result.errno === 0) {
@@ -31,7 +31,7 @@ async function getCommentsCount() {
 
 async function loadComments() {
     try {
-        const response = await fetch(`/api/comment?path=${encodeURIComponent(url)}`);
+        const response = await fetch(`/api/comments?path=${encodeURIComponent(url)}`);
         const result = await response.json();
 
         if (result.errno === 0) {
@@ -93,7 +93,7 @@ async function submitComment(commentData) {
     };*/
 
     try {
-        const response = await fetch(`/api/comment`, {
+        const response = await fetch(`/api/comments`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

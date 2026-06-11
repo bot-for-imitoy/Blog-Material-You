@@ -1,38 +1,36 @@
 --[[
-  totp_store.lua — Persist 2FA state and TOTP secret to a JSON file.
-  File: blog/data/totp.json
+  totp_store.lua — Persist 2FA state and TOTP secret to DB config table.
+  Key: "totp_state"
   Structure: { enabled: bool, secret: "BASE32", pending_secret: "BASE32"|null }
 ]]
 local cjson = require("cjson")
-local utils = require("utils")
+local db = require("db")
 local _M = {}
 
-local STORE_DIR = ngx.config.prefix() .. "../blog/data"
-local STORE_FILE = STORE_DIR .. "/totp.json"
+local CONFIG_KEY = "totp_state"
 
--- Read the TOTP store file
+-- Read the TOTP store from DB
 function _M.read()
-    local content, err = utils.read_file(STORE_FILE)
-    if not content then
+    local res, err = db.query("SELECT `value` FROM config WHERE `key` = ?", {CONFIG_KEY})
+    if not res or #res == 0 then
         return { enabled = false, secret = "", pending_secret = cjson.null }
     end
-    local ok, data = pcall(cjson.decode, content)
+    local ok, data = pcall(cjson.decode, res[1].value)
     if not ok then
         return { enabled = false, secret = "", pending_secret = cjson.null }
     end
     return data
 end
 
--- Write the TOTP store file
+-- Write the TOTP store to DB
 function _M.write(data)
-    -- Ensure directory exists
-    os.execute("mkdir -p " .. STORE_DIR)
-    local content = cjson.encode(data)
-    local f, err = io.open(STORE_FILE, "w")
-    if not f then return nil, err end
-    f:write(content)
-    f:close()
-    return true
+    local value = cjson.encode(data)
+    local now = os.time()
+    local res, err = db.query(
+        "REPLACE INTO config (`key`, `value`, updated_at) VALUES (?, ?, ?)",
+        {CONFIG_KEY, value, now}
+    )
+    return res ~= nil
 end
 
 -- Check if 2FA is enabled

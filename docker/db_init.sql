@@ -35,3 +35,44 @@ DROP USER IF EXISTS 'blogyou'@'localhost';
 CREATE USER 'blogyou'@'localhost' IDENTIFIED BY 'blog-db-pass-2025';
 GRANT SELECT, INSERT, UPDATE, DELETE ON blogyou.* TO 'blogyou'@'localhost';
 FLUSH PRIVILEGES;
+
+-- ===== Tables migrated from JSON file storage =====
+
+-- Key-value config store (replaces admin.json, totp.json, imghost.json)
+CREATE TABLE IF NOT EXISTS config (
+    `key`       VARCHAR(100) PRIMARY KEY,
+    `value`     TEXT NOT NULL,
+    updated_at  INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Email permissions (replaces auth/emails.json)
+CREATE TABLE IF NOT EXISTS emails (
+    email       VARCHAR(255) PRIMARY KEY,
+    permissions TEXT NOT NULL DEFAULT '[]',
+    created_at  INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Pending registrations (replaces auth/pending.json)
+CREATE TABLE IF NOT EXISTS pending_registrations (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    email       VARCHAR(255) NOT NULL,
+    `name`      VARCHAR(100) NOT NULL DEFAULT '',
+    created_at  INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Calendar events (replaces calendar/events.json)
+CREATE TABLE IF NOT EXISTS calendar_events (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title       VARCHAR(255) NOT NULL DEFAULT '',
+    `date`      VARCHAR(20) NOT NULL,
+    description TEXT,
+    color       VARCHAR(20) DEFAULT '',
+    created_at  INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Page English content (replaces pages/*.en.json)
+CREATE TABLE IF NOT EXISTS page_content (
+    slug        VARCHAR(100) PRIMARY KEY,
+    content_en  TEXT,
+    updated_at  INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

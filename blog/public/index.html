@@ -894,30 +894,30 @@
     function initComments() {
       var path = window.location.pathname;
 
-      // Load comment count (synchronous for reliable initial load)
-      try {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/comments?type=count&path=' + encodeURIComponent(path), false);
-        xhr.send();
-        var result = JSON.parse(xhr.responseText || '{}');
+      // Load comment count + list via async fetch
+      var countUrl = '/api/comments?type=count&path=' + encodeURIComponent(path);
+      var listUrl = '/api/comments?path=' + encodeURIComponent(path);
+
+      Promise.all([
+        fetch(countUrl).then(function(r) { return r.json(); }),
+        fetch(listUrl).then(function(r) { return r.json(); })
+      ]).then(function(results) {
+        var countResult = results[0];
+        var listResult = results[1];
+
+        // Update comment count title
         var titleEl = document.getElementById('comment-section-title');
-        if (titleEl && result.data) {
-          var count = parseInt(result.data.count) || 0;
+        if (titleEl && countResult.data) {
+          var count = parseInt(countResult.data.count) || 0;
           titleEl.textContent = count + ' Comment' + (count !== 1 ? 's' : '');
         }
-      } catch(e) { console.error('Comment count error:', e); }
 
-      // Load comments list
-      try {
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', '/api/comments?path=' + encodeURIComponent(path), false);
-        xhr.send();
-        var result = JSON.parse(xhr.responseText || '{}');
+        // Render comments
         var container = document.getElementById('comments-container');
         if (!container) return;
         container.innerHTML = '';
-        if (result.data && result.data.data && result.data.data.forEach) {
-          result.data.data.forEach(function(comment) {
+        if (listResult.data && listResult.data.data && listResult.data.data.forEach) {
+          listResult.data.data.forEach(function(comment) {
             var item = document.createElement('mdui-list-item');
             item.classList.add('comment');
             item.alignment = 'start';
@@ -931,12 +931,13 @@
             container.appendChild(item);
           });
         }
-      } catch(e) { console.error('Comments load error:', e); }
+      }).catch(function(e) {
+        console.error('Comments load error:', e);
+      });
 
       // Submit comment button
       var submitBtn = document.getElementById('comment-submit-button');
       if (submitBtn) {
-        // Remove any old listeners by cloning
         var newBtn = submitBtn.cloneNode(true);
         submitBtn.parentNode.replaceChild(newBtn, submitBtn);
         newBtn.addEventListener('click', function() {
@@ -1002,17 +1003,19 @@
       }).then(function(result) {
         if (result.errno === 0) {
           showSnackbar('comment-success');
-          // Reload comments
+          // Reload comments then clear form
           initComments();
-          // Clear form
-          ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
-            var el = document.getElementById(id);
-            if (el) el.value = '';
-          });
+          setTimeout(function() {
+            ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+              var el = document.getElementById(id);
+              if (el) el.value = '';
+            });
+            resetCommentForm();
+          }, 100);
         } else {
           showSnackbar('comment-failure');
+          resetCommentForm();
         }
-        resetCommentForm();
       }).catch(function(err) {
         showSnackbar('network-error');
         resetCommentForm();

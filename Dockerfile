@@ -40,6 +40,9 @@ RUN chmod +x /app/docker/docker-entrypoint.sh
 # Fix MariaDB data dir ownership for mysql user
 RUN chown -R mysql:mysql /app/blog/data/mysql
 
+# Make all Lua files readable by nginx worker
+RUN find /app/backend/lua -name '*.lua' -exec chmod 644 {} \;
+
 EXPOSE 30999 31000
 
 ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]
