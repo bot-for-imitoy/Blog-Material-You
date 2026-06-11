@@ -77,15 +77,8 @@
 }
 
 /* Inline code — only applies to <code> NOT inside <pre> (code blocks) */
-code {
+code:not(pre code) {
     background-color: rgb(var(--mdui-color-secondary-container));
     padding: 2px 4px;
     border-radius: 8px;
-}
-
-/* Code blocks (<pre><code>) reset inline code styles */
-pre code {
-    background: none;
-    padding: 0;
-    border-radius: 0;
 }
