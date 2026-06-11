@@ -414,7 +414,7 @@
 
       const html = `
         <style>
-          @import url('/css/post-content.css');
+          @import url('/css/post-content.css?v=2');
           @import url('/css/code.css?v=2');
         </style>
         <mdui-snackbar class="snackbar-network-error">${_('networkError')}</mdui-snackbar>
@@ -547,7 +547,7 @@
       const pageTitle = useEn(page, 'title');
       const html = `
         <style>
-          @import url('/css/post-content.css');
+          @import url('/css/post-content.css?v=2');
           @import url('/css/code.css?v=2');
           @import url('/css/about.css');
         </style>
@@ -579,7 +579,7 @@
       });
       const html = `
         <style>
-          @import url('/css/post-content.css');
+          @import url('/css/post-content.css?v=2');
           @import url('/css/code.css?v=2');
           @import url('/css/about.css');
         </style>
@@ -1098,7 +1098,7 @@
       var zh = _LANG === 'zh';
       return ''
         + '<style>'
-        + '  @import url("/css/post-content.css");'
+        + '  @import url("/css/post-content.css?v=2");'
         + '  @import url("/css/header-card.css");'
         + '</style>'
         + '<div class="content">'
