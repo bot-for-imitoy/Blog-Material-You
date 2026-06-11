@@ -414,8 +414,8 @@
 
       const html = `
         <style>
-          @import url('/css/post-content.css?v=2');
-          @import url('/css/code.css?v=2');
+          @import url('/css/post-content.css');
+          @import url('/css/code.css');
         </style>
         <mdui-snackbar class="snackbar-network-error">${_('networkError')}</mdui-snackbar>
         <mdui-snackbar class="snackbar-comment-success">${_('commentSuccess')}</mdui-snackbar>
@@ -547,8 +547,8 @@
       const pageTitle = useEn(page, 'title');
       const html = `
         <style>
-          @import url('/css/post-content.css?v=2');
-          @import url('/css/code.css?v=2');
+          @import url('/css/post-content.css');
+          @import url('/css/code.css');
           @import url('/css/about.css');
         </style>
         <div class="content">
@@ -579,8 +579,8 @@
       });
       const html = `
         <style>
-          @import url('/css/post-content.css?v=2');
-          @import url('/css/code.css?v=2');
+          @import url('/css/post-content.css');
+          @import url('/css/code.css');
           @import url('/css/about.css');
         </style>
         <div class="content">
@@ -635,15 +635,19 @@
       html = html.replace(/^(\|.+\|\n\|[-:| ]+\|\n(?:\|.+\|\n?)*)/gm, function(match) {
         var rows = match.trim().split('\n');
         var result = '<table>';
+        var headerDone = false; // first non-separator row = <th>, rest = <td>
         for (var i = 0; i < rows.length; i++) {
           var cells = rows[i].split('|');
           // Skip separator row (contains ---)
-          if (cells.length > 0 && cells[1] && cells[1].trim().match(/^[-:]+\s*[-:]*$/)) continue;
-          // Check if this is the first row (header) — all subsequent rows are td
+          if (cells.length > 0 && cells[1] && cells[1].trim().match(/^[-:]+\s*[-:]*$/)) {
+            headerDone = true; // next data row becomes header
+            continue;
+          }
+          var tag = headerDone ? 'td' : 'th';
+          headerDone = true;
           result += '<tr>';
           for (var j = 1; j < cells.length - 1; j++) {
-            // First data row after separator becomes header row
-            result += '<td>' + cells[j].trim() + '</td>';
+            result += '<' + tag + '>' + cells[j].trim() + '</' + tag + '>';
           }
           result += '</tr>';
         }
@@ -1098,7 +1102,7 @@
       var zh = _LANG === 'zh';
       return ''
         + '<style>'
-        + '  @import url("/css/post-content.css?v=2");'
+        + '  @import url("/css/post-content.css");'
         + '  @import url("/css/header-card.css");'
         + '</style>'
         + '<div class="content">'

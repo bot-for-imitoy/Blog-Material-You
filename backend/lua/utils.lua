@@ -31,6 +31,10 @@ function _M.parse_frontmatter(yaml_str)
 
         -- Match key: value or key: "quoted" on a single line
         local key, value = line:match("^%s*([%w_-]+)%s*:%s*(.+)%s*$")
+        -- Also match key: with no value (Hexo-style: key:\n- - item)
+        if not key then
+            key = line:match("^%s*([%w_-]+)%s*:%s*$")
+        end
         if key then
             value = _M.trim(value)
             -- Check if it's an inline array: [item1, item2, ...]
@@ -61,6 +65,11 @@ function _M.parse_frontmatter(yaml_str)
                     while i <= #lines and lines[i]:match("^%s*-") do
                         local item = lines[i]:match("^%s*-%s*(.*)$")
                         item = _M.trim(item)
+                        -- Handle Hexo nested list: "- - item" → strip extra dash
+                        if item:match("^%-%s") then
+                            item = item:match("^%-%s*(.*)$")
+                            item = _M.trim(item)
+                        end
                         item = item:match('^"(.*)"$') or item:match("^'(.*)'$") or item
                         table.insert(items, item)
                         i = i + 1
