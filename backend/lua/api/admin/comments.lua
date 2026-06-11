@@ -65,7 +65,7 @@ elseif ngx.req.get_method() == "DELETE" then
         return
     end
 
-    local res, err = db:query("DELETE FROM comments WHERE id = ?", id)
+    local res, err = db:query("DELETE FROM comments WHERE id = " .. tostring(id))
     close(db)
 
     ngx.say(cjson.encode({ errno = 0, data = { deleted = true } }))

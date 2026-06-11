@@ -1,9 +1,9 @@
 --[[
   comments.lua — Comment CRUD module using MariaDB.
-  Uses resty.mysql with manual quoting for parameterized queries.
+  Uses manual escaping (resty.mysql on Alpine doesn't support ? placeholders).
 ]]
-
 local cjson = require("cjson")
+local mysql = require("resty.mysql")
 
 local _M = {}
 
@@ -12,15 +12,22 @@ local DB_NAME   = "blogyou"
 local DB_USER   = "blogyou"
 local DB_PASS   = "blog-db-pass-2025"
 
+-- Escape string for SQL (single quotes + backslashes)
+local function esc(s)
+    if not s then return "''" end
+    local str = tostring(s)
+    str = str:gsub("\\", "\\\\")
+    str = str:gsub("'", "\\'")
+    return "'" .. str .. "'"
+end
+
 -- Open a MariaDB connection
 local function connect()
-    local mysql = require("resty.mysql")
     local db, err = mysql:new()
     if not db then
         return nil, "failed to create mysql instance: " .. (err or "unknown")
     end
     db:set_timeout(3000)
-
     local ok, err = db:connect({
         path     = DB_SOCKET,
         database = DB_NAME,
@@ -40,7 +47,7 @@ local function close(db)
     end
 end
 
--- List all comments for a given URL, newest first
+-- List all comments for a given URL, oldest first
 function _M.load(url_path)
     local db, err = connect()
     if not db then
@@ -49,9 +56,9 @@ function _M.load(url_path)
     end
 
     local sql = "SELECT id, nick, mail, comment, link, ua, create_time " ..
-                "FROM comments WHERE url = ? " ..
+                "FROM comments WHERE url = " .. esc(url_path) .. " " ..
                 "ORDER BY create_time ASC"
-    local res, err = db:query(sql, {url_path})
+    local res, err = db:query(sql)
     close(db)
 
     if not res then
@@ -72,8 +79,16 @@ function _M.add(nick, mail, comment_text, url, link, ua)
 
     local now = os.time()
     local sql = "INSERT INTO comments (nick, mail, comment, link, ua, url, create_time) " ..
-                "VALUES (?, ?, ?, ?, ?, ?, ?)"
-    local res, err = db:query(sql, {nick, mail, comment_text, link or "", ua or "", url, now})
+                "VALUES (" ..
+                esc(nick) .. "," ..
+                esc(mail) .. "," ..
+                esc(comment_text) .. "," ..
+                esc(link or "") .. "," ..
+                esc(ua or "") .. "," ..
+                esc(url) .. "," ..
+                now ..
+                ")"
+    local res, err = db:query(sql)
     close(db)
 
     if not res then
@@ -101,8 +116,8 @@ function _M.count(url_path)
         return 0
     end
 
-    local sql = "SELECT COUNT(*) AS cnt FROM comments WHERE url = ?"
-    local res, err = db:query(sql, {url_path})
+    local sql = "SELECT COUNT(*) AS cnt FROM comments WHERE url = " .. esc(url_path)
+    local res, err = db:query(sql)
     close(db)
 
     if not res or #res == 0 then
