@@ -61,6 +61,7 @@ elseif ngx.req.get_method() == "POST" then
     local url = data.url
     local link = data.link or ""
     local ua = data.ua or ""
+    local avatar = data.avatar or ""
 
     if not nick or not mail or not comment_text or not url then
         ngx.status = 400
@@ -68,7 +69,7 @@ elseif ngx.req.get_method() == "POST" then
         return
     end
 
-    local new_comment = comments.add(nick, mail, comment_text, url, link, ua)
+    local new_comment = comments.add(nick, mail, comment_text, url, link, ua, avatar)
     if new_comment then
         ngx.say(cjson.encode({ errno = 0, data = new_comment }))
     else

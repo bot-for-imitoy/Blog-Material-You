@@ -55,7 +55,7 @@ function _M.load(url_path)
         return {}
     end
 
-    local sql = "SELECT id, nick, mail, comment, link, ua, create_time " ..
+    local sql = "SELECT id, nick, mail, comment, link, ua, avatar, create_time " ..
                 "FROM comments WHERE url = " .. esc(url_path) .. " " ..
                 "ORDER BY create_time ASC"
     local res, err = db:query(sql)
@@ -70,7 +70,7 @@ function _M.load(url_path)
 end
 
 -- Add a comment. Returns the inserted row or nil.
-function _M.add(nick, mail, comment_text, url, link, ua)
+function _M.add(nick, mail, comment_text, url, link, ua, avatar)
     local db, err = connect()
     if not db then
         ngx.log(ngx.ERR, "comments.add connect: ", err)
@@ -78,13 +78,14 @@ function _M.add(nick, mail, comment_text, url, link, ua)
     end
 
     local now = os.time()
-    local sql = "INSERT INTO comments (nick, mail, comment, link, ua, url, create_time) " ..
+    local sql = "INSERT INTO comments (nick, mail, comment, link, ua, avatar, url, create_time) " ..
                 "VALUES (" ..
                 esc(nick) .. "," ..
                 esc(mail) .. "," ..
                 esc(comment_text) .. "," ..
                 esc(link or "") .. "," ..
                 esc(ua or "") .. "," ..
+                esc(avatar or "") .. "," ..
                 esc(url) .. "," ..
                 now ..
                 ")"
@@ -103,6 +104,7 @@ function _M.add(nick, mail, comment_text, url, link, ua)
         comment = comment_text,
         link = link or "",
         ua = ua or "",
+        avatar = avatar or "",
         url = url,
         create_time = now,
     }

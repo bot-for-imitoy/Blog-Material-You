@@ -128,7 +128,7 @@
       loading:'Loading...', networkError:'Network error',
       commentSuccess:'Comment submitted successfully', commentFail:'Failed to submit comment',
       nickName:'Nick Name', email:'Email', website:'Website (optional)',
-      commentContent:'Comment', submit:'Submit', reply:'Reply',
+      commentContent:'Comment', submit:'Submit', reply:'Reply', avatar:'Avatar',
       noPosts:'No posts yet', noComments:'No comments yet', noTalks:'No moments yet',
       serverOnline:'Online', serverOffline:'Offline',
       cpr:'C 2025 Blog Material You', forward:'Read', postsYear:'',
@@ -436,6 +436,12 @@
           <div class="markdown-content">${contentHtml}</div>
           <hr>
           <div class="comment-input">
+            <div style="display:flex;gap:8px;align-items:center">
+              <mdui-text-field id="comment-avatar" label="${_('avatar')}" variant="outlined" max-rows="1" style="flex:1" placeholder="头像URL或上传"></mdui-text-field>
+              <mdui-button id="comment-avatar-upload" variant="text" style="flex-shrink:0">📷</mdui-button>
+              <input type="file" id="comment-avatar-file" accept="image/*" style="display:none">
+              <img id="comment-avatar-preview" style="width:40px;height:40px;border-radius:50%;display:none;object-fit:cover">
+            </div>
             <mdui-text-field id="comment-nick" label="${_('nickName')}" variant="outlined" max-rows="1"></mdui-text-field>
             <mdui-text-field id="comment-email" label="${_('email')}" variant="outlined" max-rows="1"></mdui-text-field>
             <mdui-text-field id="comment-website" label="${_('website')}" variant="outlined" max-rows="1"></mdui-text-field>
@@ -869,7 +875,7 @@
             item.alignment = 'start';
             item.nonclickable = true;
             item.innerHTML = '<div slot="custom" class="comment-block">' +
-              '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>' +
+              (comment.avatar ? '<img src="' + comment.avatar + '" class="comment-avatar">' : '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>') +
               '<div class="comment-right-area">' +
               '<p class="comment-nick-name">' + escapeHtml(comment.nick || '') + '</p>' +
               '<div class="comment-content">' + escapeHtml(comment.comment || '') + '</div>' +
@@ -890,6 +896,45 @@
           submitComment(path);
         });
       }
+
+      // Avatar upload handler
+      var uploadBtn = document.getElementById('comment-avatar-upload');
+      var fileInput = document.getElementById('comment-avatar-file');
+      var avatarPreview = document.getElementById('comment-avatar-preview');
+      var avatarField = document.getElementById('comment-avatar');
+      if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', function() { fileInput.click(); });
+        fileInput.addEventListener('change', function() {
+          var file = fileInput.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            // Show preview
+            avatarPreview.src = e.target.result;
+            avatarPreview.style.display = 'block';
+            // Upload to server
+            fetch('/api/upload-avatar', { method: 'POST', body: e.target.result })
+              .then(function(r) { return r.json(); })
+              .then(function(d) {
+                if (d.errno === 0 && avatarField) {
+                  avatarField.value = d.data.url;
+                }
+              }).catch(function() {});
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      // Avatar URL input → update preview
+      if (avatarField && avatarPreview) {
+        avatarField.addEventListener('input', function() {
+          if (avatarField.value) {
+            avatarPreview.src = avatarField.value;
+            avatarPreview.style.display = 'block';
+          } else {
+            avatarPreview.style.display = 'none';
+          }
+        });
+      }
     }
 
     function submitComment(path) {
@@ -902,9 +947,10 @@
       var email = document.getElementById('comment-email').value.trim();
       var website = document.getElementById('comment-website').value.trim();
       var content = document.getElementById('comment-content').value.trim();
+      var avatar = document.getElementById('comment-avatar').value.trim();
 
       // Disable inputs
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.disabled = true;
       });
@@ -942,7 +988,8 @@
           comment: content,
           link: website,
           ua: navigator.userAgent,
-          url: path
+          url: path,
+          avatar: avatar
         })
       }).then(function(res) {
         return res.json();
@@ -952,7 +999,7 @@
           // Reload comments then clear form
           initComments();
           setTimeout(function() {
-            ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+            ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
               var el = document.getElementById(id);
               if (el) el.value = '';
             });
@@ -969,7 +1016,7 @@
     }
 
     function resetCommentForm() {
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.disabled = false;
       });

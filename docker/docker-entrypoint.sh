@@ -111,6 +111,8 @@ else
             content_en TEXT,
             updated_at INT UNSIGNED NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        -- Avatar column for comments (migration)
+        ALTER TABLE comments ADD COLUMN IF NOT EXISTS avatar VARCHAR(500) NOT NULL DEFAULT '' AFTER url;
     "
     echo "Schema migration done"
 fi

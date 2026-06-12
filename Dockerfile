@@ -43,6 +43,9 @@ RUN chown -R mysql:mysql /app/blog/data/mysql
 # Make all Lua files readable by nginx worker
 RUN find /app/backend/lua -name '*.lua' -exec chmod 644 {} \;
 
+# Install ImageMagick for avatar resize
+RUN apk add --no-cache imagemagick
+
 EXPOSE 30999 31000
 
 ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]

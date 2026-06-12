@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS comments (
     at          VARCHAR(100)  DEFAULT NULL,
     url         VARCHAR(500)  NOT NULL,
     create_time INT UNSIGNED  NOT NULL,
+    avatar      VARCHAR(500)  NOT NULL DEFAULT '',
     INDEX idx_url (url(191)),
     INDEX idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
