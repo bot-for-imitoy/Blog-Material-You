@@ -144,6 +144,15 @@ function _M.load_archived()
     return archived
 end
 
+-- Load a single post by slug
+function _M.load_post(slug)
+    local filepath = POSTS_DIR .. "/" .. slug .. ".md"
+    local f = io.open(filepath, "r")
+    if not f then return nil end
+    f:close()
+    return _M.parse_post(filepath)
+end
+
 -- Toggle a post's archived status by modifying the .md file
 -- Returns true on success
 function _M.toggle_archive(slug)

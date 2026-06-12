@@ -49,6 +49,9 @@ RUN apk add --no-cache imagemagick
 # Create avatars directory with proper permissions
 RUN mkdir -p /app/blog/public/avatars && chmod 777 /app/blog/public/avatars
 
+# Ensure all public files are readable by nginx worker
+RUN find /app/blog/public -type f -exec chmod 644 {} \; 2>/dev/null || true
+
 EXPOSE 30999 31000
 
 ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]

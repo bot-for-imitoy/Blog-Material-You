@@ -132,6 +132,8 @@
       noPosts:'No posts yet', noComments:'No comments yet', noTalks:'No moments yet',
       serverOnline:'Online', serverOffline:'Offline',
       cpr:'C 2025 Blog Material You', forward:'Read', postsYear:'',
+      nav_friends:'Friends', page_friends:'Friends', page_friends_desc:'My Friends',
+      noFriends:'No friends yet',
     };
     function getTitle(p) { return _LANG === 'en' && p.title_en ? p.title_en : p.title; }
     function getContent(p) { return _LANG === 'en' && p.content_en ? p.content_en : p.content; }
@@ -598,6 +600,27 @@
       `;
       return html;
     }
+    function renderFriendsPage(list) {
+      loadCSS('/css/header-card.css');
+      var items = '';
+      if (list && list.length) {
+        list.forEach(function(f) {
+          items += '<mdui-card variant="elevated" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px">' +
+            (f.avatar ? '<img src="' + f.avatar + '" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '') +
+            '<div style="flex:1;min-width:0">' +
+            '<a href="' + f.url + '" target="_blank" rel="noopener" style="font-size:18px;font-weight:500;text-decoration:none;color:rgb(var(--mdui-color-primary))">' + escapeHtml(f.title) + '</a>' +
+            (f.descr ? '<div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-top:4px">' + escapeHtml(f.descr) + '</div>' : '') +
+            '</div></mdui-card>';
+        });
+      } else {
+        items = '<p style="text-align:center;padding:32px;color:rgb(var(--mdui-color-outline))">' + _('noFriends') + '</p>';
+      }
+      return '<style>@import url("/css/header-card.css");</style>' +
+        '<mdui-card variant="filled" class="header-card">' +
+        '<div class="header-title">' + _('page_friends') + '</div>' +
+        '<div class="header-content">' + _('page_friends_desc') + '</div></mdui-card>' +
+        '<div style="padding:16px">' + items + '</div>';
+    }
 
     // ===== CSS Loader (cross-browser: Firefox doesn't support @import in dynamic <style>) =====
     var _cssLoaded = {};
@@ -694,6 +717,11 @@
           var talksList = await loadTalks();
           html = renderTalksPage(talksList);
           updateNavActive('/talks/');
+
+        } else if (path === '/friends/' || path === '/friends') {
+          var friendsList = await apiFetch('/api/friends');
+          html = renderFriendsPage(friendsList);
+          updateNavActive('/friends/');
 
         } else if (path === '/status/' || path === '/status') {
           html = renderStatusPage();

@@ -19,6 +19,7 @@ zh:
   networkError: 网络错误，请检查连接后重试
   commentSuccess: 评论提交成功
   commentFail: 评论提交失败
+  noFriends: 还没有友链
   nickName: 昵称
   email: 邮箱
   website: 网站（可选）
@@ -39,3 +40,7 @@ zh:
   catDesc: 分类下的文章
   momentsDesc: 博客的点滴记录
   statusTitle: 服务状态
+  friends: 友链
+  nav_friends: 友链
+  page_friends: 友链
+  page_friends_desc: 我的朋友们
