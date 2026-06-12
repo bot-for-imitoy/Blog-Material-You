@@ -46,6 +46,9 @@ RUN find /app/backend/lua -name '*.lua' -exec chmod 644 {} \;
 # Install ImageMagick for avatar resize
 RUN apk add --no-cache imagemagick
 
+# Create avatars directory with proper permissions
+RUN mkdir -p /app/blog/public/avatars && chmod 777 /app/blog/public/avatars
+
 EXPOSE 30999 31000
 
 ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]
