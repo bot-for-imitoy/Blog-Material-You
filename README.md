@@ -26,136 +26,177 @@ Blog/
 │   │   ├── admin/        # Admin SPA
 │   │   └── css/js/icon/  # Stylesheets, scripts, icons
 │   └── locales.yml       # UI string translations (zh + en)
+├── docker/               # Docker deployment files
+│   ├── docker-compose.yml
+│   ├── Dockerfile
+│   └── docker-entrypoint.sh
 └── README.md             # This file
 ```
 
-## Quick Start
-
-### Prerequisites
-
-- **OpenResty** ≥ 1.27 (with `resty.mysql`)
-- **MariaDB** ≥ 10.6 (or MySQL 8.0+)
-
-### 1. Initialize Database
+## Quick Start (Docker)
 
 ```bash
-DB_DIR=/path/to/Blog/blog/data/mysql
-mkdir -p "$DB_DIR"
-mariadb-install-db --datadir="$DB_DIR" --user=$(whoami)
+docker compose build
+docker compose up -d
 ```
 
-### 2. Start MariaDB
-
-```bash
-mariadbd \
-  --datadir="$DB_DIR" \
-  --socket="$DB_DIR/mysql.sock" \
-  --port=3308 \
-  --skip-grant-tables &
-```
-
-### 3. Create Database Tables
-
-```bash
-MYSQL="mariadb --socket=$DB_DIR/mysql.sock"
-$MYSQL -e "CREATE DATABASE IF NOT EXISTS blogyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-
-$MYSQL blogyou -e "
-CREATE TABLE IF NOT EXISTS comments (
-    id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    nick        VARCHAR(100)  NOT NULL,
-    mail        VARCHAR(255)  NOT NULL,
-    comment     TEXT          NOT NULL,
-    link        VARCHAR(500)  NOT NULL DEFAULT '',
-    ua          TEXT          NOT NULL DEFAULT '',
-    pid         BIGINT UNSIGNED DEFAULT NULL,
-    rid         BIGINT UNSIGNED DEFAULT NULL,
-    at          VARCHAR(100)  DEFAULT NULL,
-    url         VARCHAR(500)  NOT NULL,
-    create_time INT UNSIGNED  NOT NULL,
-    INDEX idx_url (url(191)),
-    INDEX idx_create_time (create_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-"
-
-$MYSQL blogyou -e "
-CREATE TABLE IF NOT EXISTS talks (
-    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    content     TEXT       NOT NULL,
-    create_time INT UNSIGNED NOT NULL,
-    INDEX idx_time (create_time)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-"
-```
-
-### 4. Start OpenResty
-
-```bash
-cd blog-backend   # or the backend/ directory
-bash start.sh
-```
-
-### 5. Verify
-
-```bash
-curl http://localhost:30999/api/health
-# → {"status":"ok","server":"openresty","version":"blog-material-you"}
-```
+Then visit http://localhost:30999/ for the blog and http://localhost:31000/ for the admin panel.
 
 ## Access
 
-| Service       | URL                            | Credentials          |
-|---------------|--------------------------------|----------------------|
-| Blog Frontend | http://localhost:30999/        | —                    |
-| Admin Panel   | http://localhost:31000/        | admin / bmy2025      |
+| Service       | URL                            | Setup                  |
+|---------------|--------------------------------|------------------------|
+| Blog Frontend | http://localhost:30999/        | —                      |
+| Admin Panel   | http://localhost:31000/        | Set up on first visit  |
 
 ## Features
 
 ### Frontend
-- **Bilingual (CN/EN)**: Auto-detects browser language, switches between Chinese and English UI. Language data in `locales.yml`.
-- **Article Language Switching**: Articles can have separate English fields (`title_en`, `content_en`, `tags_en`, `categories_en`). Displayed automatically when browser language is English.
+- **Bilingual (CN/EN)**: Auto-detects browser language, switches between Chinese and English UI.
+- **Article Language Switching**: Articles can have separate English fields (`title_en`, `content_en`, `tags_en`, `categories_en`).
 - **Material Design 3**: MDUI 2 Web Components with dynamic color theming.
 - **Waterfall Layout**: Responsive card grid on homepage.
 - **KaTeX Math Rendering**: LaTeX support via KaTeX.
-- **2048 Game**: Hidden easter egg on About page (click avatar 7 times).
+- **Comment System**: Avatar support (URL or upload, auto-resized to 512×512).
+- **2048 Game**: Hidden easter egg on About page.
 
 ### Backend
 - **Flat-File CMS**: Articles stored as Markdown + YAML frontmatter in `blog/posts/`.
-- **MariaDB**: Only for comments and talks.
-- **Bearer Token Auth**: Password-only login (TOTP removed for simplicity).
+- **MariaDB**: Comments, talks, user data, and configuration storage.
+- **Bearer Token Auth**: Password-based authentication.
 - **Admin API**: Full CRUD for posts, comments, talks, and pages.
-
-## Admin Panel
-
-Access **http://localhost:31000/** to manage:
-- **Dashboard**: Statistics overview
-- **Posts**: Create, edit, delete, archive/unarchive articles
-- **Comments**: View and delete comments
-- **Talks**: Publish and manage moments
-- **Pages**: Edit About and Talks pages (with bilingual content support)
-- **Security**: Currently password-only (TOTP 2FA removed)
-
-### Writing Bilingual Articles
-
-In the post editor, scroll down to the **🌐 English Content** section to add:
-- English title
-- English tags (comma-separated)
-- English categories (comma-separated)
-- English body (Markdown)
-
-When a visitor's browser language is set to English, the English fields will be displayed automatically.
+- **Admin Comments**: Full comment moderation from admin panel.
 
 ## Tech Stack
 
-| Layer       | Technology                              |
-|-------------|-----------------------------------------|
-| Backend     | OpenResty (nginx + LuaJIT)              |
-| Database    | MariaDB (via Unix socket)               |
-| Frontend    | MDUI 2 Web Components, vanilla JS SPA   |
-| Rendering   | Client-side Markdown, KaTeX, Waterfall  |
-| Auth        | Bearer token (HMAC-SHA1 signed)         |
-| I18n        | YAML locale file, runtime loaded        |
+| Layer       | Technology                              | License       |
+|-------------|-----------------------------------------|---------------|
+| Base Image  | Alpine Linux 3.20                       | GPL-2.0       |
+| Web Server  | OpenResty 1.25 (nginx + LuaJIT)         | BSD 2-Clause  |
+| Database    | MariaDB 10.11 (via Unix socket)         | GPL-2.0       |
+| Lua Modules | lua-resty-mysql, lua-resty-aes, lua-cjson | BSD / MIT   |
+| Frontend UI | MDUI 2 (Material Design 3 Web Components) | MIT         |
+| Markdown    | marked 15.0.0                           | MIT           |
+| Math Render | KaTeX 0.16.11                           | MIT           |
+| Image Proc  | ImageMagick                             | Apache 2.0    |
+
+## Open Source Acknowledgments
+
+This project uses the following open-source components. We thank their authors and contributors.
+
+### Runtime Dependencies
+
+#### Alpine Linux ([alpinelinux.org](https://alpinelinux.org))
+Copyright © 2016-2024 Alpine Linux development team. Licensed under **GPL-2.0**.
+Used as the base Docker image.
+
+#### OpenResty ([openresty.org](https://openresty.org))
+Copyright © 2007-2024, OpenResty Inc. Licensed under **BSD 2-Clause**.
+Used as the web server and Lua execution environment.
+
+#### MariaDB ([mariadb.org](https://mariadb.org))
+Copyright © 2009-2024 MariaDB Corporation Ab and contributors. Licensed under **GPL-2.0**.
+Used as the database backend.
+
+#### ImageMagick ([imagemagick.org](https://imagemagick.org))
+Copyright © 1999-2024 ImageMagick Studio LLC. Licensed under **Apache 2.0**.
+Used for avatar image resizing.
+
+### Lua Libraries
+
+#### lua-resty-mysql
+Copyright © 2012-2019, OpenResty Inc. Licensed under **BSD 2-Clause**.
+
+#### lua-resty-aes
+Copyright © 2014-2019, OpenResty Inc. Licensed under **BSD 2-Clause**.
+
+#### lua-cjson
+Copyright © 2010-2022, Mark Pulford & OpenResty Inc. Licensed under **MIT**.
+
+### Frontend Libraries
+
+#### MDUI 2 ([mdui.org](https://www.mdui.org))
+Copyright © 2016-2024, zdhxiong. Licensed under **MIT**.
+```
+MIT License
+
+Copyright (c) 2016-2024 zdhxiong
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### marked ([marked.js.org](https://marked.js.org))
+Copyright © 2018+, MarkedJS. Licensed under **MIT**.
+```
+MIT License
+
+Copyright (c) 2018-2024 MarkedJS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+#### KaTeX ([katex.org](https://katex.org))
+Copyright © 2013-2024 Khan Academy. Licensed under **MIT**.
+```
+MIT License
+
+Copyright (c) 2013-2024 Khan Academy
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
 
 ## License
 
-MIT
+This project is licensed under the **MIT License**. See the license notices above for the respective licenses of each open-source component used.
+
+---
+
+*Built with ❤️ using OpenResty, MariaDB, MDUI 2, and more wonderful open-source tools.*
