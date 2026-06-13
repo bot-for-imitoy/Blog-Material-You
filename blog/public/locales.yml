@@ -1,4 +1,6 @@
 zh:
+  site_name: 博客
+  site_desc: 简单优雅的主题。
   home: 首页
   posts: 文章
   tags: 标签
@@ -44,3 +46,20 @@ zh:
   nav_friends: 友链
   page_friends: 友链
   page_friends_desc: 我的朋友们
+  nav_home: 首页
+  nav_posts: 文章
+  nav_tags: 标签
+  nav_categories: 分类
+  nav_moments: 动态
+  nav_about: 关于
+  nav_archives: 归档
+  page_posts: 文章
+  page_posts_desc: 博客的全部文章
+  page_tags: 标签
+  page_tags_desc: 博客的全部标签
+  page_categories: 分类
+  page_categories_desc: 博客的全部分类
+  page_moments: 动态
+  page_moments_desc: 博客的点滴记录
+  page_archives: 归档
+  page_archives_desc: 已归档的旧文章
