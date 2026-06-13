@@ -83,6 +83,13 @@ _M.data = {
             icon = "/icon/archive.svg",
             route = "/archives/",
         },
+        {
+            text_key = "nav_friends",
+            page_title_key = "page_friends",
+            page_desc_key = "page_friends_desc",
+            icon = "/icon/friends.svg",
+            route = "/friends/",
+        },
     },
 }
 

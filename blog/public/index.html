@@ -88,7 +88,7 @@
     // Minimal YAML parser for our flat structure
     // Handles both flat (key: value) and nested (lang:\n  key: value) formats
     function loadLocale(lang) {
-      return fetch('/locales.yml')
+      return fetch('/locales.yml?v=' + Date.now())
         .then(function(r) { return r.text(); })
         .then(function(text) {
           var result = {}, currentSection = null;
@@ -128,10 +128,13 @@
       loading:'Loading...', networkError:'Network error',
       commentSuccess:'Comment submitted successfully', commentFail:'Failed to submit comment',
       nickName:'Nick Name', email:'Email', website:'Website (optional)',
-      commentContent:'Comment', submit:'Submit', reply:'Reply',
+      commentContent:'Comment', submit:'Submit', reply:'Reply', avatar:'Avatar',
       noPosts:'No posts yet', noComments:'No comments yet', noTalks:'No moments yet',
       serverOnline:'Online', serverOffline:'Offline',
       cpr:'C 2025 Blog Material You', forward:'Read', postsYear:'',
+      nav_friends:'Friends', page_friends:'Friends', page_friends_desc:'My Friends',
+      page_allPosts:'Posts', page_archives:'Archives', page_about:'About', page_moments:'Moments',
+      noFriends:'No friends yet',
     };
     function getTitle(p) { return _LANG === 'en' && p.title_en ? p.title_en : p.title; }
     function getContent(p) { return _LANG === 'en' && p.content_en ? p.content_en : p.content; }
@@ -335,8 +338,7 @@
                   </div>
                 </mdui-card>
               </div>
-            </mdui-card>
-          `;
+            </mdui-card>`;
         });
 
         html += `</div><hr><div class="index-bottom"><mdui-chip>${_('cpr')}</mdui-chip></div>`;
@@ -436,6 +438,12 @@
           <div class="markdown-content">${contentHtml}</div>
           <hr>
           <div class="comment-input">
+            <div style="display:flex;gap:8px;align-items:center">
+              <mdui-text-field id="comment-avatar" label="${_('avatar')}" variant="outlined" max-rows="1" style="flex:1" placeholder="头像URL或上传"></mdui-text-field>
+              <mdui-button id="comment-avatar-upload" variant="text" style="flex-shrink:0">📷</mdui-button>
+              <input type="file" id="comment-avatar-file" accept="image/*" style="display:none">
+              <img id="comment-avatar-preview" style="width:40px;height:40px;border-radius:50%;display:none;object-fit:cover">
+            </div>
             <mdui-text-field id="comment-nick" label="${_('nickName')}" variant="outlined" max-rows="1"></mdui-text-field>
             <mdui-text-field id="comment-email" label="${_('email')}" variant="outlined" max-rows="1"></mdui-text-field>
             <mdui-text-field id="comment-website" label="${_('website')}" variant="outlined" max-rows="1"></mdui-text-field>
@@ -592,6 +600,29 @@
       `;
       return html;
     }
+    function renderFriendsPage(list) {
+      loadCSS('/css/header-card.css');
+      var items = '';
+      if (list && list.length) {
+        list.forEach(function(f) {
+          var ftitle = (f.title_en && _LANG === 'en') ? f.title_en : f.title;
+          var fdescr = (f.descr_en && _LANG === 'en') ? f.descr_en : f.descr;
+          items += '<mdui-card variant="elevated" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px">' +
+            (f.avatar ? '<img src="' + f.avatar + '" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '') +
+            '<div style="flex:1;min-width:0">' +
+            '<a href="' + f.url + '" target="_blank" rel="noopener" style="font-size:18px;font-weight:500;text-decoration:none;color:rgb(var(--mdui-color-primary))">' + escapeHtml(ftitle) + '</a>' +
+            (fdescr ? '<div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-top:4px">' + escapeHtml(fdescr) + '</div>' : '') +
+            '</div></mdui-card>';
+        });
+      } else {
+        items = '<p style="text-align:center;padding:32px;color:rgb(var(--mdui-color-outline))">' + _('noFriends') + '</p>';
+      }
+      return '<style>@import url("/css/header-card.css");</style>' +
+        '<mdui-card variant="filled" class="header-card">' +
+        '<div class="header-title">' + _('page_friends') + '</div>' +
+        '<div class="header-content">' + _('page_friends_desc') + '</div></mdui-card>' +
+        '<div style="padding:16px">' + items + '</div>';
+    }
 
     // ===== CSS Loader (cross-browser: Firefox doesn't support @import in dynamic <style>) =====
     var _cssLoaded = {};
@@ -603,6 +634,24 @@
       link.href = path;
       document.head.appendChild(link);
     }
+
+    // ===== PJAX link interceptor =====
+    // Intercept clicks on MDUI elements with internal hrefs so MDUI keeps
+    // its built-in ripple/cursor behavior while navigation uses pushState.
+    document.addEventListener('click', function(e) {
+      var el = e.target;
+      // Walk up to find the element that has an internal href
+      while (el && el !== document.body) {
+        var href = el.getAttribute && el.getAttribute('href');
+        if (href && href.startsWith('/') && !href.startsWith('//') &&
+            !href.startsWith('/api/') && !href.startsWith('/admin')) {
+          e.preventDefault();
+          navigate(href, true);
+          return;
+        }
+        el = el.parentElement;
+      }
+    });
 
     // ===== Markdown Renderer =====
     function renderMarkdown(text) {
@@ -619,10 +668,35 @@
 
       const container = document.getElementById('content-container');
       container.classList.add('loading');
+      // Scroll to top of page (MDUI layout uses its own scroll container)
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      if (container) container.scrollTop = 0;
+      var layoutMain = document.querySelector('mdui-layout-main') || document.querySelector('.layout-main');
+      if (layoutMain) layoutMain.scrollTop = 0;
 
       try {
         // Load config if not loaded
         await loadConfig();
+
+        // Update document title
+        var newTitle = 'Blog Material You';
+        if (path.startsWith('/post/')) {
+          var slug = path.replace('/post/', '').replace(/\/$/, '');
+          if (allPosts) {
+            var p = allPosts.find(function(p2) { return p2.slug === slug; });
+            if (p) newTitle = (useEn(p, 'title') || p.title) + ' - Blog Material You';
+          }
+        } else if (path === '/' || path === '') {
+          newTitle = (blogConfig ? _(blogConfig.name_key || 'site_name') : 'Blog') + ' - ' + (blogConfig ? _(blogConfig.desc_key || '') : '');
+        } else if (path.startsWith('/tags/') || path.startsWith('/categories/')) {
+          newTitle = decodeURIComponent(path.replace(/^\/(tags|categories)\//, '').replace(/\/$/, '')) + ' - Blog Material You';
+        } else if (path.startsWith('/about')) { newTitle = (_('page_about') || 'About') + ' - Blog Material You';
+        } else if (path.startsWith('/talks')) { newTitle = (_('page_moments') || 'Talks') + ' - Blog Material You';
+        } else if (path.startsWith('/friends')) { newTitle = (_('page_friends') || 'Friends') + ' - Blog Material You';
+        } else if (path.startsWith('/posts')) { newTitle = (_('page_allPosts') || 'Posts') + ' - Blog Material You';
+        } else if (path.startsWith('/archives')) { newTitle = (_('page_archives') || 'Archives') + ' - Blog Material You'; }
+        document.title = newTitle;
 
         let html = '';
 
@@ -688,6 +762,11 @@
           var talksList = await loadTalks();
           html = renderTalksPage(talksList);
           updateNavActive('/talks/');
+
+        } else if (path === '/friends/' || path === '/friends') {
+          var friendsList = await apiFetch('/api/friends');
+          html = renderFriendsPage(friendsList);
+          updateNavActive('/friends/');
 
         } else if (path === '/status/' || path === '/status') {
           html = renderStatusPage();
@@ -869,7 +948,7 @@
             item.alignment = 'start';
             item.nonclickable = true;
             item.innerHTML = '<div slot="custom" class="comment-block">' +
-              '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>' +
+              (comment.avatar ? '<img src="' + comment.avatar + '" class="comment-avatar">' : '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>') +
               '<div class="comment-right-area">' +
               '<p class="comment-nick-name">' + escapeHtml(comment.nick || '') + '</p>' +
               '<div class="comment-content">' + escapeHtml(comment.comment || '') + '</div>' +
@@ -890,6 +969,45 @@
           submitComment(path);
         });
       }
+
+      // Avatar upload handler
+      var uploadBtn = document.getElementById('comment-avatar-upload');
+      var fileInput = document.getElementById('comment-avatar-file');
+      var avatarPreview = document.getElementById('comment-avatar-preview');
+      var avatarField = document.getElementById('comment-avatar');
+      if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', function() { fileInput.click(); });
+        fileInput.addEventListener('change', function() {
+          var file = fileInput.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            // Show preview
+            avatarPreview.src = e.target.result;
+            avatarPreview.style.display = 'block';
+            // Upload to server
+            fetch('/api/upload-avatar', { method: 'POST', body: e.target.result })
+              .then(function(r) { return r.json(); })
+              .then(function(d) {
+                if (d.errno === 0 && avatarField) {
+                  avatarField.value = d.data.url;
+                }
+              }).catch(function() {});
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      // Avatar URL input → update preview
+      if (avatarField && avatarPreview) {
+        avatarField.addEventListener('input', function() {
+          if (avatarField.value) {
+            avatarPreview.src = avatarField.value;
+            avatarPreview.style.display = 'block';
+          } else {
+            avatarPreview.style.display = 'none';
+          }
+        });
+      }
     }
 
     function submitComment(path) {
@@ -902,9 +1020,10 @@
       var email = document.getElementById('comment-email').value.trim();
       var website = document.getElementById('comment-website').value.trim();
       var content = document.getElementById('comment-content').value.trim();
+      var avatar = document.getElementById('comment-avatar').value.trim();
 
       // Disable inputs
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.disabled = true;
       });
@@ -942,7 +1061,8 @@
           comment: content,
           link: website,
           ua: navigator.userAgent,
-          url: path
+          url: path,
+          avatar: avatar
         })
       }).then(function(res) {
         return res.json();
@@ -952,7 +1072,7 @@
           // Reload comments then clear form
           initComments();
           setTimeout(function() {
-            ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+            ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
               var el = document.getElementById(id);
               if (el) el.value = '';
             });
@@ -969,7 +1089,7 @@
     }
 
     function resetCommentForm() {
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.disabled = false;
       });

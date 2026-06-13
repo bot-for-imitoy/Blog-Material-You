@@ -43,6 +43,18 @@ RUN chown -R mysql:mysql /app/blog/data/mysql
 # Make all Lua files readable by nginx worker
 RUN find /app/backend/lua -name '*.lua' -exec chmod 644 {} \;
 
+# Install ImageMagick for avatar resize
+RUN apk add --no-cache imagemagick
+
+# Create avatars directory with proper permissions
+RUN mkdir -p /app/blog/public/avatars && chmod 777 /app/blog/public/avatars
+
+# Ensure all public files are readable by nginx worker
+RUN find /app/blog/public -type f -exec chmod 644 {} \; 2>/dev/null || true
+
+# Sync locales.yml from blog root to public (nginx root)
+RUN cp -f /app/blog/locales.yml /app/blog/public/locales.yml
+
 EXPOSE 30999 31000
 
 ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]

@@ -170,6 +170,9 @@
     height: 64px;
     margin-right: 16px;
     background-color: rgb(var(--mdui-color-secondary-container));
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
 }
 
 .comment-block .comment-right-area {

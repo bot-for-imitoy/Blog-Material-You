@@ -111,6 +111,22 @@ else
             content_en TEXT,
             updated_at INT UNSIGNED NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        -- Avatar column for comments (migration)
+        ALTER TABLE comments ADD COLUMN IF NOT EXISTS avatar VARCHAR(500) NOT NULL DEFAULT '' AFTER url;
+        ALTER TABLE friends ADD COLUMN IF NOT EXISTS title_en VARCHAR(200) NOT NULL DEFAULT '' AFTER descr;
+        ALTER TABLE friends ADD COLUMN IF NOT EXISTS descr_en TEXT NOT NULL DEFAULT '' AFTER title_en;
+        -- Friends links table
+        CREATE TABLE IF NOT EXISTS friends (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            descr TEXT NOT NULL DEFAULT '',
+            title_en VARCHAR(200) NOT NULL DEFAULT '',
+            descr_en TEXT NOT NULL DEFAULT '',
+            avatar VARCHAR(500) NOT NULL DEFAULT '',
+            url VARCHAR(500) NOT NULL,
+            sort_order INT UNSIGNED NOT NULL DEFAULT 0,
+            created_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     "
     echo "Schema migration done"
 fi
