@@ -291,6 +291,7 @@
               <mdui-list-item class="nav-item" data-view="posts" rounded>📄 文章</mdui-list-item>
               <mdui-list-item class="nav-item" data-view="comments" rounded>💬 评论</mdui-list-item>
               <mdui-list-item class="nav-item" data-view="talks" rounded>💭 动态</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="friends" rounded>🔗 友链</mdui-list-item>
               <mdui-list-item class="nav-item" data-view="pages" rounded>📑 页面</mdui-list-item>
               <mdui-list-item class="nav-item" data-view="security" rounded>🔐 安全</mdui-list-item>
             </nav>
@@ -308,6 +309,7 @@
         else if (currentView === 'posts') el.innerHTML = await postsView();
         else if (currentView === 'comments') el.innerHTML = await commentsView();
         else if (currentView === 'talks') el.innerHTML = await talksView();
+        else if (currentView === 'friends') el.innerHTML = await friendsView();
         else if (currentView === 'pages') el.innerHTML = await pagesView();
         else if (currentView === 'security') el.innerHTML = await securityView();
         bindEventListeners();
@@ -330,6 +332,10 @@
           else if (action === 'new-talk') newTalk();
           else if (action === 'toggle-archive') toggleArchive(args);
           else if (action === 'edit-page') editPage(args);
+          else if (action === 'delete-friend') deleteFriend(args);
+          else if (action === 'new-friend') newFriend();
+          else if (action === 'save-friend') saveFriend();
+          else if (action === 'edit-friend') editFriend(args);
           else if (action === 'save-post') savePost();
           else if (action === 'save-page') savePage();
           else if (action === 'cancel-edit') renderContent();
@@ -753,6 +759,100 @@
       const res = await api('/talks?id=' + id, { method: 'DELETE' });
       if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已删除'); renderContent(); }
       else toast('删除失败');
+    }
+
+    // ===== Friends =====
+    let _editingFriendId = null;
+
+    async function friendsView() {
+      const list = await api('/friends');
+      const items = Array.isArray(list) ? list.map(f => `
+        <div class="post-item">
+          <div class="post-info">
+            <h3>${escapeHtml(f.title)}</h3>
+            <span>${escapeHtml(f.url)}</span>
+            ${f.descr ? '<p style="color:gray;font-size:13px">' + escapeHtml(f.descr) + '</p>' : ''}
+          </div>
+          <div class="post-actions">
+            <mdui-button data-action="edit-friend" data-args='${JSON.stringify(f)}' variant="outlined">编辑</mdui-button>
+            <mdui-button data-action="delete-friend" data-args="${f.id}" variant="outlined" style="color:red">删除</mdui-button>
+          </div>
+        </div>
+      `).join('') : '<p style="color:gray">暂无友链</p>';
+      return `<div class="page-header"><h1>🔗 友链</h1></div>
+        <mdui-button data-action="new-friend" variant="filled" style="margin-bottom:16px">+ 添加友链</mdui-button>
+        <mdui-card variant="elevated" style="padding:16px">${items}</mdui-card>`;
+    }
+
+    function newFriend() {
+      _editingFriendId = null;
+      document.getElementById('main-content').innerHTML = `
+        <div class="page-header"><h1>添加友链</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;max-width:600px;margin:0 auto">
+          <div class="form-group"><label>标题 *</label><input id="f-title" class="form-input"></div>
+          <div class="form-group"><label>网站 URL *</label><input id="f-url" class="form-input" placeholder="https://"></div>
+          <div class="form-group"><label>描述</label><input id="f-descr" class="form-input"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
+          <div class="form-group"><label>English Title</label><input id="f-title-en" class="form-input"></div>
+          <div class="form-group"><label>English Description</label><input id="f-descr-en" class="form-input"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <div class="form-group"><label>头像 URL</label><input id="f-avatar" class="form-input" placeholder="可选"></div>
+          <div class="form-group"><label>排序</label><input id="f-sort" class="form-input" type="number" value="0"></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button data-action="save-friend" variant="filled">保存</mdui-button>
+            <mdui-button onclick="renderContent()" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+      bindEventListeners();
+    }
+
+    function editFriend(data) {
+      const f = typeof data === 'string' ? JSON.parse(data) : data;
+      _editingFriendId = f.id;
+      document.getElementById('main-content').innerHTML = `
+        <div class="page-header"><h1>编辑友链</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;max-width:600px;margin:0 auto">
+          <div class="form-group"><label>标题 *</label><input id="f-title" class="form-input" value="${escapeHtml(f.title)}"></div>
+          <div class="form-group"><label>网站 URL *</label><input id="f-url" class="form-input" value="${escapeHtml(f.url)}"></div>
+          <div class="form-group"><label>描述</label><input id="f-descr" class="form-input" value="${escapeHtml(f.descr || '')}"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
+          <div class="form-group"><label>English Title</label><input id="f-title-en" class="form-input" value="${escapeHtml(f.title_en || '')}"></div>
+          <div class="form-group"><label>English Description</label><input id="f-descr-en" class="form-input" value="${escapeHtml(f.descr_en || '')}"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <div class="form-group"><label>头像 URL</label><input id="f-avatar" class="form-input" value="${escapeHtml(f.avatar || '')}"></div>
+          <div class="form-group"><label>排序</label><input id="f-sort" class="form-input" type="number" value="${f.sort_order || 0}"></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button data-action="save-friend" variant="filled">保存</mdui-button>
+            <mdui-button onclick="renderContent()" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+      bindEventListeners();
+    }
+
+    async function saveFriend() {
+      const title = document.getElementById('f-title').value.trim();
+      const url = document.getElementById('f-url').value.trim();
+      if (!title || !url) { toast('标题和URL不能为空'); return; }
+      const body = {
+        title,
+        url,
+        descr: document.getElementById('f-descr').value.trim(),
+        title_en: document.getElementById('f-title-en').value.trim(),
+        descr_en: document.getElementById('f-descr-en').value.trim(),
+        avatar: document.getElementById('f-avatar').value.trim(),
+        sort_order: parseInt(document.getElementById('f-sort').value) || 0
+      };
+      if (_editingFriendId) { body.id = _editingFriendId; await api('/friends', { method: 'PUT', body: JSON.stringify(body) }); }
+      else { await api('/friends', { method: 'POST', body: JSON.stringify(body) }); }
+      toast('已保存 ✓'); renderContent();
+    }
+
+    async function deleteFriend(id) {
+      if (!confirm('确定删除这条友链？')) return;
+      await api('/friends', { method: 'DELETE', body: JSON.stringify({ id: parseInt(id) }) });
+      toast('已删除'); renderContent();
     }
 
     // ===== Pages =====

@@ -41,7 +41,7 @@ if method == "POST" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Missing title or url" }))
         return
     end
-    local r, err = friends.add(data.title, data.descr, data.avatar, data.url, data.sort_order)
+    local r, err = friends.add(data.title, data.descr, data.title_en, data.descr_en, data.avatar, data.url, data.sort_order)
     if r then
         ngx.say(cjson.encode({ errno = 0, data = r }))
     else
@@ -55,7 +55,7 @@ elseif method == "PUT" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "Missing fields" }))
         return
     end
-    local ok2 = friends.update(data.id, data.title, data.descr, data.avatar, data.url, data.sort_order)
+    local ok2 = friends.update(data.id, data.title, data.descr, data.title_en, data.descr_en, data.avatar, data.url, data.sort_order)
     ngx.say(cjson.encode({ errno = ok2 and 0 or -1 }))
 
 elseif method == "DELETE" then
