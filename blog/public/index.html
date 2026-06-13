@@ -157,8 +157,8 @@
 
       var navName = document.getElementById('nav-name');
       var navSlogan = document.getElementById('nav-slogan');
-      if (navName) navName.textContent = _(blogConfig.name_key || 'site_name');
-      if (navSlogan) navSlogan.textContent = _(blogConfig.desc_key || 'site_desc');
+      if (navName) navName.textContent = blogConfig.title || _(blogConfig.name_key || 'site_name');
+      if (navSlogan) navSlogan.textContent = blogConfig.desc || _(blogConfig.desc_key || 'site_desc');
     }
 
     // ===== Helpers =====
