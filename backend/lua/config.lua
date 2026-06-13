@@ -12,16 +12,15 @@ local function env(key, default)
 end
 
 _M.data = {
-    -- Sidebar header (locale keys)
-    name_key = "site_name",
-    desc_key = "site_desc",
+    -- Sidebar header
+    title = "imitoy's Blog",
+    desc = "No blog desc.",
 
     -- Avatar
     avatar = "/img/avatar.jpg",
 
     -- Blog info
-    title = "imitoy's Blog",
-    github = "https://github.com/",
+    github = "https://github.com/imitoy/Blog",
 
     -- Admin credentials loaded from encrypted store at runtime.
     admin_user = "",

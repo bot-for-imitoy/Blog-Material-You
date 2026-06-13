@@ -157,8 +157,8 @@
 
       var navName = document.getElementById('nav-name');
       var navSlogan = document.getElementById('nav-slogan');
-      if (navName) navName.textContent = _(blogConfig.name_key || 'site_name');
-      if (navSlogan) navSlogan.textContent = _(blogConfig.desc_key || 'site_desc');
+      if (navName) navName.textContent = blogConfig.title || 'Blog';
+      if (navSlogan) navSlogan.textContent = blogConfig.desc || '';
     }
 
     // ===== Helpers =====
@@ -688,7 +688,7 @@
             if (p) newTitle = (useEn(p, 'title') || p.title) + ' - Blog Material You';
           }
         } else if (path === '/' || path === '') {
-          newTitle = (blogConfig ? _(blogConfig.name_key || 'site_name') : 'Blog') + ' - ' + (blogConfig ? _(blogConfig.desc_key || '') : '');
+          newTitle = (blogConfig ? blogConfig.title || 'Blog Material You' : 'Blog Material You') + ' - ' + (blogConfig ? blogConfig.desc || '' : '');
         } else if (path.startsWith('/tags/') || path.startsWith('/categories/')) {
           newTitle = decodeURIComponent(path.replace(/^\/(tags|categories)\//, '').replace(/\/$/, '')) + ' - Blog Material You';
         } else if (path.startsWith('/about')) { newTitle = (_('page_about') || 'About') + ' - Blog Material You';

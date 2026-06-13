@@ -1,6 +1,9 @@
+# Blog Material You — Locale translations
+# UN official languages: zh (Chinese), en (English)
+# Sidebar header uses config.lua (title, desc). This file handles
+# all other UI text.
+
 zh:
-  site_name: 博客
-  site_desc: 简单优雅的主题。
   home: 首页
   posts: 文章
   tags: 标签
@@ -43,9 +46,6 @@ zh:
   momentsDesc: 博客的点滴记录
   statusTitle: 服务状态
   friends: 友链
-  nav_friends: 友链
-  page_friends: 友链
-  page_friends_desc: 我的朋友们
   nav_home: 首页
   nav_posts: 文章
   nav_tags: 标签
@@ -53,6 +53,9 @@ zh:
   nav_moments: 动态
   nav_about: 关于
   nav_archives: 归档
+  nav_friends: 友链
+  page_friends: 友链
+  page_friends_desc: 我的朋友们
   page_posts: 文章
   page_posts_desc: 博客的全部文章
   page_tags: 标签
