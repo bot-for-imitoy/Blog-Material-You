@@ -1,69 +1,101 @@
 --[[
-  talks.lua — Talks CRUD using MariaDB.
+  talks.lua — Talks CRUD using .md files in blog/talks/ directory.
+  Each talk is a .md file: blog/talks/<timestamp>.md
+  Format:
+    ---
+    id: <number>
+    create_time: <unix_timestamp>
+    ---
+    <content>
 ]]
-
+local utils = require("utils")
 local cjson = require("cjson")
 
 local _M = {}
 
-local DB_SOCKET = ngx.config.prefix() .. "../blog/data/mysql/mysql.sock"
+local TALKS_DIR = ngx.config.prefix() .. "../blog/talks"
 
-local function connect()
-    local mysql = require("resty.mysql")
-    local db, err = mysql:new()
-    if not db then return nil, err end
-    db:set_timeout(3000)
-    local ok, err = db:connect({ path = DB_SOCKET, database = "blogyou", user = "blogyou", password = "blog-db-pass-2025" })
-    if not ok then return nil, err end
-    return db
-end
-
-local function close(db)
-    if db then db:set_keepalive(10000, 50) end
-end
-
--- List all talks, newest first
+-- Read all talks from files, sorted newest first
 function _M.list()
-    local db, err = connect()
-    if not db then ngx.log(ngx.ERR, "talks.list: ", err); return {} end
-    local res, err = db:query("SELECT id, content, create_time FROM talks ORDER BY create_time DESC")
-    close(db)
-    if not res then ngx.log(ngx.ERR, "talks.list query: ", err); return {} end
-    return res
+    local files = utils.list_files(TALKS_DIR, "md")
+    local talks = {}
+    for _, file in ipairs(files) do
+        local path = TALKS_DIR .. "/" .. file
+        local content, err = utils.read_file(path)
+        if content then
+            local frontmatter, body
+            if content:sub(1, 3) == "---" then
+                local _, end_pos = content:find("---", 5, true)
+                if end_pos then
+                    frontmatter = content:sub(5, end_pos - 2)
+                    body = content:sub(end_pos + 2)
+                    body = body:match("^[\n]*(.-)[\n]*$") or body
+                end
+            end
+            local meta = {}
+            if frontmatter then
+                meta = utils.parse_frontmatter(frontmatter)
+            end
+            table.insert(talks, {
+                id = tonumber(meta.id) or 0,
+                content = body or content,
+                create_time = tonumber(meta.create_time) or 0,
+            })
+        end
+    end
+    table.sort(talks, function(a, b) return a.create_time > b.create_time end)
+    if #talks == 0 then return cjson.empty_array end
+    return talks
 end
 
--- Add a talk
+-- Add a talk, returns { id, content, create_time }
 function _M.add(content)
-    local db, err = connect()
-    if not db then ngx.log(ngx.ERR, "talks.add connect: ", err); return nil end
     local now = os.time()
-    local sql = "INSERT INTO talks (content, create_time) VALUES ('" ..
-                content:gsub("'", "\\'"):gsub("\\", "\\\\") .. "', " .. now .. ")"
-    local res, err = db:query(sql)
-    close(db)
-    if not res then ngx.log(ngx.ERR, "talks.add query: ", err); return nil end
-    return { id = res.insert_id, content = content, create_time = now }
+    local id = now
+    local path = TALKS_DIR .. "/" .. id .. ".md"
+    local data = "---\nid: " .. id .. "\ncreate_time: " .. now .. "\n---\n\n" .. content
+    local ok = utils.write_file(path, data)
+    if not ok then return nil end
+    return { id = id, content = content, create_time = now }
 end
 
--- Update a talk
+-- Update a talk by id
 function _M.update(id, content)
-    local db, err = connect()
-    if not db then ngx.log(ngx.ERR, "talks.update connect: ", err); return false end
-    local sql = "UPDATE talks SET content = '" ..
-                content:gsub("'", "\\'"):gsub("\\", "\\\\") ..
-                "' WHERE id = " .. id
-    local res, err = db:query(sql)
-    close(db)
-    return res and res.affected_rows > 0
+    local files = utils.list_files(TALKS_DIR, "md")
+    for _, file in ipairs(files) do
+        local path = TALKS_DIR .. "/" .. file
+        local raw = utils.read_file(path)
+        if raw then
+            local frontmatter
+            if raw:sub(1, 3) == "---" then
+                local _, end_pos = raw:find("---", 5, true)
+                if end_pos then
+                    frontmatter = raw:sub(1, end_pos + 2)
+                end
+            end
+            if frontmatter and frontmatter:match("id:%s*" .. id) then
+                local data = frontmatter .. "\n" .. content
+                return utils.write_file(path, data)
+            end
+        end
+    end
+    return false
 end
 
--- Delete a talk
+-- Delete a talk by id
 function _M.delete(id)
-    local db, err = connect()
-    if not db then ngx.log(ngx.ERR, "talks.delete connect: ", err); return false end
-    local res, err = db:query("DELETE FROM talks WHERE id = " .. id)
-    close(db)
-    return res and res.affected_rows > 0
+    local files = utils.list_files(TALKS_DIR, "md")
+    for _, file in ipairs(files) do
+        local path = TALKS_DIR .. "/" .. file
+        local raw = utils.read_file(path)
+        if raw then
+            if raw:match("id:%s*" .. id) then
+                os.remove(path)
+                return true
+            end
+        end
+    end
+    return false
 end
 
 return _M

@@ -1,9 +1,14 @@
--- /api/friends — GET list of friend links
+-- /api/friends — list all friends
 local cjson = require("cjson")
-local friends = require("friends")
 
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
-local list = friends.list()
-ngx.say(cjson.encode(list))
+local raw = ngx.shared.blog_pages:get("friends")
+if raw then
+    ngx.say(raw)
+else
+    local friends = require("friends")
+    local list = friends.list()
+    ngx.say(cjson.encode(list))
+end

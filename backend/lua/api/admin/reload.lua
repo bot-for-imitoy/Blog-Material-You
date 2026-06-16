@@ -81,7 +81,26 @@ for _, slug in ipairs({"about", "talks"}) do
     end
 end
 
+-- Reload talks into shared dict
+local talks = require("talks")
+local talks_list = talks.list()
+if #talks_list == 0 then
+    pages_dict:set("talks", "[]")
+else
+    pages_dict:set("talks", cjson.encode(talks_list))
+end
+
+-- Reload friends into shared dict
+local friends = require("friends")
+local friends_list = friends.list()
+if #friends_list == 0 then
+    pages_dict:set("friends", "[]")
+else
+    pages_dict:set("friends", cjson.encode(friends_list))
+end
+
 cache:set("initialized", 1, 0)
-ngx.log(ngx.NOTICE, "Blog Material You: Reloaded " .. #active_posts .. " active + " .. #archived_posts .. " archived posts")
+ngx.log(ngx.NOTICE, "Blog Material You: Reloaded " .. #active_posts .. " active + " .. #archived_posts .. " archived posts, "
+    .. #talks_list .. " talks, " .. #friends_list .. " friends")
 
 ngx.say(cjson.encode({ errno = 0, data = { active = #active_posts, archived = #archived_posts } }))
