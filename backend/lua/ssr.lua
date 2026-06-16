@@ -6,6 +6,19 @@ local cjson = require("cjson")
 local posts_module = require("posts")
 local _M = {}
 
+-- Read site title from config
+local function get_site_title()
+    local raw = ngx.shared.blog_config:get("data")
+    if raw then
+        local ok, cfg = pcall(cjson.decode, raw)
+        if ok and cfg.title then return cfg.title end
+    end
+    local cfg_mod = require("config")
+    return cfg_mod.get().title or "Blog"
+end
+
+local site_title = get_site_title()
+
 -- Read and cache the SPA index.html
 local function get_shell()
     local f = io.open(ngx.config.prefix() .. "../blog/public/index.html", "r")
@@ -53,7 +66,7 @@ function _M.render_post(slug)
 
     local title = (post.title_en and _LANG == "en") and post.title_en or post.title
     local desc = strip_md(post.content or "")
-    local display_title = h(title) .. " - Blog Material You"
+    local display_title = h(title) .. " - " .. site_title
 
     -- Inject SEO tags into <head>
     shell = shell:gsub("<title>.-</title>",
@@ -100,7 +113,7 @@ function _M.render_page(page_slug)
     local desc = strip_md(content)
 
     shell = shell:gsub("<title>.-</title>",
-        "<title>" .. h(title) .. " - Blog Material You</title>"
+        "<title>" .. h(title) .. " - " .. site_title .. "</title>"
         .. '<meta name="description" content="' .. h(desc) .. '">'
     )
 
