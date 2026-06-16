@@ -2,6 +2,8 @@
 
 # Runtime data
 blog/data/
+blog/posts/*.md
+blog/pages/*.md
 blog/talks/*.md
 blog/friends/*.md
 backend/logs/
