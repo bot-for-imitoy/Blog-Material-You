@@ -76,5 +76,22 @@ for _, slug in ipairs({"about", "talks"}) do
     end
 end
 
+-- Load talks into shared dict
+local talks = require("talks")
+local talks_list = talks.list()
+-- cjson encodes empty list as [] if it's marked, but an empty table in shared dict
+-- was already encoded. Store it as serialized JSON directly.
+if #talks_list == 0 then
+    pages_dict:set("talks", "[]")
+else
+    pages_dict:set("talks", cjson.encode(talks_list))
+end
+
+-- Load friends into shared dict
+local friends = require("friends")
+local friends_list = friends.list()
+pages_dict:set("friends", cjson.encode(friends_list))
+
 cache:set("initialized", 1, 0)
-ngx.log(ngx.NOTICE, "Blog Material You: " .. #active_posts .. " active + " .. #archived_posts .. " archived posts")
+ngx.log(ngx.NOTICE, "Blog Material You: " .. #active_posts .. " active + " .. #archived_posts .. " archived posts, "
+    .. #talks_list .. " talks, " .. #friends_list .. " friends")

@@ -14,6 +14,12 @@ services:
       - ./blog/posts:/app/blog/posts
       # Mount pages directory
       - ./blog/pages:/app/blog/pages
+      # Mount talks directory for easy editing
+      - ./blog/talks:/app/blog/talks
+      # Mount friends directory for easy editing
+      - ./blog/friends:/app/blog/friends
+    environment:
+      - BMY_ADMIN_PASS=bmy2025
     restart: unless-stopped
 
 volumes:
