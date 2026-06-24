@@ -21,6 +21,7 @@ zh:
   allArchives: 归档
   allArchivesDesc: 已归档的旧文章
   loading: 加载中...
+  loadFailed: 加载失败
   networkError: 网络错误，请检查连接后重试
   commentSuccess: 评论提交成功
   commentFail: 评论提交失败

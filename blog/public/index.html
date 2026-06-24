@@ -412,7 +412,7 @@
       }
 
       const coverHtml = post.cover && post.cover !== 'null'
-        ? '<img src="' + post.cover + '" alt="' + escapeHtml(postTitle) + '" class="post-header-cover post-header-meta">'
+        ? '<div class="post-header-cover-wrapper"><div class="image-skeleton"><div class="image-skeleton-icon">🖼️</div><span>' + (_('loading') || 'Loading...') + '</span></div><img src="' + escapeHtml(post.cover) + '" alt="' + escapeHtml(postTitle) + '" class="post-header-cover post-header-meta"></div>'
         : '';
 
       loadCSS('/css/post-content.css');
@@ -826,6 +826,66 @@
 
       // 6. Easter egg: track clicks on About page header/avatar
       initAboutEasterEgg();
+
+      // 7. Image loading placeholders with fade-in
+      setupImagePlaceholders();
+    }
+
+    // ===== Image Loading Placeholder =====
+    function setupImagePlaceholders() {
+      // Cover image on post pages
+      document.querySelectorAll('.post-header-cover-wrapper img').forEach(function(img) {
+        if (img.dataset._placeholder) return;
+        img.dataset._placeholder = '1';
+        img.addEventListener('load', function() {
+          img.closest('.post-header-cover-wrapper')?.classList.add('loaded');
+        });
+        img.addEventListener('error', function() {
+          var wrapper = img.closest('.post-header-cover-wrapper');
+          if (wrapper) {
+            wrapper.querySelector('.image-skeleton').innerHTML =
+              '<div class="image-skeleton-icon">❌</div><span>' + (_('loadFailed') || 'Failed to load') + '</span>';
+          }
+        });
+        if (img.complete) {
+          if (img.naturalWidth > 0) {
+            img.closest('.post-header-cover-wrapper')?.classList.add('loaded');
+          } else {
+            img.dispatchEvent(new Event('error'));
+          }
+        }
+      });
+
+      // Inline images in markdown content
+      document.querySelectorAll('.markdown-content img').forEach(function(img) {
+        if (img.dataset._placeholder) return;
+        img.dataset._placeholder = '1';
+
+        // Create wrapper and skeleton
+        var wrapper = document.createElement('div');
+        wrapper.className = 'image-wrapper';
+        var skeleton = document.createElement('div');
+        skeleton.className = 'image-skeleton';
+        skeleton.innerHTML = '<div class="image-skeleton-icon">🖼️</div><span>' + (_('loading') || 'Loading...') + '</span>';
+
+        img.parentNode.insertBefore(wrapper, img);
+        wrapper.appendChild(skeleton);
+        wrapper.appendChild(img);
+
+        img.addEventListener('load', function() {
+          wrapper.classList.add('loaded');
+        });
+        img.addEventListener('error', function() {
+          skeleton.innerHTML = '<div class="image-skeleton-icon">❌</div><span>' + (_('loadFailed') || 'Failed to load') + '</span>';
+        });
+        if (img.complete) {
+          if (img.naturalWidth > 0) {
+            wrapper.classList.add('loaded');
+          } else {
+            img.dispatchEvent(new Event('error'));
+          }
+        }
+      });
     }
 
     // ===== KaTeX Math Rendering =====
