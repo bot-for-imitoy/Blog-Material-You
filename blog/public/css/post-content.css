@@ -197,6 +197,88 @@
     margin-top: 32px;
 }
 
+/* ===== Image loading placeholder ===== */
+.markdown-content .image-wrapper {
+    position: relative;
+    display: block;
+    min-height: 120px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+}
+.markdown-content .image-wrapper img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.markdown-content .image-wrapper.loaded img {
+    opacity: 1;
+}
+.markdown-content .image-wrapper .image-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: rgb(var(--mdui-color-outline));
+    font-size: 14px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    padding: 32px;
+    transition: opacity 0.3s ease;
+}
+.markdown-content .image-wrapper.loaded .image-skeleton {
+    opacity: 0;
+    pointer-events: none;
+}
+.markdown-content .image-wrapper .image-skeleton-icon {
+    font-size: 32px;
+    opacity: 0.5;
+}
+.post-header-cover-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+.post-header-cover-wrapper img {
+    display: block;
+    width: 100%;
+    height: auto;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.post-header-cover-wrapper.loaded img {
+    opacity: 1;
+}
+.post-header-cover-wrapper .image-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: rgb(var(--mdui-color-outline));
+    font-size: 14px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    padding: 32px;
+    transition: opacity 0.3s ease;
+}
+.post-header-cover-wrapper.loaded .image-skeleton {
+    opacity: 0;
+    pointer-events: none;
+}
+
 /* ===== KaTeX Math Rendering ===== */
 .markdown-content .katex-display {
     overflow-x: auto;
