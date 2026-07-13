@@ -1,25 +1,21 @@
 services:
   blog:
     build: .
-    container_name: blog
+    container_name: blog-material-you
     ports:
-      - "30999:30999"
-      - "31000:31000"
+      - "8000:30999"
+      - "8002:31000"
+    environment:
+      - BMY_BLOG_DIR=/app/blog
+      - BMY_DB_SOCKET=/app/data/mysql/mysql.sock
     volumes:
       # Persist MariaDB data
-      - blog_data:/app/blog/data/mysql
-      # Persist admin credentials
+      - blog_data:/app/data/mysql
+      # Persist admin credentials and runtime data
       - blog_data_etc:/app/blog/data
-      # Mount posts directory for easy editing
+      # Mount posts/pages for easy editing from host
       - ./blog/posts:/app/blog/posts
-      # Mount pages directory
       - ./blog/pages:/app/blog/pages
-      # Mount talks directory for easy editing
-      - ./blog/talks:/app/blog/talks
-      # Mount friends directory for easy editing
-      - ./blog/friends:/app/blog/friends
-    environment:
-      - BMY_ADMIN_PASS=bmy2025
     restart: unless-stopped
 
 volumes:
