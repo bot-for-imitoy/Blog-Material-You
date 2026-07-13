@@ -20,7 +20,6 @@ if [ -x /usr/sbin/nginx ]; then
     # Use Docker-specific admin config (no 127.0.0.1 restriction)
     cp -f /app/docker/31000-docker.conf /app/backend/conf/sites-available/31000.conf
     cp -f /app/docker/30999-docker.conf /app/backend/conf/sites-available/30999.conf
-    # Ensure data directories have correct permissions
     mkdir -p "$BMY_BLOG_DIR/data" 2>/dev/null || true
     chmod 775 "$BMY_BLOG_DIR/data" 2>/dev/null || true
     chown :nginx "$BMY_BLOG_DIR/data" 2>/dev/null || true
@@ -71,6 +70,9 @@ MYSQL_CMD="mariadb --socket=$DB_SOCKET"
 for i in $(seq 1 30); do
     if $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
         echo "MariaDB ready (PID: $MARIADB_PID)"
+        # Make socket accessible by nginx worker (group-readable)
+        chmod 755 "$DB_DIR" 2>/dev/null || true
+        chmod 666 "$DB_SOCKET" 2>/dev/null || true
         break
     fi
     sleep 1

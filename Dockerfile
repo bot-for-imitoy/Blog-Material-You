@@ -7,7 +7,7 @@ LABEL description="Blog Material You — standalone blog system (OpenResty + Mar
 LABEL maintainer="Hermes-bot"
 
 # Install dependencies
-RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/v3.20/community/ \
+RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/v3.20/community/ \
     openresty \
     mariadb \
     mariadb-client \
