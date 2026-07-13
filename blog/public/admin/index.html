@@ -774,7 +774,7 @@
             ${f.descr ? '<p style="color:gray;font-size:13px">' + escapeHtml(f.descr) + '</p>' : ''}
           </div>
           <div class="post-actions">
-            <mdui-button data-action="edit-friend" data-args='${JSON.stringify(f)}' variant="outlined">编辑</mdui-button>
+            <mdui-button data-action="edit-friend" data-args='${JSON.stringify(f).replace(/'/g, "&#39;")}' variant="outlined">编辑</mdui-button>
             <mdui-button data-action="delete-friend" data-args="${f.id}" variant="outlined" style="color:red">删除</mdui-button>
           </div>
         </div>
