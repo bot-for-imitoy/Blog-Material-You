@@ -6,6 +6,7 @@
 local cjson = require("cjson")
 local friends = require("friends")
 local admin_auth = require("admin_auth")
+local utils = require("utils")
 
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"

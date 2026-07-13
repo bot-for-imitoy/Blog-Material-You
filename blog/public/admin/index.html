@@ -846,12 +846,14 @@
       };
       if (_editingFriendId) { body.id = _editingFriendId; await api('/friends', { method: 'PUT', body: JSON.stringify(body) }); }
       else { await api('/friends', { method: 'POST', body: JSON.stringify(body) }); }
+      await api('/reload', { method: 'POST' });
       toast('已保存 ✓'); renderContent();
     }
 
     async function deleteFriend(id) {
       if (!confirm('确定删除这条友链？')) return;
       await api('/friends', { method: 'DELETE', body: JSON.stringify({ id: parseInt(id) }) });
+      await api('/reload', { method: 'POST' });
       toast('已删除'); renderContent();
     }
 
