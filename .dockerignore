@@ -1,0 +1,20 @@
+# Blog Material You — .dockerignore
+
+# Runtime data (volumes)
+backend/logs/
+backend/tmp/
+backend/data/
+backend/nginx.pid
+blog/data/
+*.pid
+
+# Secrets (create .env from .env.example)
+.env
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
