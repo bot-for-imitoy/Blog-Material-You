@@ -1,0 +1,31 @@
+<style>@import url('/css/header-card.css');</style>
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= _h._("page_posts") %></div>
+  <div class="header-content"><%= _h._("page_posts_desc") %></div>
+</mdui-card>
+<%
+  local years = {}
+  for _, p in ipairs(posts or {}) do
+    local y = p.date and p.date:sub(1, 4) or "Unknown"
+    if not years[y] then years[y] = {} end
+    table.insert(years[y], p)
+  end
+  -- Sort years descending
+  local sorted_years = {}
+  for y, _ in pairs(years) do table.insert(sorted_years, y) end
+  table.sort(sorted_years, function(a, b) return a > b end)
+%>
+<% for _, year in ipairs(sorted_years) do %>
+<h1 class="posts-year"><%= _h.h(year) %><%= _h._("postsYear") %></h1>
+<mdui-list class="posts-list">
+  <% for _, post in ipairs(years[year]) do %>
+  <% local listTitle = _h.get_title(post) %>
+  <mdui-list-item href="/post/<%= _h.url_encode(post.slug) %>">
+    <div class="mdui-list-item-content">
+      <div class="mdui-list-item-title"><%= _h.h(listTitle) %></div>
+      <div class="mdui-list-item-text"><%= _h.format_date(post.date) %></div>
+    </div>
+  </mdui-list-item>
+  <% end %>
+</mdui-list>
+<% end %>

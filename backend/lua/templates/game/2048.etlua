@@ -1,0 +1,91 @@
+<%
+  local zh = _LANG == "zh"
+%>
+<style>
+  .game-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgb(var(--mdui-color-surface));
+    z-index: 10000; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+  .game-container { text-align: center; }
+  .game-title { font-size: 28px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-primary)); }
+  .game-subtitle { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 12px; }
+  .game-header { display: flex; justify-content: space-between; align-items: center; max-width: 400px; margin: 0 auto 8px; padding: 0 4px; }
+  .game-score { font-size: 16px; font-weight: 600; color: rgb(var(--mdui-color-on-surface)); }
+  .game-score span { color: rgb(var(--mdui-color-primary)); font-size: 20px; }
+  .grid-2048 {
+    display: inline-grid; grid-template-columns: repeat(4, 88px); gap: 6px;
+    background: rgba(var(--mdui-color-outline), 0.15);
+    padding: 6px; border-radius: 8px; user-select: none;
+  }
+  .cell-2048 {
+    width: 88px; height: 88px; display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 700; border-radius: 4px;
+    background: rgba(var(--mdui-color-outline), 0.08);
+    color: rgb(var(--mdui-color-on-surface));
+    transition: all 0.08s ease;
+  }
+  .cell-0 { background: rgba(var(--mdui-color-outline), 0.08); }
+  .cell-2 { background: #eee4da; color: #776e65; }
+  .cell-4 { background: #ede0c8; color: #776e65; }
+  .cell-8 { background: #f2b179; color: #f9f6f2; }
+  .cell-16 { background: #f59563; color: #f9f6f2; }
+  .cell-32 { background: #f67c5f; color: #f9f6f2; }
+  .cell-64 { background: #f65e3b; color: #f9f6f2; }
+  .cell-128 { background: #edcf72; color: #f9f6f2; font-size: 28px; }
+  .cell-256 { background: #edcc61; color: #f9f6f2; font-size: 28px; }
+  .cell-512 { background: #edc850; color: #f9f6f2; font-size: 28px; }
+  .cell-1024 { background: #edc53f; color: #f9f6f2; font-size: 22px; }
+  .cell-2048 { background: #edc22e; color: #f9f6f2; font-size: 22px; box-shadow: 0 0 30px 10px rgba(237,194,46,0.3); }
+  .cell-super { background: #3c3a32; color: #f9f6f2; font-size: 18px; }
+  .game-controls { margin-top: 16px; display: flex; gap: 12px; justify-content: center; }
+  .game-hint { font-size: 13px; color: rgb(var(--mdui-color-outline)); margin-top: 10px; }
+  .game-close-btn {
+    position: fixed; top: 16px; right: 16px; z-index: 10002;
+    width: 40px; height: 40px; border-radius: 50%;
+    border: none; background: rgba(var(--mdui-color-outline), 0.2);
+    color: rgb(var(--mdui-color-on-surface)); font-size: 22px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .game-close-btn:hover { background: rgba(var(--mdui-color-outline), 0.4); }
+  .game-overlay-won, .game-overlay-lost {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center; border-radius: 8px;
+    animation: fadeIn 0.3s;
+  }
+  .game-overlay-won { background: rgba(237,194,46,0.5); }
+  .game-overlay-lost { background: rgba(0,0,0,0.4); }
+  .game-overlay-msg { padding: 24px; border-radius: 12px; text-align: center; background: rgb(var(--mdui-color-surface)); }
+  .game-overlay-msg h2 { font-size: 28px; margin-bottom: 8px; }
+  .game-grid-wrap { position: relative; }
+  @media (max-width: 480px) {
+    .grid-2048 { grid-template-columns: repeat(4, 68px); gap: 4px; padding: 4px; }
+    .cell-2048 { width: 68px; height: 68px; font-size: 24px; }
+    .cell-128, .cell-256, .cell-512 { font-size: 20px; }
+    .cell-1024, .cell-2048 { font-size: 16px; }
+    .cell-super { font-size: 14px; }
+  }
+</style>
+<div class="game-overlay" id="game-overlay">
+  <button class="game-close-btn" onclick="closeEasterEgg()">✕</button>
+  <div class="game-container">
+    <div class="game-title">2048</div>
+    <div class="game-subtitle"><%= zh and "方向键滑动合并，达到 2048 即获胜！" or "Swipe/Arrow keys to merge tiles, reach 2048 to win!" %></div>
+    <div class="game-header">
+      <div class="game-score"><%= zh and "得分" or "Score" %>: <span id="game-score">0</span></div>
+      <div class="game-score"><%= zh and "最高" or "Best" %>: <span id="game-best">0</span></div>
+    </div>
+    <div class="game-grid-wrap">
+      <div class="grid-2048" id="grid-2048"></div>
+    </div>
+    <div class="game-controls">
+      <mdui-button variant="filled" onclick="new2048Game()"><%= zh and "新一局" or "New Game" %></mdui-button>
+      <mdui-button variant="text" onclick="closeEasterEgg()"><%= zh and "返回" or "Back" %></mdui-button>
+    </div>
+    <div class="game-hint">← ↑ → ↓ / WASD</div>
+  </div>
+</div>

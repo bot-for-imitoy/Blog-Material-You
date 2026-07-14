@@ -1,0 +1,16 @@
+<div class="admin-layout">
+  <div class="sidebar">
+    <h2>📝 <%= _LANG == "zh" and "管理" or "Admin" %></h2>
+    <nav>
+      <mdui-list-item class="nav-item" data-view="dashboard" active rounded>📊 <%= _LANG == "zh" and "概览" or "Dashboard" %></mdui-list-item>
+      <mdui-list-item class="nav-item" data-view="posts" rounded>📄 <%= _LANG == "zh" and "文章" or "Posts" %></mdui-list-item>
+      <mdui-list-item class="nav-item" data-view="comments" rounded>💬 <%= _LANG == "zh" and "评论" or "Comments" %></mdui-list-item>
+      <mdui-list-item class="nav-item" data-view="talks" rounded>💭 <%= _LANG == "zh" and "动态" or "Talks" %></mdui-list-item>
+      <mdui-list-item class="nav-item" data-view="friends" rounded>🔗 <%= _LANG == "zh" and "友链" or "Friends" %></mdui-list-item>
+      <mdui-list-item class="nav-item" data-view="pages" rounded>📑 <%= _LANG == "zh" and "页面" or "Pages" %></mdui-list-item>
+      <mdui-list-item class="nav-item" data-view="security" rounded>🔐 <%= _LANG == "zh" and "安全" or "Security" %></mdui-list-item>
+    </nav>
+    <mdui-list-item class="logout" id="logout-btn" rounded>🚪 <%= _LANG == "zh" and "退出" or "Logout" %></mdui-list-item>
+  </div>
+  <div class="main" id="main-content"><%= _LANG == "zh" and "加载中..." or "Loading..." %></div>
+</div>

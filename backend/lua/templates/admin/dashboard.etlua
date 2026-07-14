@@ -1,0 +1,40 @@
+<div class="page-header"><h1><%= _LANG == "zh" and "概览" or "Dashboard" %></h1></div>
+<div class="card-grid">
+  <div class="stat-card">
+    <mdui-card variant="elevated">
+      <div class="stat-number"><%= postCount or 0 %></div>
+      <div class="stat-label"><%= _LANG == "zh" and "文章" or "Posts" %></div>
+    </mdui-card>
+  </div>
+  <div class="stat-card">
+    <mdui-card variant="elevated">
+      <div class="stat-number"><%= commentCount or 0 %></div>
+      <div class="stat-label"><%= _LANG == "zh" and "评论" or "Comments" %></div>
+    </mdui-card>
+  </div>
+  <div class="stat-card">
+    <mdui-card variant="elevated">
+      <div class="stat-number"><%= tagCount or 0 %></div>
+      <div class="stat-label"><%= _LANG == "zh" and "标签" or "Tags" %></div>
+    </mdui-card>
+  </div>
+</div>
+<mdui-card variant="elevated" style="padding:24px">
+  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= _LANG == "zh" and "最近文章" or "Recent Posts" %></h2>
+  <% if recentPosts and #recentPosts > 0 then %>
+    <% for i = 1, math.min(5, #recentPosts) do %>
+    <% local p = recentPosts[i] %>
+    <div class="post-item">
+      <div class="post-info">
+        <h3><%= _h.h(p.title) %></h3>
+        <span><%= _h.format_date(p.date) %></span>
+      </div>
+      <div class="post-actions">
+        <mdui-button data-action="edit-post" data-args="<%= p.slug %>" variant="text"><%= _LANG == "zh" and "编辑" or "Edit" %></mdui-button>
+      </div>
+    </div>
+    <% end %>
+  <% else %>
+    <p style="color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "还没有文章" or "No posts yet" %></p>
+  <% end %>
+</mdui-card>

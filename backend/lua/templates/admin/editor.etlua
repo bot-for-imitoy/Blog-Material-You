@@ -1,0 +1,35 @@
+<%
+  local tagsStr = post.tags and table.concat(post.tags, ", ") or ""
+  local catsStr = post.categories and table.concat(post.categories, ", ") or ""
+  local tagsEnStr = post.tags_en and table.concat(post.tags_en, ", ") or ""
+  local catsEnStr = post.categories_en and table.concat(post.categories_en, ", ") or ""
+%>
+<div class="page-header"><h1><%= post.slug and (_LANG == "zh" and "编辑文章" or "Edit Post") or (_LANG == "zh" and "写新文章" or "New Post") %></h1></div>
+<mdui-card variant="elevated" style="padding:32px;margin:0 auto;width:100%;max-width:1200px;box-sizing:border-box">
+  <div class="form-group"><label><%= _LANG == "zh" and "文件名标识 (slug)" or "Slug" %></label><input id="ed-slug" value="<%= _h.h(post.slug or "") %>" placeholder="my-post-title"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "标题" or "Title" %></label><input id="ed-title" value="<%= _h.h(post.title or "") %>"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "日期" or "Date" %></label><input id="ed-date" type="date" value="<%= post.date_formatted or post.date or "" %>"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "封面图 URL" or "Cover URL" %></label><input id="ed-cover" value="<%= _h.h(post.cover or "") %>" placeholder="/img/cover.jpg"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "标签 (逗号分隔)" or "Tags (comma separated)" %></label><input id="ed-tags" value="<%= _h.h(tagsStr) %>" placeholder="javascript, web, design"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "分类 (逗号分隔)" or "Categories (comma separated)" %></label><input id="ed-cats" value="<%= _h.h(catsStr) %>" placeholder="Tech, Design"></div>
+  <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+  <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
+  <div class="form-group"><label>English Title</label><input id="ed-title-en" value="<%= _h.h(post.title_en or "") %>" placeholder="English Title"></div>
+  <div class="form-group"><label>English Tags</label><input id="ed-tags-en" value="<%= _h.h(tagsEnStr) %>" placeholder="javascript, web, design"></div>
+  <div class="form-group"><label>English Categories</label><input id="ed-cats-en" value="<%= _h.h(catsEnStr) %>" placeholder="Tech, Design"></div>
+  <div class="form-group"><label>English Content</label><textarea id="ed-content-en"><%= _h.h(post.content_en or "") %></textarea></div>
+  <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+  <div class="editor-toolbar">
+    <mdui-button-icon id="tb-bold"><b>B</b></mdui-button-icon>
+    <mdui-button-icon id="tb-italic"><i>I</i></mdui-button-icon>
+    <mdui-button-icon id="tb-heading">H</mdui-button-icon>
+    <mdui-button-icon id="tb-list">&bull;</mdui-button-icon>
+    <mdui-button-icon id="tb-code">[ ]</mdui-button-icon>
+    <mdui-button-icon id="tb-quote">&quot;</mdui-button-icon>
+  </div>
+  <div class="form-group"><label><%= _LANG == "zh" and "正文 (Markdown)" or "Content (Markdown)" %></label><textarea id="ed-content"><%= _h.h(post.content or "") %></textarea></div>
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <mdui-button data-action="save-post" variant="filled"><%= _LANG == "zh" and "保存" or "Save" %></mdui-button>
+    <mdui-button data-action="cancel-edit" variant="text"><%= _LANG == "zh" and "取消" or "Cancel" %></mdui-button>
+  </div>
+</mdui-card>

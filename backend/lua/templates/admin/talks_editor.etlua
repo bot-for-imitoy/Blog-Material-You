@@ -1,0 +1,11 @@
+<div class="page-header"><h1><%= _LANG == "zh" and "写新动态" or "New Talk" %></h1></div>
+<mdui-card variant="elevated" style="padding:32px;margin:0 auto;width:100%;max-width:1200px;box-sizing:border-box">
+  <div class="form-group">
+    <label><%= _LANG == "zh" and "内容 (纯文本, 支持 Markdown)" or "Content (plain text, Markdown supported)" %></label>
+    <textarea id="talk-content" style="min-height:300px;width:100%"></textarea>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <mdui-button onclick="saveNewTalk()" variant="filled"><%= _LANG == "zh" and "发布" or "Publish" %></mdui-button>
+    <mdui-button onclick="renderContent()" variant="text"><%= _LANG == "zh" and "取消" or "Cancel" %></mdui-button>
+  </div>
+</mdui-card>

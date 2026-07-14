@@ -1,0 +1,30 @@
+<style>@import url('/css/header-card.css');</style>
+<div class="content">
+  <mdui-card variant="filled" class="header-card">
+    <div class="header-title"><%= _h._("status") %></div>
+    <div class="header-content"><%= _h._("statusDesc") %></div>
+  </mdui-card>
+  <mdui-card variant="elevated" style="padding:24px;width:100%">
+    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)">
+      <span style="color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "服务器状态" or "Server Status" %></span>
+      <span id="status-online"><%= _LANG == "zh" and "检测中..." or "Checking..." %></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)">
+      <span style="color:rgb(var(--mdui-color-outline))">🔒 <%= _LANG == "zh" and "锁定状态" or "Lock State" %></span>
+      <span id="status-lock"><%= _LANG == "zh" and "检测中..." or "Checking..." %></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)">
+      <span style="color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "当前播放" or "Now Playing" %></span>
+      <span id="status-playback">⏸️ <%= _LANG == "zh" and "无" or "None" %></span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:12px 0">
+      <span style="color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "注册用户" or "Registered Users" %></span>
+      <span id="status-users">-</span>
+    </div>
+  </mdui-card>
+  <div id="status-auth-card"></div>
+  <div id="status-calendar" style="margin-top:16px">
+    <p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:16px">📅 <%= _LANG == "zh" and "加载中..." or "Loading..." %></p>
+  </div>
+  <mdui-button variant="text" style="margin-top:16px" onclick="navigate('/', true)"><%= _LANG == "zh" and "← 返回首页" or "← Back to Home" %></mdui-button>
+</div>

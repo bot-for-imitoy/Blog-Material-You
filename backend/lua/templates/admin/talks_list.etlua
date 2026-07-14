@@ -1,0 +1,26 @@
+<div class="page-header">
+  <h1><%= _LANG == "zh" and "动态管理" or "Talks" %></h1>
+  <mdui-button data-action="new-talk" variant="filled"><%= _LANG == "zh" and "写新动态" or "New Talk" %></mdui-button>
+</div>
+<mdui-card variant="elevated" style="padding:24px">
+  <% if talks and #talks > 0 then %>
+    <% for _, t in ipairs(talks) do %>
+    <%
+      local ds = ""
+      if t.create_time then
+        local dt = os.date("*t", tonumber(t.create_time))
+        ds = string.format("%04d-%02d-%02d", dt.year, dt.month, dt.day)
+      end
+    %>
+    <div class="comment-item">
+      <div class="comment-info">
+        <div class="comment-text"><%= _h.h(t.content or "") %></div>
+        <div class="comment-meta"><%= ds %></div>
+      </div>
+      <mdui-button data-action="delete-talk" data-args="<%= t.id %>" variant="text" style="color:rgb(var(--mdui-color-error));flex-shrink:0"><%= _LANG == "zh" and "删除" or "Delete" %></mdui-button>
+    </div>
+    <% end %>
+  <% else %>
+    <p style="color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "暂无动态" or "No talks" %></p>
+  <% end %>
+</mdui-card>

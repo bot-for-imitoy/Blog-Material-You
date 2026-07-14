@@ -1,0 +1,39 @@
+<style>
+@import url('/css/index.css');
+@import url('/css/post-card.css');
+</style>
+<mdui-card variant="filled" class="index-header-card">
+  <div class="index-header-title"><%= _h.h(blog_config.title) %></div>
+  <div class="index-header-content"><%= _h.h(blog_config.desc) %></div>
+</mdui-card>
+<div class="card-container" id="card-container">
+<% for _, post in ipairs(posts or {}) do %>
+  <% local title = _h.get_title(post) %>
+  <% local postContent = _h.get_content(post) %>
+  <% local excerptText = (post.excerpt or postContent or '') %>
+  <% local excerpt = (post.cover and post.cover ~= "null") and _h.truncate(excerptText, 120) or _h.truncate(excerptText, 200) %>
+  <% local has_cover = post.cover and post.cover ~= "null" %>
+  <mdui-card variant="elevated" class="post-card">
+    <% if has_cover then %>
+    <img src="<%= post.cover %>" alt="<%= _h.h(title) %>" class="post-card-cover post-card-meta">
+    <% end %>
+    <div class="post-card-main">
+      <div class="post-card-title post-card-meta"><%= _h.h(title) %></div>
+      <div class="post-card-content post-card-meta"><%= _h.h(excerpt) %></div>
+      <div class="post-card-date post-card-meta">
+        <mdui-icon src="/icon/calender.svg"></mdui-icon>
+        <span><%= _h.format_date(post.date) %></span>
+      </div>
+      <mdui-card variant="filled" class="post-card-forward" href="/post/<%= _h.url_encode(post.slug) %>">
+        <div class="post-card-forward-div">
+          <mdui-icon class="post-card-forward-icon" src="/icon/arrow-forward.svg"></mdui-icon>
+        </div>
+      </mdui-card>
+    </div>
+  </mdui-card>
+<% end %>
+</div>
+<hr>
+<div class="index-bottom">
+  <mdui-chip><%= _h._("cpr") %></mdui-chip>
+</div>
