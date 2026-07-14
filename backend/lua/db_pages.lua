@@ -24,8 +24,8 @@ end
 function _M.save(slug, title, content, title_en, content_en)
     local now = os.time()
     local res, err = db.query(
-        "INSERT INTO pages (slug, title, content, title_en, content_en, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title), content=VALUES(content), title_en=VALUES(title_en), content_en=VALUES(content_en), updated_at=VALUES(updated_at)",
-        {slug, title or "", content or "", title_en or "", content_en or "", now, now}
+        "INSERT INTO pages (slug, title, content, title_en, content_en, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE title=VALUES(title), content=VALUES(content), title_en=VALUES(title_en), content_en=VALUES(content_en), updated_at=VALUES(updated_at)",
+        {slug, title or "", content or "", title_en or "", content_en or "", now}
     )
     if not res then return nil, err end
     return true

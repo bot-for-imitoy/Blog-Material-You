@@ -5,6 +5,9 @@ local utils = require("utils")
 ngx.header["Content-Type"] = "application/json"
 ngx.header["Access-Control-Allow-Origin"] = "http://localhost:30999"
 
+local cache = require("cache_loader")
+cache.ensure_data_loaded()
+
 local cat = utils.url_decode(ngx.var.category_name or "")
 if cat == "" then
     ngx.status = 400

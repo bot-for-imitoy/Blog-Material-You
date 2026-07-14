@@ -81,7 +81,11 @@ end
 
 -- Reload talks from DB
 local db_talks = require("db_talks")
-local talks_list = db_talks.list()
+local talks_raw = db_talks.list()
+local talks_list = {}
+if type(talks_raw) == "table" then
+    for _, t in ipairs(talks_raw) do table.insert(talks_list, t) end
+end
 if #talks_list == 0 then
     pages_dict:set("talks", "[]")
 else
@@ -90,7 +94,11 @@ end
 
 -- Reload friends from DB
 local db_friends = require("db_friends")
-local friends_list = db_friends.list()
+local friends_raw = db_friends.list()
+local friends_list = {}
+if type(friends_raw) == "table" then
+    for _, f in ipairs(friends_raw) do table.insert(friends_list, f) end
+end
 if #friends_list == 0 then
     pages_dict:set("friends", "[]")
 else
@@ -98,6 +106,7 @@ else
 end
 
 cache:set("initialized", 1, 0)
+cache:set("data_loaded", 1, 0)
 ngx.log(ngx.NOTICE, "Blog Material You: Reloaded " .. #active_posts .. " active + " .. #archived_posts .. " archived posts, "
     .. #talks_list .. " talks, " .. #friends_list .. " friends")
 

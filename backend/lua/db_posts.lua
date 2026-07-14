@@ -5,6 +5,7 @@
 ]]
 local db = require("db")
 local cjson = require("cjson")
+local utils = require("utils")
 local _M = {}
 
 -- Parse a DB row into a post object (matches the old file-based format)
@@ -64,7 +65,7 @@ function _M.to_summary(post)
         categories_en = post.categories_en,
         content_en = post.content_en,
         cover = post.cover,
-        excerpt = excerpt:sub(1, excerpt_len),
+        excerpt = utils.truncate(excerpt, excerpt_len),
     }
 end
 

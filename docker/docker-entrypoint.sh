@@ -137,7 +137,7 @@ else
             slug VARCHAR(200) PRIMARY KEY,
             title TEXT NOT NULL,
             content LONGTEXT NOT NULL DEFAULT '',
-            `date` VARCHAR(20) NOT NULL DEFAULT '',
+            \`date\` VARCHAR(20) NOT NULL DEFAULT '',
             tags TEXT NOT NULL DEFAULT '[]',
             categories TEXT NOT NULL DEFAULT '[]',
             cover TEXT,
@@ -200,7 +200,7 @@ local function readfile(path)
 end
 
 -- Check if already done
-local h = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT 1 FROM config WHERE `key`='_migration_done_v1'\" 2>/dev/null")
+local h = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT 1 FROM config WHERE `key`='_migration_done_v2'\" 2>/dev/null")
 local already = h and h:read("*a") or ""
 if h then h:close() end
 if already:match("1") then io.stderr:write("[migrate] Already done\n"); return end
@@ -328,7 +328,7 @@ if count_check then count_check:close() end
 
 if tonumber(post_count) == 0 then
     io.stderr:write("[migrate] Importing posts from files...\n")
-    local posts_handle = io.popen('ls "' .. blog_dir .. '/posts/*.md" 2>/dev/null')
+    local posts_handle = io.popen('ls ' .. blog_dir .. '/posts/*.md 2>/dev/null')
     if posts_handle then
         local count = 0
         for file in posts_handle:lines() do
@@ -374,7 +374,7 @@ if count_check then count_check:close() end
 
 if tonumber(page_count) == 0 then
     io.stderr:write("[migrate] Importing pages from files...\n")
-    local pages_handle2 = io.popen('ls "' .. blog_dir .. '/pages/*.md" 2>/dev/null')
+    local pages_handle2 = io.popen('ls ' .. blog_dir .. '/pages/*.md 2>/dev/null')
     if pages_handle2 then
         local count = 0
         for file in pages_handle2:lines() do
@@ -417,7 +417,7 @@ if count_check then count_check:close() end
 
 if tonumber(friend_count) == 0 then
     io.stderr:write("[migrate] Importing friends from files...\n")
-    local friends_handle = io.popen('ls "' .. blog_dir .. '/friends/*.md" 2>/dev/null')
+    local friends_handle = io.popen('ls ' .. blog_dir .. '/friends/*.md 2>/dev/null')
     if friends_handle then
         local count = 0
         for file in friends_handle:lines() do
@@ -449,16 +449,18 @@ if count_check then count_check:close() end
 
 if tonumber(talk_count) == 0 then
     io.stderr:write("[migrate] Importing talks from files...\n")
-    local talks_handle = io.popen('ls "' .. blog_dir .. '/talks/*.md" 2>/dev/null')
+    local talks_handle = io.popen('ls ' .. blog_dir .. '/talks/*.md 2>/dev/null')
     if talks_handle then
         local count = 0
         for file in talks_handle:lines() do
-            local meta, _ = parse_md_file(file)
-            if meta and meta.content then
+            local meta, body = parse_md_file(file)
+            if meta and body and body ~= "" then
                 local now = os.time()
                 local create_time = tonumber(meta.id) or now
+                -- Trim leading whitespace
+                local trimmed = body:match("^%s*(.-)%s*$") or body
                 local sql = "INSERT INTO talks (content, create_time) VALUES ("
-                sql = sql .. escape_sql(meta.content) .. ","
+                sql = sql .. escape_sql(trimmed) .. ","
                 sql = sql .. create_time .. ");\n"
                 run(sql)
                 count = count + 1
@@ -470,7 +472,7 @@ if tonumber(talk_count) == 0 then
 end
 
 -- Mark done
-run("REPLACE INTO config (`key`, `value`, updated_at) VALUES ('_migration_done_v1','1'," .. os.time() .. ");\n")
+run("REPLACE INTO config (`key`, `value`, updated_at) VALUES ('_migration_done_v2','1'," .. os.time() .. ");\n")
 io.stderr:write("[migrate] Complete\n")
 MIGRATE_SCRIPT
 
