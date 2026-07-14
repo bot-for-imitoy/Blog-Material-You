@@ -198,7 +198,7 @@ function _M.render(template_name, data)
     local tpl = tpl_cache[template_name]
     if not tpl then
         -- Search in template_dir or default path
-        local dir = template_dir or (require("utils").blog_dir() .. "/../backend/lua/templates")
+        local dir = template_dir or (require("utils").blog_dir() .. "/public/templates")
         local path = dir .. "/" .. template_name .. ".etlua"
         local f = io.open(path, "r")
         if not f then
