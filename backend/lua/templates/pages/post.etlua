@@ -43,12 +43,6 @@
   <div class="markdown-content"><%- contentHtml %></div>
   <hr>
   <div class="comment-input">
-    <div style="display:flex;gap:8px;align-items:center">
-      <mdui-text-field id="comment-avatar" label="<%= _h._("avatar") %>" variant="outlined" max-rows="1" style="flex:1" placeholder="<%= _h._("avatar") %>"></mdui-text-field>
-      <mdui-button id="comment-avatar-upload" variant="text" style="flex-shrink:0">📷</mdui-button>
-      <input type="file" id="comment-avatar-file" accept="image/*" style="display:none">
-      <img id="comment-avatar-preview" style="width:40px;height:40px;border-radius:50%;display:none;object-fit:cover">
-    </div>
     <mdui-text-field id="comment-nick" label="<%= _h._("nickName") %>" variant="outlined" max-rows="1"></mdui-text-field>
     <mdui-text-field id="comment-email" label="<%= _h._("email") %>" variant="outlined" max-rows="1"></mdui-text-field>
     <mdui-text-field id="comment-website" label="<%= _h._("website") %>" variant="outlined" max-rows="1"></mdui-text-field>

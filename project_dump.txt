@@ -1,0 +1,3600 @@
+\n\n================ FILE: ./blog/pages/about.en.json ================
+{"content_en":"English content here"}\n\n================ FILE: ./blog/public/admin/index.html ================
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>博客管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
+  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
+    .admin-layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; }
+    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); }
+    .sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .sidebar nav mdui-list-item { border-radius: 8px; }
+    .sidebar .logout { margin-top: auto; }
+    .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 100%; }
+    .main mdui-card { margin-bottom: 24px; }
+    .main .form-group textarea { width: 100%; min-height: 400px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h1 { font-size: 28px; font-weight: 400; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card mdui-card { padding: 24px; }
+    .stat-card .stat-number { font-size: 36px; font-weight: 500; color: rgb(var(--mdui-color-primary)); }
+    .stat-card .stat-label { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-top: 4px; }
+    .post-item { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid rgb(var(--mdui-color-outline-variant)); }
+    .post-item:last-child { border-bottom: none; }
+    .post-info h3 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+    .post-info span { font-size: 13px; color: rgb(var(--mdui-color-outline)); }
+    .post-actions { display: flex; gap: 8px; }
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .login-card { width: 400px; padding: 32px; }
+    .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 24px; text-align: center; }
+    .login-card mdui-text-field { width: 100%; margin-bottom: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-on-surface)); }
+    .form-group input, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); }
+    .form-group textarea { min-height: 300px; resize: vertical; font-family: 'Fira Code', 'Monaco', monospace; font-size: 13px; line-height: 1.5; }
+    .tag-input { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; min-height: 42px; }
+    .tag-input input { border: none; outline: none; flex: 1; min-width: 80px; font-size: 14px; background: transparent; color: rgb(var(--mdui-color-on-surface)); }
+    .tag-input .tag { display: inline-flex; align-items: center; gap: 4px; background: rgb(var(--mdui-color-secondary-container)); color: rgb(var(--mdui-color-on-secondary-container)); padding: 2px 8px; border-radius: 12px; font-size: 13px; }
+    .tag-input .tag .remove { cursor: pointer; font-size: 16px; line-height: 1; }
+    .hidden { display: none !important; }
+    .comment-item { padding: 12px 0; border-bottom: 1px solid rgb(var(--mdui-color-outline-variant)); font-size: 14px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .comment-item .comment-info { flex: 1; }
+    .comment-item .comment-text { margin: 4px 0; }
+    .comment-item .comment-meta { font-size: 12px; color: rgb(var(--mdui-color-outline)); }
+    .editor-toolbar { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+    .editor-toolbar mdui-button-icon { --mdui-button-icon-size: 36px; }
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const API = '/api/admin';
+    let authToken = null;
+    let currentView = 'dashboard';
+
+    // ===== Utils =====
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function toast(msg) {
+      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
+      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
+      const sb = el.querySelector('mdui-snackbar');
+      if (sb) sb.show = true;
+    }
+
+    async function api(path, opts) {
+      const headers = { 'Content-Type': 'application/json' };
+      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
+      if (res.status === 401) { authToken = null; render(); throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    function formatDate(d) {
+      if (!d) return '';
+      const dt = new Date(typeof d === 'string' && d.includes('-') ? d : Number(d) * 1000);
+      return dt.toISOString().slice(0, 10);
+    }
+
+    // ===== Auth (Password + optional TOTP 2FA) =====
+    let loginStep = 1;
+    let loginTempToken = null;
+
+    function resetLogin() {
+      loginStep = 1;
+      loginTempToken = null;
+      render();
+    }
+
+    async function doLogin(username, password) {
+      var errEl = document.getElementById('login-error');
+      if (!username || !password) {
+        if (errEl) { errEl.textContent = '请输入用户名和密码'; errEl.style.display = ''; }
+        return;
+      }
+      if (errEl) errEl.style.display = 'none';
+      const res = await fetch(API + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      var data;
+      try { data = await res.json(); } catch(e) { data = { errno: -1, errmsg: '服务器返回格式错误' }; }
+      if (data.errno !== 0) {
+        if (errEl) { errEl.textContent = data.errmsg || '登录失败'; errEl.style.display = ''; }
+        else toast('登录失败：' + (data.errmsg || '未知错误'));
+        return;
+      }
+      if (data.data && data.data.step === 2) {
+        loginStep = 2;
+        loginTempToken = data.data.temp_token;
+        render();
+        return;
+      }
+      if (data.data && data.data.token) {
+        authToken = data.data.token;
+        loginStep = 1;
+        loginTempToken = null;
+        render();
+      }
+    }
+
+    async function doTotpLogin(totpCode) {
+      const res = await fetch(API + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step: 2, temp_token: loginTempToken, totp: totpCode })
+      });
+      const data = await res.json();
+      if (data.errno === 0 && data.data) {
+        authToken = data.data.token;
+        loginStep = 1;
+        loginTempToken = null;
+        toast('登录成功 ✓');
+        render();
+      } else {
+        toast('验证失败：' + (data.errmsg || '验证码错误'));
+      }
+    }
+
+    function logout() {
+      authToken = null;
+      fetch(API + '/logout', { method: 'POST', credentials: 'same-origin' }).catch(function(){});
+      render();
+    }
+
+    // ===== Views =====
+    function render() {
+      const app = document.getElementById('app');
+      if (!authToken) {
+        // Token not in memory — try cookie auth via a protected endpoint first
+        var checkAuth = function() {
+          fetch(API + '/posts', { credentials: 'same-origin' }).then(function(r) {
+            if (r.ok) {
+              // Cookie-authenticated
+              authToken = 'cookie';
+              app.innerHTML = layoutPage();
+              document.querySelectorAll('.nav-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                  e.preventDefault();
+                  currentView = this.dataset.view;
+                  renderContent();
+                  document.querySelectorAll('.nav-item').forEach(n => n.active = false);
+                  this.active = true;
+                }, true);
+              });
+              document.getElementById('logout-btn')?.addEventListener('click', logout, true);
+              renderContent();
+              return;
+            }
+            // Not authenticated — check if setup is needed
+            fetch(API + '/setup').then(function(r2) { return r2.json(); }).then(function(d) {
+              if (d.errno === 0 && d.data && !d.data.setup_done) {
+                app.innerHTML = setupPage();
+                bindSetupEvents();
+              } else {
+                app.innerHTML = loginPage();
+                bindLoginEvents();
+              }
+            }).catch(function() {
+              app.innerHTML = loginPage();
+              bindLoginEvents();
+            });
+          }).catch(function() {
+            app.innerHTML = loginPage();
+            bindLoginEvents();
+          });
+        };
+        checkAuth();
+        return;
+      }
+      app.innerHTML = layoutPage();
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+          e.preventDefault();
+          currentView = this.dataset.view;
+          renderContent();
+          document.querySelectorAll('.nav-item').forEach(n => n.active = false);
+          this.active = true;
+        }, true);
+      });
+      document.getElementById('logout-btn')?.addEventListener('click', logout, true);
+      renderContent();
+    }
+
+    // ===== Login =====
+    var setupState = { user: '', error: '' };
+
+    function setupPage() {
+      return `
+        <div class="login-container">
+          <mdui-card variant="elevated" class="login-card">
+            <h1>初始化管理员</h1>
+            <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))">请设置管理员用户名和密码</p>
+            <mdui-text-field id="su-user" label="用户名" variant="outlined"></mdui-text-field>
+            <mdui-text-field id="su-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
+            <mdui-text-field id="su-pass2" label="确认密码" variant="outlined" type="password"></mdui-text-field>
+            <p id="setup-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin:8px 0;display:none"></p>
+            <p id="setup-warning" style="color:rgb(var(--mdui-color-tertiary));font-size:13px;margin:8px 0;display:none"></p>
+            <mdui-button data-action="setup-init" variant="filled" style="width:100%">初始化</mdui-button>
+          </mdui-card>
+        </div>`;
+    }
+
+    function bindSetupEvents() {
+      // Handled by data-action="setup-init" in bindEventListeners (capture phase)
+      bindEventListeners();
+    }
+
+    function loginPage() {
+      if (loginStep === 2) {
+        return `
+          <div class="login-container">
+            <mdui-card variant="elevated" class="login-card">
+              <h1>博客管理后台</h1>
+              <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))">请输入身份验证器中的6位动态验证码</p>
+              <form id="login-form-totp">
+                <mdui-text-field id="lf-totp" label="验证码" variant="outlined" maxlength="6" pattern="[0-9]*" inputmode="numeric"></mdui-text-field>
+                <mdui-button variant="filled" type="submit" style="width:100%">验证</mdui-button>
+              </form>
+              <mdui-button variant="text" onclick="resetLogin()" style="width:100%;margin-top:8px">返回上一步</mdui-button>
+            </mdui-card>
+          </div>`;
+      }
+      return `
+        <div class="login-container">
+          <mdui-card variant="elevated" class="login-card">
+            <h1>博客管理后台</h1>
+            <mdui-text-field id="lf-user" label="用户名" variant="outlined"></mdui-text-field>
+            <mdui-text-field id="lf-pass" label="密码" variant="outlined" type="password"></mdui-text-field>
+            <p id="login-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin:8px 0;display:none"></p>
+            <mdui-button data-action="login" variant="filled" style="width:100%">登录</mdui-button>
+          </mdui-card>
+        </div>`;
+    }
+
+    function bindLoginEvents() {
+      if (loginStep === 2) {
+        const form = document.getElementById('login-form-totp');
+        if (form) {
+          form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const totp = document.getElementById('lf-totp')?.value || '';
+            if (!totp || totp.length !== 6) { toast('请输入6位验证码'); return; }
+            doTotpLogin(totp);
+          });
+          const input = document.getElementById('lf-totp');
+          if (input) {
+            input.addEventListener('input', function(e) {
+              if (e.target.value.length === 6) doTotpLogin(e.target.value);
+            });
+          }
+        }
+        return;
+      }
+      // Step 1 login: handled by data-action="login" in bindEventListeners (capture phase)
+      bindEventListeners();
+    }
+
+    function layoutPage() {
+      return `
+        <div class="admin-layout">
+          <div class="sidebar">
+            <h2>📝 管理</h2>
+            <nav>
+              <mdui-list-item class="nav-item" data-view="dashboard" active rounded>📊 概览</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="posts" rounded>📄 文章</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="comments" rounded>💬 评论</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="talks" rounded>💭 动态</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="friends" rounded>🔗 友链</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="pages" rounded>📑 页面</mdui-list-item>
+              <mdui-list-item class="nav-item" data-view="security" rounded>🔐 安全</mdui-list-item>
+            </nav>
+            <mdui-list-item class="logout" id="logout-btn" rounded>🚪 退出</mdui-list-item>
+          </div>
+          <div class="main" id="main-content">加载中...</div>
+        </div>`;
+    }
+
+    async function renderContent() {
+      const el = document.getElementById('main-content');
+      el.innerHTML = '加载中...';
+      try {
+        if (currentView === 'dashboard') el.innerHTML = await dashboardView();
+        else if (currentView === 'posts') el.innerHTML = await postsView();
+        else if (currentView === 'comments') el.innerHTML = await commentsView();
+        else if (currentView === 'talks') el.innerHTML = await talksView();
+        else if (currentView === 'friends') el.innerHTML = await friendsView();
+        else if (currentView === 'pages') el.innerHTML = await pagesView();
+        else if (currentView === 'security') el.innerHTML = await securityView();
+        bindEventListeners();
+      } catch(e) {
+        el.innerHTML = '<p style="color:red">加载失败: ' + escapeHtml(e.message) + '</p>';
+      }
+    }
+
+    function bindEventListeners() {
+      document.querySelectorAll('[data-action]').forEach(el => {
+        el.addEventListener('click', function(e) {
+          const target = e.currentTarget;
+          const action = target.dataset.action;
+          const args = target.dataset.args;
+          if (action === 'edit-post') editPost(args);
+          else if (action === 'delete-post') deletePost(args);
+          else if (action === 'delete-comment') deleteComment(args);
+          else if (action === 'delete-talk') deleteTalk(args);
+          else if (action === 'new-post') newPost();
+          else if (action === 'new-talk') newTalk();
+          else if (action === 'toggle-archive') toggleArchive(args);
+          else if (action === 'edit-page') editPage(args);
+          else if (action === 'delete-friend') deleteFriend(args);
+          else if (action === 'new-friend') newFriend();
+          else if (action === 'save-friend') saveFriend();
+          else if (action === 'edit-friend') editFriend(args);
+          else if (action === 'save-post') savePost();
+          else if (action === 'save-page') savePage();
+          else if (action === 'cancel-edit') renderContent();
+          else if (action === 'totp-start') startTotpSetup();
+          else if (action === 'totp-verify') verifyTotpSetup();
+          else if (action === 'totp-cancel') cancelTotpSetup();
+          else if (action === 'totp-disable') disableTotp();
+          else if (action === 'change-password') changePassword();
+          else if (action === 'login') doLogin(
+            document.getElementById('lf-user')?.value || '',
+            document.getElementById('lf-pass')?.value || ''
+          );
+          else if (action === 'setup-init') doSetupInit();
+        }, true);
+      });
+    }
+
+    // ===== Dashboard =====
+    async function dashboardView() {
+      const [posts, comments] = await Promise.all([api('/posts'), api('/comments')]);
+      const postCount = Array.isArray(posts) ? posts.length : 0;
+      const commentCount = Array.isArray(comments) ? comments.length : 0;
+      const tagSet = new Set();
+      if (Array.isArray(posts)) posts.forEach(p => { if (p.tags) p.tags.forEach(t => tagSet.add(t)); });
+      return `
+        <div class="page-header"><h1>概览</h1></div>
+        <div class="card-grid">
+          <div class="stat-card"><mdui-card variant="elevated"><div class="stat-number">${postCount}</div><div class="stat-label">文章</div></mdui-card></div>
+          <div class="stat-card"><mdui-card variant="elevated"><div class="stat-number">${commentCount}</div><div class="stat-label">评论</div></mdui-card></div>
+          <div class="stat-card"><mdui-card variant="elevated"><div class="stat-number">${tagSet.size}</div><div class="stat-label">标签</div></mdui-card></div>
+        </div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">最近文章</h2>
+          ${Array.isArray(posts) && posts.length > 0 ? posts.slice(0, 5).map(p => `
+            <div class="post-item">
+              <div class="post-info"><h3>${escapeHtml(p.title)}</h3><span>${formatDate(p.date)}</span></div>
+              <div class="post-actions">
+                <mdui-button data-action="edit-post" data-args="${p.slug}" variant="text">编辑</mdui-button>
+              </div>
+            </div>`).join('') : '<p style="color:var(--mdui-color-outline)">还没有文章</p>'}
+        </mdui-card>`;
+    }
+
+    // ===== Security View (TOTP 2FA + change password) =====
+    let totpState = {};
+
+    async function securityView() {
+      const [totpRes, setupRes] = await Promise.all([
+        api('/totp-setup'),
+        api('/setup')
+      ]);
+      if (totpRes.errno !== 0 || !totpRes.data) {
+        return '<p style="color:red">无法获取安全设置</p>';
+      }
+      const d = totpRes.data;
+      d.user = (setupRes.errno === 0 && setupRes.data) ? setupRes.data.user : '';
+      totpState = d;
+      if (d.enabled) return renderTotpEnabled(d);
+      if (d.has_pending) return renderTotpVerify(d);
+      return renderTotpDisabled();
+    }
+
+    function renderTotpDisabled() {
+      return `
+        <div class="page-header"><h1>🔐 安全设置</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">两步验证 (TOTP / 2FA)</h2>
+          <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))">
+            状态：<span style="color:rgb(var(--mdui-color-outline))">🔴 未启用</span>
+          </p>
+          <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))">
+            启用两步验证后，登录时需要同时输入密码和身份验证器应用中的6位动态验证码。
+          </p>
+          <mdui-button data-action="totp-start" variant="filled">启用两步验证</mdui-button>
+        </mdui-card>`;
+    }
+
+    function renderTotpVerify(d) {
+      return `
+        <div class="page-header"><h1>🔐 安全设置</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">验证绑定</h2>
+          <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))">
+            请使用 Google Authenticator、Authy、1Password 等应用扫描下方二维码，
+            然后输入应用生成的6位验证码以完成绑定。
+          </p>
+          <div style="text-align:center;margin-bottom:16px">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(d.provisioning_uri)}"
+                 alt="TOTP QR Code" style="width:200px;height:200px;border-radius:8px">
+          </div>
+          <div class="form-group">
+            <label>或手动输入密钥 (Secret)</label>
+            <input id="totp-secret" value="${escapeHtml(d.secret)}" readonly>
+            <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('已复制'))" style="margin-top:8px">📋 复制密钥</mdui-button>
+          </div>
+          <div class="form-group">
+            <label>验证码</label>
+            <input id="totp-verify-code" placeholder="输入6位验证码" maxlength="6" style="font-size:18px;letter-spacing:4px;text-align:center;width:200px">
+          </div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button data-action="totp-verify" variant="filled">验证并启用</mdui-button>
+            <mdui-button data-action="totp-cancel" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+    }
+
+    function renderTotpEnabled(d) {
+      return `
+        <div class="page-header"><h1>🔐 安全设置</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">两步验证 (TOTP / 2FA)</h2>
+          <p style="margin-bottom:16px">
+            状态：<span style="color:rgb(var(--mdui-color-tertiary))">🟢 已启用</span>
+          </p>
+          <div style="text-align:center;margin-bottom:16px">
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(d.provisioning_uri)}"
+                 alt="TOTP QR Code" style="width:200px;height:200px;border-radius:8px">
+          </div>
+          <div class="form-group">
+            <label>密钥 (Secret)</label>
+            <input id="totp-secret" value="${escapeHtml(d.secret)}" readonly>
+            <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('已复制'))" style="margin-top:8px">📋 复制密钥</mdui-button>
+          </div>
+          <p style="font-size:13px;color:rgb(var(--mdui-color-error));margin-top:16px">
+            ⚠️ 如果更换设备，请先保存密钥再禁用，否则将无法登录！
+          </p>
+          <mdui-button data-action="totp-disable" variant="text" style="color:rgb(var(--mdui-color-error))">🔴 禁用两步验证</mdui-button>
+        </mdui-card>
+        <mdui-card variant="elevated" style="padding:24px;margin-top:16px">
+          <h2 style="font-size:18px;font-weight:500;margin-bottom:16px">更改密码</h2>
+          <div class="form-group"><label>当前密码</label><input id="cp-old" type="password"></div>
+          <div class="form-group"><label>新用户名（可选）</label><input id="cp-user" value="${escapeHtml(d.user || '')}"></div>
+          <div class="form-group"><label>新密码</label><input id="cp-new" type="password"></div>
+          <div class="form-group"><label>确认新密码</label><input id="cp-new2" type="password"></div>
+          <p id="cp-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin-bottom:8px"></p>
+          <mdui-button data-action="change-password" variant="filled">保存更改</mdui-button>
+        </mdui-card>`;
+    }
+
+    async function startTotpSetup() {
+      const res = await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'start' })
+      });
+      if (res.errno === 0) {
+        totpState = res.data;
+        renderContent();
+      } else {
+        toast('操作失败: ' + (res.errmsg || ''));
+      }
+    }
+
+    async function verifyTotpSetup() {
+      const code = document.getElementById('totp-verify-code')?.value?.trim();
+      if (!code || code.length !== 6) { toast('请输入6位验证码'); return; }
+      const res = await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'verify', code })
+      });
+      if (res.errno === 0) {
+        toast('✅ 两步验证已启用');
+        renderContent();
+      } else {
+        toast('验证失败: ' + (res.errmsg || '验证码错误'));
+      }
+    }
+
+    async function cancelTotpSetup() {
+      await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'disable' })
+      });
+      renderContent();
+    }
+
+    async function disableTotp() {
+      if (!confirm('确定禁用两步验证？\n\n如果未保存密钥，再次启用时需要重新绑定所有设备。')) return;
+      const res = await api('/totp-setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'disable' })
+      });
+      if (res.errno === 0) {
+        toast('两步验证已禁用');
+        renderContent();
+      } else {
+        toast('操作失败');
+      }
+    }
+
+    async function changePassword() {
+      var oldPass = document.getElementById('cp-old')?.value;
+      var newUser = document.getElementById('cp-user')?.value?.trim();
+      var newPass = document.getElementById('cp-new')?.value;
+      var newPass2 = document.getElementById('cp-new2')?.value;
+      var errEl = document.getElementById('cp-error');
+      if (!oldPass) { errEl.textContent = '请输入当前密码'; return; }
+      if (!newPass) { errEl.textContent = '请输入新密码'; return; }
+      if (newPass.length < 6) { errEl.textContent = '新密码长度不少于6位'; return; }
+      if (newPass !== newPass2) { errEl.textContent = '两次密码输入不一致'; return; }
+      errEl.textContent = '保存中...';
+      const res = await api('/setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'change', old_password: oldPass, new_password: newPass, new_user: newUser })
+      });
+      if (res.errno === 0) {
+        toast('✅ 密码已更改');
+        renderContent();
+      } else {
+        errEl.textContent = res.errmsg || '更改失败';
+      }
+    }
+
+    async function doSetupInit() {
+      var user = document.getElementById('su-user')?.value?.trim();
+      var pass = document.getElementById('su-pass')?.value;
+      var pass2 = document.getElementById('su-pass2')?.value;
+      var errEl = document.getElementById('setup-error');
+      if (!user || !pass) { errEl.textContent = '用户名和密码不能为空'; errEl.style.display = ''; return; }
+      if (pass.length < 6) { errEl.textContent = '密码长度不少于6位'; errEl.style.display = ''; return; }
+      if (pass !== pass2) { errEl.textContent = '两次密码输入不一致'; errEl.style.display = ''; return; }
+      errEl.style.display = 'none';
+      try {
+        var res = await fetch(API + '/setup', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'init', user: user, password: pass })
+        });
+        var d = await res.json();
+        if (d.errno === 0) {
+          // Show security warning about changing default password
+          var warnEl = document.getElementById('setup-warning');
+          if (warnEl) {
+            warnEl.style.display = '';
+            warnEl.textContent = '⚠️ 初始化成功！建议立即修改密码。';
+          }
+          setTimeout(function() { render(); }, 2000);
+        } else {
+          errEl.textContent = d.errmsg || '初始化失败';
+          errEl.style.display = '';
+        }
+      } catch(e) {
+        errEl.textContent = '网络错误: ' + e.message;
+        errEl.style.display = '';
+      }
+    }
+
+    // ===== Posts =====
+    async function postsView() {
+      const posts = await api('/posts');
+      return `
+        <div class="page-header"><h1>文章管理</h1><mdui-button data-action="new-post" variant="filled">写新文章</mdui-button></div>
+        <mdui-card variant="elevated" style="padding:16px">
+          ${Array.isArray(posts) && posts.length > 0 ? posts.map(p => `
+            <div class="post-item">
+              <div class="post-info"><h3>${escapeHtml(p.title)} ${p.archived ? '<span style="color:rgb(var(--mdui-color-tertiary));font-size:12px">📦 已归档</span>' : ''}</h3><span>${formatDate(p.date)} ｜ ${(p.tags || []).join(', ') || '无标签'}</span></div>
+              <div class="post-actions">
+                <mdui-button data-action="edit-post" data-args="${p.slug}" variant="text">编辑</mdui-button>
+                <mdui-button data-action="toggle-archive" data-args="${p.slug}" variant="text">${p.archived ? '📤 移出归档' : '📦 归档'}</mdui-button>
+                <mdui-button data-action="delete-post" data-args="${p.slug}" variant="text" style="color:rgb(var(--mdui-color-error))">删除</mdui-button>
+              </div>
+            </div>`).join('') : '<p style="padding:16px;color:var(--mdui-color-outline)">还没有文章，点击"写新文章"开始</p>'}
+        </mdui-card>`;
+    }
+
+    function newPost() {
+      showEditor({ slug: '', title: '', date: new Date().toISOString().slice(0, 10), tags: [], categories: [], content: '', cover: '', title_en: '', tags_en: [], categories_en: [], content_en: '' });
+    }
+
+    async function editPost(slug) {
+      const posts = await api('/posts');
+      const post = posts.find(p => p.slug === slug);
+      if (post) showEditor(post);
+    }
+
+    async function deletePost(slug) {
+      if (!confirm('确定删除 "' + slug + '"？')) return;
+      const res = await api('/posts?slug=' + encodeURIComponent(slug), { method: 'DELETE' });
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已删除'); renderContent(); }
+      else toast('删除失败');
+    }
+
+    async function toggleArchive(slug) {
+      const res = await api('/posts', { method: 'PATCH', body: JSON.stringify({ slug }) });
+      if (res.errno === 0) {
+        await api('/reload', { method: 'POST' });
+        toast('操作成功 ✓');
+        renderContent();
+      }
+      else toast('操作失败: ' + (res.errmsg || ''));
+    }
+
+    function showEditor(post) {
+      const el = document.getElementById('main-content');
+      const tagsStr = (post.tags || []).join(', ');
+      const catsStr = (post.categories || []).join(', ');
+      el.innerHTML = `
+        <div class="page-header"><h1>${post.slug ? '编辑文章' : '写新文章'}</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;margin:0 auto;width:100%;max-width:1200px;box-sizing:border-box">
+          <div class="form-group"><label>文件名标识 (slug)</label><input id="ed-slug" value="${escapeHtml(post.slug || '')}" placeholder="my-post-title"></div>
+          <div class="form-group"><label>标题</label><input id="ed-title" value="${escapeHtml(post.title || '')}"></div>
+          <div class="form-group"><label>日期</label><input id="ed-date" type="date" value="${post.date_formatted || post.date || ''}"></div>
+          <div class="form-group"><label>封面图 URL</label><input id="ed-cover" value="${escapeHtml(post.cover || '')}" placeholder="/img/cover.jpg"></div>
+          <div class="form-group"><label>标签 (逗号分隔)</label><input id="ed-tags" value="${escapeHtml(tagsStr)}" placeholder="javascript, web, design"></div>
+          <div class="form-group"><label>分类 (逗号分隔)</label><input id="ed-cats" value="${escapeHtml(catsStr)}" placeholder="Tech, Design"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 英文内容</h3>
+          <div class="form-group"><label>英文标题</label><input id="ed-title-en" value="${escapeHtml(post.title_en || '')}" placeholder="English Title"></div>
+          <div class="form-group"><label>英文标签 (逗号分隔)</label><input id="ed-tags-en" value="${escapeHtml((post.tags_en || []).join(', '))}" placeholder="javascript, web, design"></div>
+          <div class="form-group"><label>英文分类 (逗号分隔)</label><input id="ed-cats-en" value="${escapeHtml((post.categories_en || []).join(', '))}" placeholder="Tech, Design"></div>
+          <div class="form-group"><label>英文正文</label><textarea id="ed-content-en">${escapeHtml(post.content_en || '')}</textarea></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <div class="editor-toolbar">
+            <mdui-button-icon id="tb-bold"><b>B</b></mdui-button-icon>
+            <mdui-button-icon id="tb-italic"><i>I</i></mdui-button-icon>
+            <mdui-button-icon id="tb-heading">H</mdui-button-icon>
+            <mdui-button-icon id="tb-list">&bull;</mdui-button-icon>
+            <mdui-button-icon id="tb-code">[ ]</mdui-button-icon>
+            <mdui-button-icon id="tb-quote">&quot;</mdui-button-icon>
+          </div>
+          <div class="form-group"><label>正文 (Markdown)</label><textarea id="ed-content">${escapeHtml(post.content || '')}</textarea></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button data-action="save-post" variant="filled">保存</mdui-button>
+            <mdui-button data-action="cancel-edit" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+      bindEventListeners();
+      const ta = document.getElementById('ed-content');
+      const tb = (id, txt) => document.getElementById(id)?.addEventListener('click', () => { ta.value += txt; ta.focus(); });
+      tb('tb-bold', '**加粗**');
+      tb('tb-italic', '*斜体*');
+      tb('tb-heading', '\\n## 标题\\n');
+      tb('tb-list', '\\n- 列表项\\n');
+      tb('tb-code', '\\n```\\n代码\\n```\\n');
+      tb('tb-quote', '\\n> 引用\\n');
+    }
+
+    async function savePost() {
+      const slug = document.getElementById('ed-slug').value.trim();
+      const title = document.getElementById('ed-title').value.trim();
+      const date = document.getElementById('ed-date').value;
+      const cover = document.getElementById('ed-cover').value.trim();
+      const tags = document.getElementById('ed-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+      const categories = document.getElementById('ed-cats').value.split(',').map(s => s.trim()).filter(Boolean);
+      const content = document.getElementById('ed-content').value;
+      const titleEn = document.getElementById('ed-title-en').value.trim();
+      const tagsEn = document.getElementById('ed-tags-en').value.split(',').map(s => s.trim()).filter(Boolean);
+      const catsEn = document.getElementById('ed-cats-en').value.split(',').map(s => s.trim()).filter(Boolean);
+      const contentEn = document.getElementById('ed-content-en').value;
+
+      if (!slug || !title) { toast('Slug 和标题不能为空'); return; }
+
+      const method = (await api('/posts')).some(p => p.slug === slug) ? 'PUT' : 'POST';
+      const res = await api('/posts', {
+        method,
+        body: JSON.stringify({ slug, title, date, tags, categories, cover, content, title_en: titleEn, tags_en: tagsEn, categories_en: catsEn, content_en: contentEn })
+      });
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('保存成功 ✓'); renderContent(); }
+      else toast('保存失败: ' + (res.errmsg || ''));
+    }
+
+    // ===== Comments =====
+    async function commentsView() {
+      const comments = await api('/comments');
+      return `
+        <div class="page-header"><h1>评论管理</h1></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          ${Array.isArray(comments) && comments.length > 0 ? comments.map(c => `
+            <div class="comment-item">
+              <div class="comment-info">
+                <strong>${escapeHtml(c.nick)}</strong> <span style="color:var(--mdui-color-outline);font-size:12px">${escapeHtml(c.mail || '')} ｜ ${c.url} ｜ ${formatDate(c.create_time)}</span>
+                <div class="comment-text">${escapeHtml(c.comment)}</div>
+              </div>
+              <mdui-button data-action="delete-comment" data-args="${c.id}" variant="text" style="color:rgb(var(--mdui-color-error));flex-shrink:0">删除</mdui-button>
+            </div>`).join('') : '<p style="color:var(--mdui-color-outline)">暂无评论</p>'}
+        </mdui-card>`;
+    }
+
+    async function deleteComment(id) {
+      if (!confirm('确定删除这条评论？')) return;
+      const res = await api('/comments?id=' + id, { method: 'DELETE' });
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已删除'); renderContent(); }
+      else toast('删除失败');
+    }
+
+    // ===== Talks =====
+    async function talksView() {
+      const talks = await api('/talks');
+      return `
+        <div class="page-header"><h1>动态管理</h1><mdui-button data-action="new-talk" variant="filled">写新动态</mdui-button></div>
+        <mdui-card variant="elevated" style="padding:24px">
+          ${Array.isArray(talks) && talks.length > 0 ? talks.map(t => {
+            var ds = '';
+            if (t.create_time) { var d = new Date(parseInt(t.create_time)*1000); ds = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+            return '<div class="comment-item"><div class="comment-info"><div class="comment-text">' + escapeHtml(t.content || '') + '</div><div class="comment-meta">' + ds + '</div></div><mdui-button data-action="delete-talk" data-args="' + t.id + '" variant="text" style="color:rgb(var(--mdui-color-error));flex-shrink:0">删除</mdui-button></div>';
+          }).join('') : '<p style="color:var(--mdui-color-outline)">暂无动态</p>'}
+        </mdui-card>`;
+    }
+
+    function newTalk() {
+      const el = document.getElementById('main-content');
+      el.innerHTML = `
+        <div class="page-header"><h1>写新动态</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;margin:0 auto;width:100%;max-width:1200px;box-sizing:border-box">
+          <div class="form-group"><label>内容 (纯文本, 支持 Markdown)</label><textarea id="talk-content" style="min-height:300px;width:100%"></textarea></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button onclick="saveNewTalk()" variant="filled">发布</mdui-button>
+            <mdui-button onclick="renderContent()" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+    }
+
+    async function saveNewTalk() {
+      const content = document.getElementById('talk-content').value.trim();
+      if (!content) { toast('内容不能为空'); return; }
+      const res = await api('/talks', { method: 'POST', body: JSON.stringify({ content }) });
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已发布 ✓'); renderContent(); }
+      else toast('发布失败');
+    }
+
+    async function deleteTalk(id) {
+      if (!confirm('确定删除这条动态？')) return;
+      const res = await api('/talks?id=' + id, { method: 'DELETE' });
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已删除'); renderContent(); }
+      else toast('删除失败');
+    }
+
+    // ===== Friends =====
+    let _editingFriendId = null;
+
+    async function friendsView() {
+      const list = await api('/friends');
+      const items = Array.isArray(list) ? list.map(f => `
+        <div class="post-item">
+          <div class="post-info">
+            <h3>${escapeHtml(f.title)}</h3>
+            <span>${escapeHtml(f.url)}</span>
+            ${f.descr ? '<p style="color:gray;font-size:13px">' + escapeHtml(f.descr) + '</p>' : ''}
+          </div>
+          <div class="post-actions">
+            <mdui-button data-action="edit-friend" data-args='${JSON.stringify(f).replace(/'/g, "&#39;")}' variant="outlined">编辑</mdui-button>
+            <mdui-button data-action="delete-friend" data-args="${f.id}" variant="outlined" style="color:red">删除</mdui-button>
+          </div>
+        </div>
+      `).join('') : '<p style="color:gray">暂无友链</p>';
+      return `<div class="page-header"><h1>🔗 友链</h1></div>
+        <mdui-button data-action="new-friend" variant="filled" style="margin-bottom:16px">+ 添加友链</mdui-button>
+        <mdui-card variant="elevated" style="padding:16px">${items}</mdui-card>`;
+    }
+
+    function newFriend() {
+      _editingFriendId = null;
+      document.getElementById('main-content').innerHTML = `
+        <div class="page-header"><h1>添加友链</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;max-width:600px;margin:0 auto">
+          <div class="form-group"><label>标题 *</label><input id="f-title" class="form-input"></div>
+          <div class="form-group"><label>网站 URL *</label><input id="f-url" class="form-input" placeholder="https://"></div>
+          <div class="form-group"><label>描述</label><input id="f-descr" class="form-input"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
+          <div class="form-group"><label>English Title</label><input id="f-title-en" class="form-input"></div>
+          <div class="form-group"><label>English Description</label><input id="f-descr-en" class="form-input"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <div class="form-group"><label>头像 URL</label><input id="f-avatar" class="form-input" placeholder="可选"></div>
+          <div class="form-group"><label>排序</label><input id="f-sort" class="form-input" type="number" value="0"></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button data-action="save-friend" variant="filled">保存</mdui-button>
+            <mdui-button onclick="renderContent()" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+      bindEventListeners();
+    }
+
+    function editFriend(data) {
+      const f = typeof data === 'string' ? JSON.parse(data) : data;
+      _editingFriendId = f.id;
+      document.getElementById('main-content').innerHTML = `
+        <div class="page-header"><h1>编辑友链</h1></div>
+        <mdui-card variant="elevated" style="padding:32px;max-width:600px;margin:0 auto">
+          <div class="form-group"><label>标题 *</label><input id="f-title" class="form-input" value="${escapeHtml(f.title)}"></div>
+          <div class="form-group"><label>网站 URL *</label><input id="f-url" class="form-input" value="${escapeHtml(f.url)}"></div>
+          <div class="form-group"><label>描述</label><input id="f-descr" class="form-input" value="${escapeHtml(f.descr || '')}"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
+          <div class="form-group"><label>English Title</label><input id="f-title-en" class="form-input" value="${escapeHtml(f.title_en || '')}"></div>
+          <div class="form-group"><label>English Description</label><input id="f-descr-en" class="form-input" value="${escapeHtml(f.descr_en || '')}"></div>
+          <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+          <div class="form-group"><label>头像 URL</label><input id="f-avatar" class="form-input" value="${escapeHtml(f.avatar || '')}"></div>
+          <div class="form-group"><label>排序</label><input id="f-sort" class="form-input" type="number" value="${f.sort_order || 0}"></div>
+          <div style="display:flex;gap:8px;margin-top:16px">
+            <mdui-button data-action="save-friend" variant="filled">保存</mdui-button>
+            <mdui-button onclick="renderContent()" variant="text">取消</mdui-button>
+          </div>
+        </mdui-card>`;
+      bindEventListeners();
+    }
+
+    async function saveFriend() {
+      const title = document.getElementById('f-title').value.trim();
+      const url = document.getElementById('f-url').value.trim();
+      if (!title || !url) { toast('标题和URL不能为空'); return; }
+      const body = {
+        title,
+        url,
+        descr: document.getElementById('f-descr').value.trim(),
+        title_en: document.getElementById('f-title-en').value.trim(),
+        descr_en: document.getElementById('f-descr-en').value.trim(),
+        avatar: document.getElementById('f-avatar').value.trim(),
+        sort_order: parseInt(document.getElementById('f-sort').value) || 0
+      };
+      if (_editingFriendId) { body.id = _editingFriendId; await api('/friends', { method: 'PUT', body: JSON.stringify(body) }); }
+      else { await api('/friends', { method: 'POST', body: JSON.stringify(body) }); }
+      await api('/reload', { method: 'POST' });
+      toast('已保存 ✓'); renderContent();
+    }
+
+    async function deleteFriend(id) {
+      if (!confirm('确定删除这条友链？')) return;
+      await api('/friends', { method: 'DELETE', body: JSON.stringify({ id: parseInt(id) }) });
+      await api('/reload', { method: 'POST' });
+      toast('已删除'); renderContent();
+    }
+
+    // ===== Pages =====
+    async function pagesView() {
+      const pages = await api('/pages');
+      return `
+        <div class="page-header"><h1>页面管理</h1></div>
+        ${Array.isArray(pages) && pages.length > 0 ? pages.map(p => `
+          <mdui-card variant="elevated" style="padding:24px;margin-bottom:16px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <h2 style="font-size:18px;font-weight:500">${escapeHtml(p.title)} (${p.slug})</h2>
+              <mdui-button data-action="edit-page" data-args="${p.slug}" variant="text">编辑</mdui-button>
+            </div>
+          </mdui-card>`).join('') : '<p>暂无页面</p>'}
+        </div>`;
+    }
+
+    function editPage(slug) {
+      api('/pages').then(pages => {
+        const page = pages.find(p => p.slug === slug);
+        const el = document.getElementById('main-content');
+        el.innerHTML = `
+          <div class="page-header"><h1>编辑页面: ${escapeHtml(slug)}</h1></div>
+          <mdui-card variant="elevated" style="padding:24px">
+            <div class="form-group"><label>Slug</label><input id="ed-slug" value="${escapeHtml(page?.slug || slug)}" disabled></div>
+            <div class="form-group"><label>标题</label><input id="ed-title" value="${escapeHtml(page?.title || '')}"></div>
+            <div class="form-group"><label>正文 (Markdown)</label><textarea id="ed-content">${escapeHtml(page?.content || '')}</textarea></div>
+            <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+            <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 英文内容</h3>
+            <div class="form-group"><label>英文标题</label><input id="ed-title-en" value="${escapeHtml(page?.title_en || '')}" placeholder="English Title"></div>
+            <div class="form-group"><label>英文正文</label><textarea id="ed-content-en">${escapeHtml(page?.content_en || '')}</textarea></div>
+            <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+            <div style="display:flex;gap:8px;margin-top:16px">
+              <mdui-button data-action="save-page" variant="filled">保存</mdui-button>
+              <mdui-button data-action="cancel-edit" variant="text">取消</mdui-button>
+            </div>
+          </mdui-card>`;
+        bindEventListeners();
+      });
+    }
+
+    async function savePage() {
+      const slug = document.getElementById('ed-slug').value.trim();
+      const title = document.getElementById('ed-title').value.trim();
+      const content = document.getElementById('ed-content').value;
+      const titleEn = document.getElementById('ed-title-en')?.value?.trim() || '';
+      const contentEn = document.getElementById('ed-content-en')?.value || '';
+      const res = await api('/pages', {
+        method: 'PUT',
+        body: JSON.stringify({ slug, title, content, title_en: titleEn, content_en: contentEn })
+      });
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('页面已保存 ✓'); renderContent(); }
+      else toast('保存失败');
+    }
+
+    // ===== Init =====
+    render();
+  </script>
+</body>
+</html>
+\n\n================ FILE: ./blog/public/css/about.css ================
+.about-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: rgb(var(--mdui-color-secondary-container));
+}
+
+.about-avatar {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  margin-top: 16px;
+}
+
+@media (max-width: 600px) {
+  .about-avatar {
+    width: 100px;
+    height: 100px;
+  }
+}
+
+@media (max-width: 400px) {
+  .about-avatar {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+.about-title {
+    font-size: 40px;
+    font-weight: 400;
+    margin: 8px 0;
+    color: rgb(var(--mdui-color-on-secondary-container));
+}
+
+.about-description {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 16px;
+  color: rgb(var(--mdui-color-on-secondary-container));
+}\n\n================ FILE: ./blog/public/css/content-container.css ================
+.content-container{
+    padding: 0 16px 16px 16px;
+    height: calc(100vh - 64px);
+    overflow: auto;
+
+    scrollbar-width: thin;
+}\n\n================ FILE: ./blog/public/css/header-card.css ================
+.header-card {
+    width: 100%;
+    padding: 32px 32px 40px 32px;
+    margin-bottom: 32px;
+}
+
+.header-title {
+    font-size: 56px;
+    font-weight: 400;
+    margin-bottom: 32px;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    font-size: 24px;
+    color: var(--mdui-color-primary);
+}\n\n================ FILE: ./blog/public/css/index.css ================
+.index-header-card {
+    width: 100%;
+    padding: 32px 32px 40px 32px;
+    margin-bottom: 16px;
+    background-color: rgb(var(--mdui-color-primary-container));
+}
+
+.index-header-title {
+    font-size: 56px;
+    font-weight: 400;
+    margin-bottom: 32px;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.index-header-content {
+    display: flex;
+    align-items: center;
+    font-size: 24px;
+    color: rgb(var(--mdui-color-on-primary-container));
+}
+
+.content-container .card-container{
+    width: calc(100vw - 48px);
+    position: relative;
+}
+
+.index-bottom {
+    margin-bottom: 16px;
+}\n\n================ FILE: ./blog/public/css/lists.css ================
+/* List pages (posts, archives, category) */
+.posts-year {
+  font-size: 32px;
+  font-weight: 400;
+  margin: 24px 0 16px 0;
+  color: rgb(var(--mdui-color-primary));
+}
+
+.posts-list {
+  margin: 0;
+  padding: 0;
+}
+
+.posts-list mdui-list-item {
+  margin-bottom: 8px;
+}
+
+.posts-list mdui-list-item .mdui-list-item-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.posts-list mdui-list-item .mdui-list-item-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: rgb(var(--mdui-color-on-surface));
+  margin-bottom: 4px;
+}
+
+.posts-list mdui-list-item .mdui-list-item-text {
+  font-size: 13px;
+  color: rgb(var(--mdui-color-outline));
+}
+
+/* Tags / Categories container */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+/* Navigation drawer subtitle */
+.navigation-drawer-header-subtitle {
+  font-size: 14px;
+  color: rgb(var(--mdui-color-outline));
+}
+\n\n================ FILE: ./blog/public/css/mdui.css ================
+:root{--mdui-breakpoint-xs:0px;--mdui-breakpoint-sm:600px;--mdui-breakpoint-md:840px;--mdui-breakpoint-lg:1080px;--mdui-breakpoint-xl:1440px;--mdui-breakpoint-xxl:1920px}:root{--mdui-color-primary-light:103,80,164;--mdui-color-primary-container-light:234,221,255;--mdui-color-on-primary-light:255,255,255;--mdui-color-on-primary-container-light:33,0,94;--mdui-color-inverse-primary-light:208,188,255;--mdui-color-secondary-light:98,91,113;--mdui-color-secondary-container-light:232,222,248;--mdui-color-on-secondary-light:255,255,255;--mdui-color-on-secondary-container-light:30,25,43;--mdui-color-tertiary-light:125,82,96;--mdui-color-tertiary-container-light:255,216,228;--mdui-color-on-tertiary-light:255,255,255;--mdui-color-on-tertiary-container-light:55,11,30;--mdui-color-surface-light:254,247,255;--mdui-color-surface-dim-light:222,216,225;--mdui-color-surface-bright-light:254,247,255;--mdui-color-surface-container-lowest-light:255,255,255;--mdui-color-surface-container-low-light:247,242,250;--mdui-color-surface-container-light:243,237,247;--mdui-color-surface-container-high-light:236,230,240;--mdui-color-surface-container-highest-light:230,224,233;--mdui-color-surface-variant-light:231,224,236;--mdui-color-on-surface-light:28,27,31;--mdui-color-on-surface-variant-light:73,69,78;--mdui-color-inverse-surface-light:49,48,51;--mdui-color-inverse-on-surface-light:244,239,244;--mdui-color-background-light:254,247,255;--mdui-color-on-background-light:28,27,31;--mdui-color-error-light:179,38,30;--mdui-color-error-container-light:249,222,220;--mdui-color-on-error-light:255,255,255;--mdui-color-on-error-container-light:65,14,11;--mdui-color-outline-light:121,116,126;--mdui-color-outline-variant-light:196,199,197;--mdui-color-shadow-light:0,0,0;--mdui-color-surface-tint-color-light:103,80,164;--mdui-color-scrim-light:0,0,0;--mdui-color-primary-dark:208,188,255;--mdui-color-primary-container-dark:79,55,139;--mdui-color-on-primary-dark:55,30,115;--mdui-color-on-primary-container-dark:234,221,255;--mdui-color-inverse-primary-dark:103,80,164;--mdui-color-secondary-dark:204,194,220;--mdui-color-secondary-container-dark:74,68,88;--mdui-color-on-secondary-dark:51,45,65;--mdui-color-on-secondary-container-dark:232,222,248;--mdui-color-tertiary-dark:239,184,200;--mdui-color-tertiary-container-dark:99,59,72;--mdui-color-on-tertiary-dark:73,37,50;--mdui-color-on-tertiary-container-dark:255,216,228;--mdui-color-surface-dark:20,18,24;--mdui-color-surface-dim-dark:20,18,24;--mdui-color-surface-bright-dark:59,56,62;--mdui-color-surface-container-lowest-dark:15,13,19;--mdui-color-surface-container-low-dark:29,27,32;--mdui-color-surface-container-dark:33,31,38;--mdui-color-surface-container-high-dark:43,41,48;--mdui-color-surface-container-highest-dark:54,52,59;--mdui-color-surface-variant-dark:73,69,79;--mdui-color-on-surface-dark:230,225,229;--mdui-color-on-surface-variant-dark:202,196,208;--mdui-color-inverse-surface-dark:230,225,229;--mdui-color-inverse-on-surface-dark:49,48,51;--mdui-color-background-dark:20,18,24;--mdui-color-on-background-dark:230,225,229;--mdui-color-error-dark:242,184,181;--mdui-color-error-container-dark:140,29,24;--mdui-color-on-error-dark:96,20,16;--mdui-color-on-error-container-dark:249,222,220;--mdui-color-outline-dark:147,143,153;--mdui-color-outline-variant-dark:68,71,70;--mdui-color-shadow-dark:0,0,0;--mdui-color-surface-tint-color-dark:208,188,255;--mdui-color-scrim-dark:0,0,0;font-size:16px}.mdui-theme-light,:root{color-scheme:light;--mdui-color-primary:var(--mdui-color-primary-light);--mdui-color-primary-container:var(--mdui-color-primary-container-light);--mdui-color-on-primary:var(--mdui-color-on-primary-light);--mdui-color-on-primary-container:var(--mdui-color-on-primary-container-light);--mdui-color-inverse-primary:var(--mdui-color-inverse-primary-light);--mdui-color-secondary:var(--mdui-color-secondary-light);--mdui-color-secondary-container:var(--mdui-color-secondary-container-light);--mdui-color-on-secondary:var(--mdui-color-on-secondary-light);--mdui-color-on-secondary-container:var(--mdui-color-on-secondary-container-light);--mdui-color-tertiary:var(--mdui-color-tertiary-light);--mdui-color-tertiary-container:var(--mdui-color-tertiary-container-light);--mdui-color-on-tertiary:var(--mdui-color-on-tertiary-light);--mdui-color-on-tertiary-container:var(--mdui-color-on-tertiary-container-light);--mdui-color-surface:var(--mdui-color-surface-light);--mdui-color-surface-dim:var(--mdui-color-surface-dim-light);--mdui-color-surface-bright:var(--mdui-color-surface-bright-light);--mdui-color-surface-container-lowest:var(--mdui-color-surface-container-lowest-light);--mdui-color-surface-container-low:var(--mdui-color-surface-container-low-light);--mdui-color-surface-container:var(--mdui-color-surface-container-light);--mdui-color-surface-container-high:var(--mdui-color-surface-container-high-light);--mdui-color-surface-container-highest:var(--mdui-color-surface-container-highest-light);--mdui-color-surface-variant:var(--mdui-color-surface-variant-light);--mdui-color-on-surface:var(--mdui-color-on-surface-light);--mdui-color-on-surface-variant:var(--mdui-color-on-surface-variant-light);--mdui-color-inverse-surface:var(--mdui-color-inverse-surface-light);--mdui-color-inverse-on-surface:var(--mdui-color-inverse-on-surface-light);--mdui-color-background:var(--mdui-color-background-light);--mdui-color-on-background:var(--mdui-color-on-background-light);--mdui-color-error:var(--mdui-color-error-light);--mdui-color-error-container:var(--mdui-color-error-container-light);--mdui-color-on-error:var(--mdui-color-on-error-light);--mdui-color-on-error-container:var(--mdui-color-on-error-container-light);--mdui-color-outline:var(--mdui-color-outline-light);--mdui-color-outline-variant:var(--mdui-color-outline-variant-light);--mdui-color-shadow:var(--mdui-color-shadow-light);--mdui-color-surface-tint-color:var(--mdui-color-surface-tint-color-light);--mdui-color-scrim:var(--mdui-color-scrim-light);color:rgb(var(--mdui-color-on-background));background-color:rgb(var(--mdui-color-background))}.mdui-theme-dark{color-scheme:dark;--mdui-color-primary:var(--mdui-color-primary-dark);--mdui-color-primary-container:var(--mdui-color-primary-container-dark);--mdui-color-on-primary:var(--mdui-color-on-primary-dark);--mdui-color-on-primary-container:var(--mdui-color-on-primary-container-dark);--mdui-color-inverse-primary:var(--mdui-color-inverse-primary-dark);--mdui-color-secondary:var(--mdui-color-secondary-dark);--mdui-color-secondary-container:var(--mdui-color-secondary-container-dark);--mdui-color-on-secondary:var(--mdui-color-on-secondary-dark);--mdui-color-on-secondary-container:var(--mdui-color-on-secondary-container-dark);--mdui-color-tertiary:var(--mdui-color-tertiary-dark);--mdui-color-tertiary-container:var(--mdui-color-tertiary-container-dark);--mdui-color-on-tertiary:var(--mdui-color-on-tertiary-dark);--mdui-color-on-tertiary-container:var(--mdui-color-on-tertiary-container-dark);--mdui-color-surface:var(--mdui-color-surface-dark);--mdui-color-surface-dim:var(--mdui-color-surface-dim-dark);--mdui-color-surface-bright:var(--mdui-color-surface-bright-dark);--mdui-color-surface-container-lowest:var(--mdui-color-surface-container-lowest-dark);--mdui-color-surface-container-low:var(--mdui-color-surface-container-low-dark);--mdui-color-surface-container:var(--mdui-color-surface-container-dark);--mdui-color-surface-container-high:var(--mdui-color-surface-container-high-dark);--mdui-color-surface-container-highest:var(--mdui-color-surface-container-highest-dark);--mdui-color-surface-variant:var(--mdui-color-surface-variant-dark);--mdui-color-on-surface:var(--mdui-color-on-surface-dark);--mdui-color-on-surface-variant:var(--mdui-color-on-surface-variant-dark);--mdui-color-inverse-surface:var(--mdui-color-inverse-surface-dark);--mdui-color-inverse-on-surface:var(--mdui-color-inverse-on-surface-dark);--mdui-color-background:var(--mdui-color-background-dark);--mdui-color-on-background:var(--mdui-color-on-background-dark);--mdui-color-error:var(--mdui-color-error-dark);--mdui-color-error-container:var(--mdui-color-error-container-dark);--mdui-color-on-error:var(--mdui-color-on-error-dark);--mdui-color-on-error-container:var(--mdui-color-on-error-container-dark);--mdui-color-outline:var(--mdui-color-outline-dark);--mdui-color-outline-variant:var(--mdui-color-outline-variant-dark);--mdui-color-shadow:var(--mdui-color-shadow-dark);--mdui-color-surface-tint-color:var(--mdui-color-surface-tint-color-dark);--mdui-color-scrim:var(--mdui-color-scrim-dark);color:rgb(var(--mdui-color-on-background));background-color:rgb(var(--mdui-color-background))}@media (prefers-color-scheme:dark){.mdui-theme-auto{color-scheme:dark;--mdui-color-primary:var(--mdui-color-primary-dark);--mdui-color-primary-container:var(--mdui-color-primary-container-dark);--mdui-color-on-primary:var(--mdui-color-on-primary-dark);--mdui-color-on-primary-container:var(--mdui-color-on-primary-container-dark);--mdui-color-inverse-primary:var(--mdui-color-inverse-primary-dark);--mdui-color-secondary:var(--mdui-color-secondary-dark);--mdui-color-secondary-container:var(--mdui-color-secondary-container-dark);--mdui-color-on-secondary:var(--mdui-color-on-secondary-dark);--mdui-color-on-secondary-container:var(--mdui-color-on-secondary-container-dark);--mdui-color-tertiary:var(--mdui-color-tertiary-dark);--mdui-color-tertiary-container:var(--mdui-color-tertiary-container-dark);--mdui-color-on-tertiary:var(--mdui-color-on-tertiary-dark);--mdui-color-on-tertiary-container:var(--mdui-color-on-tertiary-container-dark);--mdui-color-surface:var(--mdui-color-surface-dark);--mdui-color-surface-dim:var(--mdui-color-surface-dim-dark);--mdui-color-surface-bright:var(--mdui-color-surface-bright-dark);--mdui-color-surface-container-lowest:var(--mdui-color-surface-container-lowest-dark);--mdui-color-surface-container-low:var(--mdui-color-surface-container-low-dark);--mdui-color-surface-container:var(--mdui-color-surface-container-dark);--mdui-color-surface-container-high:var(--mdui-color-surface-container-high-dark);--mdui-color-surface-container-highest:var(--mdui-color-surface-container-highest-dark);--mdui-color-surface-variant:var(--mdui-color-surface-variant-dark);--mdui-color-on-surface:var(--mdui-color-on-surface-dark);--mdui-color-on-surface-variant:var(--mdui-color-on-surface-variant-dark);--mdui-color-inverse-surface:var(--mdui-color-inverse-surface-dark);--mdui-color-inverse-on-surface:var(--mdui-color-inverse-on-surface-dark);--mdui-color-background:var(--mdui-color-background-dark);--mdui-color-on-background:var(--mdui-color-on-background-dark);--mdui-color-error:var(--mdui-color-error-dark);--mdui-color-error-container:var(--mdui-color-error-container-dark);--mdui-color-on-error:var(--mdui-color-on-error-dark);--mdui-color-on-error-container:var(--mdui-color-on-error-container-dark);--mdui-color-outline:var(--mdui-color-outline-dark);--mdui-color-outline-variant:var(--mdui-color-outline-variant-dark);--mdui-color-shadow:var(--mdui-color-shadow-dark);--mdui-color-surface-tint-color:var(--mdui-color-surface-tint-color-dark);--mdui-color-scrim:var(--mdui-color-scrim-dark);color:rgb(var(--mdui-color-on-background));background-color:rgb(var(--mdui-color-background))}}:root{--mdui-elevation-level0:none;--mdui-elevation-level1:0 0.5px 1.5px 0 rgba(var(--mdui-color-shadow), 19%),0 0 1px 0 rgba(var(--mdui-color-shadow), 3.9%);--mdui-elevation-level2:0 0.85px 3px 0 rgba(var(--mdui-color-shadow), 19%),0 0.25px 1px 0 rgba(var(--mdui-color-shadow), 3.9%);--mdui-elevation-level3:0 1.25px 5px 0 rgba(var(--mdui-color-shadow), 19%),0 0.3333px 1.5px 0 rgba(var(--mdui-color-shadow), 3.9%);--mdui-elevation-level4:0 1.85px 6.25px 0 rgba(var(--mdui-color-shadow), 19%),0 0.5px 1.75px 0 rgba(var(--mdui-color-shadow), 3.9%);--mdui-elevation-level5:0 2.75px 9px 0 rgba(var(--mdui-color-shadow), 19%),0 0.25px 3px 0 rgba(var(--mdui-color-shadow), 3.9%)}:root{--mdui-motion-easing-linear:cubic-bezier(0, 0, 1, 1);--mdui-motion-easing-standard:cubic-bezier(0.2, 0, 0, 1);--mdui-motion-easing-standard-accelerate:cubic-bezier(0.3, 0, 1, 1);--mdui-motion-easing-standard-decelerate:cubic-bezier(0, 0, 0, 1);--mdui-motion-easing-emphasized:var(--mdui-motion-easing-standard);--mdui-motion-easing-emphasized-accelerate:cubic-bezier(0.3, 0, 0.8, 0.15);--mdui-motion-easing-emphasized-decelerate:cubic-bezier(0.05, 0.7, 0.1, 1);--mdui-motion-duration-short1:50ms;--mdui-motion-duration-short2:100ms;--mdui-motion-duration-short3:150ms;--mdui-motion-duration-short4:200ms;--mdui-motion-duration-medium1:250ms;--mdui-motion-duration-medium2:300ms;--mdui-motion-duration-medium3:350ms;--mdui-motion-duration-medium4:400ms;--mdui-motion-duration-long1:450ms;--mdui-motion-duration-long2:500ms;--mdui-motion-duration-long3:550ms;--mdui-motion-duration-long4:600ms;--mdui-motion-duration-extra-long1:700ms;--mdui-motion-duration-extra-long2:800ms;--mdui-motion-duration-extra-long3:900ms;--mdui-motion-duration-extra-long4:1000ms}.mdui-prose{line-height:1.75;word-wrap:break-word}.mdui-prose :first-child{margin-top:0}.mdui-prose :last-child{margin-bottom:0}.mdui-prose code,.mdui-prose kbd,.mdui-prose pre,.mdui-prose pre tt,.mdui-prose samp{font-family:Consolas,Courier,"Courier New",monospace}.mdui-prose caption{text-align:left}.mdui-prose [draggable=true],.mdui-prose [draggable]{cursor:move}.mdui-prose [draggable=false]{cursor:inherit}.mdui-prose dl,.mdui-prose form,.mdui-prose ol,.mdui-prose p,.mdui-prose ul{margin-top:1.25em;margin-bottom:1.25em}.mdui-prose a{text-decoration:none;outline:0;color:rgb(var(--mdui-color-primary))}.mdui-prose a:focus,.mdui-prose a:hover{border-bottom:.0625rem solid rgb(var(--mdui-color-primary))}.mdui-prose small{font-size:.875em}.mdui-prose strong{font-weight:600}.mdui-prose blockquote{margin:1.6em 2em;padding-left:1em;border-left:.25rem solid rgb(var(--mdui-color-surface-variant))}@media only screen and (max-width:599.98px){.mdui-prose blockquote{margin:1.6em 0}}.mdui-prose blockquote footer{font-size:86%;color:rgb(var(--mdui-color-on-surface-variant))}.mdui-prose mark{color:inherit;background-color:rgb(var(--mdui-color-secondary-container));border-bottom:.0625rem solid rgb(var(--mdui-color-secondary));margin:0 .375rem;padding:.125rem}.mdui-prose h1,.mdui-prose h2,.mdui-prose h3,.mdui-prose h4,.mdui-prose h5,.mdui-prose h6{font-weight:400}.mdui-prose h1 small,.mdui-prose h2 small,.mdui-prose h3 small,.mdui-prose h4 small,.mdui-prose h5 small,.mdui-prose h6 small{font-weight:inherit;font-size:65%;color:rgb(var(--mdui-color-on-surface-variant))}.mdui-prose h1 strong,.mdui-prose h2 strong,.mdui-prose h3 strong,.mdui-prose h4 strong,.mdui-prose h5 strong,.mdui-prose h6 strong{font-weight:600}.mdui-prose h1{font-size:2.5em;margin-top:0;margin-bottom:1.25em;line-height:1.1111}.mdui-prose h2{font-size:1.875em;margin-top:2.25em;margin-bottom:1.125em;line-height:1.3333}.mdui-prose h3{font-size:1.5em;margin-top:2em;margin-bottom:1em;line-height:1.6}.mdui-prose h4{font-size:1.25em;margin-top:1.875em;margin-bottom:.875em;line-height:1.5}.mdui-prose h2+*,.mdui-prose h3+*,.mdui-prose h4+*,.mdui-prose hr+*{margin-top:0}.mdui-prose code,.mdui-prose kbd{font-size:.875em;color:rgb(var(--mdui-color-on-surface-container));background-color:rgba(var(--mdui-color-surface-variant),.28);padding:.125rem .375rem;border-radius:var(--mdui-shape-corner-extra-small)}.mdui-prose kbd{font-size:.9em}.mdui-prose abbr[title]{text-decoration:none;cursor:help;border-bottom:.0625rem dotted rgb(var(--mdui-color-on-surface-variant))}.mdui-prose ins,.mdui-prose u{text-decoration:none;border-bottom:.0625rem solid rgb(var(--mdui-color-on-surface-variant))}.mdui-prose del{text-decoration:line-through}.mdui-prose hr{margin-top:3em;margin-bottom:3em;border:none;border-bottom:.0625rem solid rgb(var(--mdui-color-surface-variant))}.mdui-prose pre{margin-top:1.7143em;margin-bottom:1.7143em}.mdui-prose pre code{padding:.8571em 1.1429em;overflow-x:auto;-webkit-overflow-scrolling:touch;background-color:rgb(var(--mdui-color-surface-container));color:rgb(var(--mdui-color-on-surface-container));border-radius:var(--mdui-shape-corner-extra-small)}.mdui-prose ol,.mdui-prose ul{padding-left:1.625em}.mdui-prose ul{list-style-type:disc}.mdui-prose ol{list-style-type:decimal}.mdui-prose ol[type="A"]{list-style-type:upper-alpha}.mdui-prose ol[type="a"]{list-style-type:lower-alpha}.mdui-prose ol[type="I"]{list-style-type:upper-roman}.mdui-prose ol[type="i"]{list-style-type:lower-roman}.mdui-prose ol[type="1"]{list-style-type:decimal}.mdui-prose li{margin-top:.5em;margin-bottom:.5em}.mdui-prose ol>li,.mdui-prose ul>li{padding-left:.375em}.mdui-prose ol>li>p,.mdui-prose ul>li>p{margin-top:.75em;margin-bottom:.75em}.mdui-prose ol>li>:first-child,.mdui-prose ul>li>:first-child{margin-top:1.25em}.mdui-prose ol>li>:last-child,.mdui-prose ul>li>:last-child{margin-bottom:1.25em}.mdui-prose ol>li::marker{font-weight:400;color:rgb(var(--mdui-color-on-surface-variant))}.mdui-prose ul>li::marker{color:rgb(var(--mdui-color-on-surface-variant))}.mdui-prose ol ol,.mdui-prose ol ul,.mdui-prose ul ol,.mdui-prose ul ul{margin-top:.75em;margin-bottom:.75em}.mdui-prose fieldset,.mdui-prose img{border:none}.mdui-prose figure,.mdui-prose img,.mdui-prose video{margin-top:2em;margin-bottom:2em;max-width:100%}.mdui-prose figure>*{margin-top:0;margin-bottom:0}.mdui-prose figcaption{font-size:.875em;line-height:1.4286;margin-top:.8571em;color:rgb(var(--mdui-color-on-surface-variant))}.mdui-prose figcaption:empty::before{z-index:-1;cursor:text;content:attr(placeholder);color:rgb(var(--mdui-color-on-surface-variant))}.mdui-prose table{margin-top:2em;margin-bottom:2em;border:.0625rem solid rgb(var(--mdui-color-surface-variant));border-radius:var(--mdui-shape-corner-large)}.mdui-table{width:100%;overflow-x:auto;margin-top:2em;margin-bottom:2em;border:.0625rem solid rgb(var(--mdui-color-surface-variant));border-radius:var(--mdui-shape-corner-large)}.mdui-table table{margin-top:0;margin-bottom:0;border:none;border-radius:0}.mdui-prose table,.mdui-table table{width:100%;text-align:left;border-collapse:collapse;border-spacing:0}.mdui-prose td,.mdui-prose th,.mdui-table td,.mdui-table th{border-top:.0625rem solid rgb(var(--mdui-color-surface-variant))}.mdui-prose td:not(:first-child),.mdui-prose th:not(:first-child),.mdui-table td:not(:first-child),.mdui-table th:not(:first-child){border-left:.0625rem solid rgb(var(--mdui-color-surface-variant))}.mdui-prose td:not(:last-child),.mdui-prose th:not(:last-child),.mdui-table td:not(:last-child),.mdui-table th:not(:last-child){border-right:.0625rem solid rgb(var(--mdui-color-surface-variant))}.mdui-prose tfoot td,.mdui-prose tfoot th,.mdui-prose thead td,.mdui-prose thead th,.mdui-table tfoot td,.mdui-table tfoot th,.mdui-table thead td,.mdui-table thead th{position:relative;vertical-align:middle;padding:1.125rem 1rem;font-weight:var(--mdui-typescale-title-medium-weight);letter-spacing:var(--mdui-typescale-title-medium-tracking);line-height:var(--mdui-typescale-title-medium-line-height);color:rgb(var(--mdui-color-on-surface-variant));box-shadow:var(--mdui-elevation-level1)}.mdui-prose tbody td,.mdui-prose tbody th,.mdui-table tbody td,.mdui-table tbody th{padding:.875rem 1rem}.mdui-prose tbody th,.mdui-table tbody th{vertical-align:middle;font-weight:inherit}.mdui-prose tbody td,.mdui-table tbody td{vertical-align:baseline}.mdui-prose tbody:first-child tr:first-child td,.mdui-prose thead:first-child tr:first-child th,.mdui-table tbody:first-child tr:first-child td,.mdui-table thead:first-child tr:first-child th{border-top:0}:root{--mdui-shape-corner-none:0;--mdui-shape-corner-extra-small:0.25rem;--mdui-shape-corner-small:0.5rem;--mdui-shape-corner-medium:0.75rem;--mdui-shape-corner-large:1rem;--mdui-shape-corner-extra-large:1.75rem;--mdui-shape-corner-full:1000rem}:root{--mdui-state-layer-hover:0.08;--mdui-state-layer-focus:0.12;--mdui-state-layer-pressed:0.12;--mdui-state-layer-dragged:0.16}:root{--mdui-typescale-display-large-weight:400;--mdui-typescale-display-medium-weight:400;--mdui-typescale-display-small-weight:400;--mdui-typescale-display-large-line-height:4rem;--mdui-typescale-display-medium-line-height:3.25rem;--mdui-typescale-display-small-line-height:2.75rem;--mdui-typescale-display-large-size:3.5625rem;--mdui-typescale-display-medium-size:2.8125rem;--mdui-typescale-display-small-size:2.25rem;--mdui-typescale-display-large-tracking:0rem;--mdui-typescale-display-medium-tracking:0rem;--mdui-typescale-display-small-tracking:0rem;--mdui-typescale-headline-large-weight:400;--mdui-typescale-headline-medium-weight:400;--mdui-typescale-headline-small-weight:400;--mdui-typescale-headline-large-line-height:2.5rem;--mdui-typescale-headline-medium-line-height:2.25rem;--mdui-typescale-headline-small-line-height:2rem;--mdui-typescale-headline-large-size:2rem;--mdui-typescale-headline-medium-size:1.75rem;--mdui-typescale-headline-small-size:1.5rem;--mdui-typescale-headline-large-tracking:0rem;--mdui-typescale-headline-medium-tracking:0rem;--mdui-typescale-headline-small-tracking:0rem;--mdui-typescale-title-large-weight:400;--mdui-typescale-title-medium-weight:500;--mdui-typescale-title-small-weight:500;--mdui-typescale-title-large-line-height:1.75rem;--mdui-typescale-title-medium-line-height:1.5rem;--mdui-typescale-title-small-line-height:1.25rem;--mdui-typescale-title-large-size:1.375rem;--mdui-typescale-title-medium-size:1rem;--mdui-typescale-title-small-size:0.875rem;--mdui-typescale-title-large-tracking:0rem;--mdui-typescale-title-medium-tracking:0.009375rem;--mdui-typescale-title-small-tracking:0.00625rem;--mdui-typescale-label-large-weight:500;--mdui-typescale-label-medium-weight:500;--mdui-typescale-label-small-weight:500;--mdui-typescale-label-large-line-height:1.25rem;--mdui-typescale-label-medium-line-height:1rem;--mdui-typescale-label-small-line-height:0.375rem;--mdui-typescale-label-large-size:0.875rem;--mdui-typescale-label-medium-size:0.75rem;--mdui-typescale-label-small-size:0.6875rem;--mdui-typescale-label-large-tracking:0.00625rem;--mdui-typescale-label-medium-tracking:0.03125rem;--mdui-typescale-label-small-tracking:0.03125rem;--mdui-typescale-body-large-weight:400;--mdui-typescale-body-medium-weight:400;--mdui-typescale-body-small-weight:400;--mdui-typescale-body-large-line-height:1.5rem;--mdui-typescale-body-medium-line-height:1.25rem;--mdui-typescale-body-small-line-height:1rem;--mdui-typescale-body-large-size:1rem;--mdui-typescale-body-medium-size:0.875rem;--mdui-typescale-body-small-size:0.75rem;--mdui-typescale-body-large-tracking:0.009375rem;--mdui-typescale-body-medium-tracking:0.015625rem;--mdui-typescale-body-small-tracking:0.025rem}.mdui-lock-screen{overflow:hidden!important}\n\n================ FILE: ./blog/public/css/navigation-drawer.css ================
+.navigation-drawer {
+    animation: none;
+}
+
+.navigation-drawer-list {
+    margin: 0 8px 0 8px;
+    position: relative;
+}
+
+.navigation-drawer-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    position: relative;
+}
+
+.navigation-drawer-header {
+    display: flex;
+    flex-direction: column;
+    padding: 32px 24px 32px 24px;
+    position: relative;
+}
+
+.navigation-drawer-header-title {
+    font-size: 28px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.navigation-drawer-avatar {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+    background-color: rgb(var(--mdui-color-surface-lowest));
+}\n\n================ FILE: ./blog/public/css/post-card.css ================
+.post-card {
+    width: 100%;
+    margin-bottom: 32px;
+    padding: 20px;
+    background-color: rgb(var(--mdui-color-secondary-container));
+    position: absolute;
+    /*opacity: 0;*/
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.post-card .show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.post-card-meta {
+    margin-bottom: 16px;
+}
+
+.post-card-cover {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    margin-bottom: 16px;
+    border-radius: 4px;
+}
+
+.post-card-main {
+    display: flex;
+    flex-direction: column;
+    column-gap: 12px;
+}
+
+.post-card-title {
+    font-size: 32px;
+    font-weight: 400;
+    margin-bottom: 8px;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.post-card-content {
+    font-size: 16px;
+    color: rgb(var(--mdui-color-on-secondary-container));
+}
+
+.post-card-date {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: rgb(var(--mdui-color-tertiary));
+}
+
+.post-card-forward {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    height: 40px;
+    border-radius: 21px;
+    background-color: rgb(var(--mdui-color-primary));
+}
+
+.post-card-forward-div {
+    display: flex;
+    justify-content: center;
+    height: 40px;
+}
+
+.post-card-forward-icon {
+    font-size: 24px;
+    color: rgb(var(--mdui-color-on-primary));
+    margin: auto;
+}\n\n================ FILE: ./blog/public/css/root.css ================
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Google Sans', sans-serif;
+    scrollbar-color: rgb(var(--mdui-color-tertiary)) transparent;
+    scrollbar-width: thin;
+}
+
+.root {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.drawer-container {
+    flex: 1;
+    overflow: scroll;
+}
+
+.top-app-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+}\n\n================ FILE: ./blog/public/css/code.css ================
+/* 代码块 (marked 输出 <pre><code class="language-xxx">) */
+.markdown-content pre {
+    border: 2px solid rgb(var(--mdui-color-outline));
+    border-radius: 21px;
+    padding: 16px;
+    background-color: rgb(var(--mdui-color-surface-container-high));
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0;
+}
+
+.markdown-content pre code {
+    font-family: "Maple Mono NF CN", "Fira Code", "Source Code Pro", Consolas, "Courier New", monospace;
+    font-size: 16px;
+    line-height: 1.5;
+    background: none;
+    padding: 0;
+    border-radius: 0;
+    color: rgb(var(--mdui-color-on-surface));
+}
+
+/* Inline code — only applies to <code> NOT inside <pre> (code blocks) */
+code:not(pre code) {
+    background-color: rgb(var(--mdui-color-secondary-container));
+    padding: 2px 4px;
+    border-radius: 8px;
+}
+\n\n================ FILE: ./blog/public/css/post-content.css ================
+.content .post-header {
+    margin-bottom: 16px;
+    background-color: rgb(var(--mdui-color-secondary-container));
+    width: 100%;
+    padding: 32px;
+}
+
+.content .post-header-title {
+    font-size: 64px;
+    font-weight: 400;
+    margin-bottom: 40px;
+    color: rgb(var(--mdui-color-on-secondary-container));
+}
+
+@media (max-width: 600px) {
+    .content .post-header-title {
+        font-size: 56px;
+    }
+}
+
+@media (max-width: 400px) {
+    .content .post-header-title {
+        font-size: 48px;
+    }
+}
+
+.content .post-header-date {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    color: rgb(var(--mdui-color-on-tertiary-container));
+}
+
+.content .post-header-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.content .post-header-date .post-header-date-icon {
+    font-size: 16px;
+    color: rgb(var(--mdui-color-on-tertiary-container));
+    margin-right: 8px;
+    width: 16px;
+    height: 16px;
+}
+
+.content h1 {
+    font-size: 40px;
+    font-weight: 400;
+    margin-top: 56px;
+    margin-bottom: 16px;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.content h2 {
+    font-size: 32px;
+    font-weight: 400;
+    margin-top: 40px;
+    margin-bottom: 16px;
+    color: rgb(var(--mdui-color-primary))
+}
+
+.content h3 {
+    font-size: 24px;
+    font-weight: 400;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.content p {
+    font-size: 16px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+}
+
+.content a {
+    text-decoration: underline dashed;
+    color: rgb(var(--mdui-color-primary));
+    visited {
+        color: var(--mdui-color-primary);
+    }
+}
+
+.content img {
+    max-width: 100%;
+    height: auto;
+}
+
+.content > * {
+    margin: 16px 0 8px 0;
+}
+
+.content hr {
+    display: block;
+    border: none;
+    height: 8px; /* 与 SVG 高度一致 */
+    width: 100%;
+    margin: 32px 0;
+
+    /* 2. 注入 MDUI 动态颜色 */
+    background-color: rgb(var(--mdui-color-tertiary));
+
+    /* 3. 应用波浪遮罩 */
+    -webkit-mask-image: url('/icon/hr.svg');
+    mask-image: url('/icon/hr.svg');
+    
+    /* 4. 让波浪水平平铺 */
+    -webkit-mask-repeat: repeat-x;
+    mask-repeat: repeat-x;
+    
+    /* 5. 控制波浪的大小（可选） */
+    /*-webkit-mask-size: 20px 8px;*/
+    mask-size: auto 8px;
+}
+
+.markdown-content > * {
+    margin: 16px 0 8px 0;
+}
+
+.markdown-content table{
+    border-spacing: 0;
+    border: 1px solid rgb(var(--mdui-color-outline));
+    border-radius: 24px;
+    width: 100%;
+    color: inherit;
+    font-size: 14px;
+    overflow: hidden;
+}
+
+.markdown-content table th {
+    padding: 8px 16px;
+    background-color: rgb(var(--mdui-color-secondary-container));
+    border: 0;
+    color: rgb(var(--mdui-color-on-secondary-container));
+}
+
+.markdown-content table th:not(:last-of-type) {
+    border-right: 1px solid rgb(var(--mdui-color-outline));
+}
+
+.markdown-content table tr > th {
+    border-bottom: 1px solid rgb(var(--mdui-color-outline));
+}
+
+.markdown-content table td {
+    border: 0;
+    padding: 8px 16px;
+    color: inherit;
+}
+
+.markdown-content table td:not(:last-of-type) {
+    border-right: 1px solid rgb(var(--mdui-color-outline));
+}
+
+.markdown-content table tr:not(:last-of-type) > td {
+    border-bottom: 1px solid rgb(var(--mdui-color-outline));
+}
+
+.comment-block {
+    display: flex;
+    align-items: flex-start;
+    margin: 24px 0;
+}
+
+.comment-block .comment-avatar {
+    width: 64px;
+    height: 64px;
+    margin-right: 16px;
+    background-color: rgb(var(--mdui-color-secondary-container));
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.comment-block .comment-right-area {
+    flex: 1;
+}
+
+.comment-block .comment-nick-name {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0 0 8px 0;
+    color: rgb(var(--mdui-color-tertiary));
+}
+
+.comment-block p {
+    margin: 2px 0;
+}
+
+.comment-input {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 32px;
+}
+
+/* ===== Image loading placeholder ===== */
+.markdown-content .image-wrapper {
+    position: relative;
+    display: block;
+    min-height: 120px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+}
+.markdown-content .image-wrapper img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.markdown-content .image-wrapper.loaded img {
+    opacity: 1;
+}
+.markdown-content .image-wrapper .image-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: rgb(var(--mdui-color-outline));
+    font-size: 14px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    padding: 32px;
+    transition: opacity 0.3s ease;
+}
+.markdown-content .image-wrapper.loaded .image-skeleton {
+    opacity: 0;
+    pointer-events: none;
+}
+.markdown-content .image-wrapper .image-skeleton-icon {
+    font-size: 32px;
+    opacity: 0.5;
+}
+.post-header-cover-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 24px;
+}
+.post-header-cover-wrapper img {
+    display: block;
+    width: 100%;
+    height: auto;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.post-header-cover-wrapper.loaded img {
+    opacity: 1;
+}
+.post-header-cover-wrapper .image-skeleton {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+    color: rgb(var(--mdui-color-outline));
+    font-size: 14px;
+    background: rgb(var(--mdui-color-surface-container-high));
+    border-radius: 12px;
+    padding: 32px;
+    transition: opacity 0.3s ease;
+}
+.post-header-cover-wrapper.loaded .image-skeleton {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ===== KaTeX Math Rendering ===== */
+.markdown-content .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 0;
+    margin: 16px 0;
+}
+.markdown-content .katex-display > .katex {
+    white-space: nowrap;
+}
+.markdown-content .katex {
+    font-size: 1.1em;
+}
+\n\n================ FILE: ./blog/public/js/code.js ================
+const elements = document.querySelectorAll('.content .highlight .gutter');
+elements.forEach(el => el.remove());\n\n================ FILE: ./blog/public/js/color.js ================
+mdui.setColorScheme("#ff006a");\n\n================ FILE: ./blog/public/js/navigation-drawer.js ================
+const width = 900;
+
+const navigation = document.querySelector('.navigation-drawer');
+const button = document.querySelector('.navigation-drawer-button');
+
+function openNavigationDrawerForce() {
+    navigation.open = true;
+}
+
+function freshNavigationDrawer() {
+    navigation.setAttribute('open', window.innerWidth > width);
+}
+
+button.addEventListener('click', () => openNavigationDrawerForce());
+
+freshNavigationDrawer();
+
+const resizeObserverNavigation = new ResizeObserver(entries => {
+  freshNavigationDrawer();
+});
+
+resizeObserverNavigation.observe(document.body);\n\n================ FILE: ./blog/public/js/page.js ================
+function layoutWaterfall() {
+    const container = document.querySelector('.card-container');
+    const items = document.querySelectorAll('.card-container .post-card');
+    const content = document.querySelector('.content-container');
+    
+    if (!container || !items.length || !content) return;
+
+    const windowWidth = content.offsetWidth - 48;
+    let column = 1;
+    if (windowWidth >= 840) {
+        column = 3;
+    } else if (windowWidth >= 428) {
+        column = 2;
+    }
+
+    const gap = 16;
+    const width = (windowWidth - (column - 1) * gap) / column;
+
+    let columnHeights = new Array(column).fill(0);
+    let columnLefts = new Array(column);
+    let columnRights = new Array(column);
+    for (let i = 0; i < column; i++) {
+        columnLefts[i] = i * (width + gap);
+        columnRights[i] = columnLefts[i] + width;
+    }
+    
+    items.forEach((item) => {
+        const minHeight = Math.min(...columnHeights);
+        const columnIndex = columnHeights.indexOf(minHeight);
+
+        item.style.position = 'absolute';
+        item.style.top = `${minHeight}px`;
+        item.style.left = `${columnLefts[columnIndex]}px`;
+        item.style.right = `${windowWidth - columnRights[columnIndex]}px`;
+        item.style.width = `${width}px`;
+
+        columnHeights[columnIndex] += item.offsetHeight + gap;
+    });
+
+    const maxHeight = Math.max(...columnHeights);
+    container.style.height = `${maxHeight + gap}px`;
+}
+
+// 确保每次调用都执行（PJAX 切换到首页时通过 reInitializePlugins 调用）
+// 首次页面加载
+if (document.readyState === 'complete') {
+  layoutWaterfall();
+} else {
+  window.addEventListener('load', layoutWaterfall);
+}
+window.addEventListener('resize', layoutWaterfall);
+
+// 监听 content-container 变化（PJAX 替换时触发 ResizeObserver）
+const resizeObserver = new ResizeObserver(function() {
+  layoutWaterfall();
+});
+
+const contentContainer = document.querySelector('.content-container');
+if (contentContainer) {
+  resizeObserver.observe(contentContainer);
+}
+\n\n================ FILE: ./blog/public/js/comment.js ================
+const url = window.location.pathname; // 当前页面的路径，用于区分不同文章
+const comment_submit_button = document.getElementById('comment-submit-button');
+
+function showNetworkErrorSnackbar() {
+    document.querySelector('.snackbar-network-error').show = true;
+}
+    
+function showCommentFailureSnackbar() {
+    document.querySelector('.snackbar-comment-failure').show = true;
+}
+
+async function getCommentsCount() {
+    
+    try {
+        const response = await fetch(`/api/comments?type=count&path=${encodeURIComponent(url)}`);
+        const result = await response.json();
+
+        if (result.errno === 0) {
+            return result.data[0];
+        } else {
+            showCommentFailureSnackbar();
+            console.error('Get comments count failed:', result.errmsg);
+            return 0;
+        }
+    } catch (err) {
+        showNetworkErrorSnackbar();
+        console.error('Network error:', err);
+        return 0;
+    }
+}
+
+async function loadComments() {
+    try {
+        const response = await fetch(`/api/comments?path=${encodeURIComponent(url)}`);
+        const result = await response.json();
+
+        if (result.errno === 0) {
+            const commentsContainer = document.getElementById('comments-container');
+            commentsContainer.innerHTML = ''; // 清空现有评论
+            console.log('加载评论成功:', result);
+            console.log('加载评论成功:', result.data.data);
+
+            result.data.data.forEach(comment => {
+                const commentElement = document.createElement('mdui-list-item');
+                commentElement.classList.add('comment');
+                commentElement.alignment = 'start';
+                commentElement.nonclickable = true;
+                commentElement.innerHTML = `
+                    <div slot="custom" class="comment-block">
+                        <!-- src="${comment.avatar || '/icon/person.svg'}" -->
+                        <mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>
+                        <div class="comment-right-area">
+                            <p class="comment-nick-name">${comment.nick}</p>
+                            <div class="comment-content">
+                                ${comment.comment}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                commentsContainer.appendChild(commentElement);
+            });
+
+            /*result.data.data.forEach(comment => {
+                const commentElement = document.createElement('div');
+                commentElement.classList.add('comment');
+                commentElement.innerHTML = `
+                <p><strong>${comment.nick}</strong> (${comment.mail})</p>
+                <p>${comment.comment}</p>
+                <p><small>${new Date(comment.create_time * 1000).toLocaleString()}</small></p>
+                `;
+                commentsContainer.appendChild(commentElement);
+            });*/
+        } else {
+            console.error('加载评论失败:', result.errmsg);
+        }
+    } catch (err) {
+        console.error('网络错误:', err);
+    }
+}
+
+async function submitComment(commentData) {
+    /*const commentData = {
+        nick: '访客名称',
+        mail: 'test@example.com',
+        link: 'https://example.com',
+        comment: '<p>这是评论内容.</p>', // 支持 HTML 或 Markdown
+        ua: navigator.userAgent,
+        url: window.location.pathname, // 当前页面的路径，用于区分不同文章
+        // 如果是回复某人，需要传以下 ID
+        // pid: parentCommentId, 
+        // rid: rootCommentId,
+        // at: '@回复的人'
+    };*/
+
+    try {
+        const response = await fetch(`/api/comments`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // 如果用户已登录，需要携带 Token
+                // 'Authorization': `Bearer ${your_token}` 
+            },
+            body: JSON.stringify(commentData)
+        });
+
+        const result = await response.json();
+    
+        if (result.errno === 0) {
+            document.querySelector('.snackbar-comment-success').show = true;
+            console.log('评论成功:', result.data);
+        } else {
+            document.querySelector('.snackbar-comment-failure').show = true;
+
+            console.error('评论失败:', result.errmsg);
+        }
+    } catch (err) {
+        document.querySelector('.snackbar-network-error').show = true;
+        console.error('网络错误:', err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    getCommentsCount().then(count => {
+        const commentSectionTitle = document.querySelector('.comment-section-title');
+        if (commentSectionTitle) {
+            commentSectionTitle.textContent = `${count} Comment` + (count !== 1 ? 's' : '');
+        }
+    });
+    loadComments();
+    //submitComment();
+  // 模拟提交评论
+  //document.getElementById('submit-comment-btn').addEventListener('click', submitComment);
+});
+
+document.getElementById('comment-submit-button').addEventListener('click', () => {
+    comment_submit_button.disabled = true; // 禁用按钮，防止重复提交
+    comment_submit_button.loading = true; // 显示加载状态
+
+    const nick = document.getElementById('comment-nick').value.trim();
+    const email = document.getElementById('comment-email').value.trim();
+    const website = document.getElementById('comment-website').value.trim();
+    const content = document.getElementById('comment-content').value.trim();
+
+    // 临时禁用输入框，防止重复提交
+    document.getElementById('comment-nick').disabled = true;
+    document.getElementById('comment-email').disabled = true;
+    document.getElementById('comment-website').disabled = true;
+    document.getElementById('comment-content').disabled = true;
+
+    // 检查是否必填项为空
+
+    if (!nick) {
+        document.getElementById('comment-nick').innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+    }
+
+    if (!email) {
+        document.getElementById('comment-email').innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+    }
+
+    if (!content) {
+        document.getElementById('comment-content').innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+    }
+
+    if (!nick || !email || !content) {
+        document.querySelector('.snackbar-comment-failure').show = true;
+        // 恢复输入框状态
+        document.getElementById('comment-nick').disabled = false;
+        document.getElementById('comment-email').disabled = false;
+        document.getElementById('comment-website').disabled = false;
+        document.getElementById('comment-content').disabled = false;
+
+        // 恢复按钮状态
+        comment_submit_button.disabled = false;
+        comment_submit_button.loading = false;
+        return;
+    }
+
+    const commentData = {
+        nick,
+        mail: email,
+        comment: content,
+        link: website,
+        ua: navigator.userAgent,
+        url: window.location.pathname,
+    };
+
+    submitComment(commentData).then(() => {
+        getCommentsCount().then(count => {
+            const commentSectionTitle = document.querySelector('.comment-section-title');
+            if (commentSectionTitle) {
+                commentSectionTitle.textContent = `${count} Comment` + (count !== 1 ? 's' : '');
+            }
+        });
+        loadComments().then(() => {
+            // 提交成功后清空输入框，并恢复按钮和输入框状态
+            comment_submit_button.disabled = false;
+            comment_submit_button.loading = false;
+
+            document.getElementById('comment-nick').value = '';
+            document.getElementById('comment-email').value = '';
+            document.getElementById('comment-website').value = '';
+            document.getElementById('comment-content').value = '';
+            document.getElementById('comment-nick').disabled = false;
+            document.getElementById('comment-email').disabled = false;
+            document.getElementById('comment-website').disabled = false;
+            document.getElementById('comment-content').disabled = false;
+        });
+    });
+});\n\n================ FILE: ./blog/public/index.html ================
+<!DOCTYPE html>
+<html class="mdui-theme-auto">
+<head>
+  <title>Blog Material You</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
+  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <script src="https://unpkg.com/marked@15.0.0/marked.min.js"></script>
+  <!-- KaTeX: LaTeX math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <link rel="stylesheet" href="/css/root.css">
+  <link rel="stylesheet" href="/css/content-container.css">
+  <link rel="stylesheet" href="/css/navigation-drawer.css">
+  <link rel="stylesheet" href="/css/lists.css">
+
+  <style>
+    /* Page transition */
+    #content-container {
+      transition: opacity 0.15s ease;
+    }
+    #content-container.loading {
+      opacity: 0.4;
+    }
+    /* Skeleton placeholder */
+    .loading-placeholder {
+      text-align: center;
+      padding: 80px 0;
+      color: rgb(var(--mdui-color-outline));
+    }
+  </style>
+</head>
+<body>
+  <mdui-layout class="root">
+    <mdui-top-app-bar class="top-app-bar" scroll-behavior="elevate" scroll-target=".content-container">
+      <mdui-button-icon class="navigation-drawer-button" variant="text">
+        <mdui-icon src="/icon/menu.svg"></mdui-icon>
+      </mdui-button-icon>
+      <mdui-top-app-bar-title id="app-bar-title">Blog Material You</mdui-top-app-bar-title>
+      <div style="flex-grow: 1"></div>
+      <mdui-button-icon>
+        <mdui-icon src="/icon/search.svg"></mdui-icon>
+      </mdui-button-icon>
+    </mdui-top-app-bar>
+
+    <mdui-navigation-drawer class="navigation-drawer" close-on-overlay-click open="true">
+      <div class="navigation-drawer-container">
+      <div class="navigation-drawer-header">
+        <mdui-avatar src="/img/avatar.png" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
+        <div class="navigation-drawer-header-title" id="nav-name">Blog</div>
+        <div class="navigation-drawer-header-subtitle" id="nav-slogan">A simple and elegant theme.</div>
+      </div>
+      <mdui-list class="navigation-drawer-list" id="sidebar-list">
+        <!-- Sidebar items rendered dynamically from sidebar config -->
+      </mdui-list>
+      </div>
+    </mdui-navigation-drawer>
+
+    <mdui-layout-main class="layout-main">
+      <div class="content-container" id="content-container">
+        <div class="loading-placeholder" id="loading-placeholder">Loading...</div>
+      </div>
+    </mdui-layout-main>
+  </mdui-layout>
+  <script src="/js/navigation-drawer.js"></script>
+  <script type="module" src="/js/color.js"></script>
+
+  <script>
+    // ===== Blog Material You SPA — Client-Side Rendering =====
+    // Data store
+    let blogConfig = null;
+    let allPosts = null;
+
+    // ===== Multilingual support (UN 6 languages) =====
+    const _LANG = (function() {
+      var lang = navigator.language || navigator.userLanguage || '';
+      if (lang.startsWith('zh')) return 'zh';
+      if (lang.startsWith('fr')) return 'fr';
+      if (lang.startsWith('es')) return 'es';
+      if (lang.startsWith('ru')) return 'ru';
+      if (lang.startsWith('ar')) return 'ar';
+      return 'en';
+    })();
+    let _T = {};
+
+    // Minimal YAML parser for our flat structure
+    // Handles both flat (key: value) and nested (lang:\n  key: value) formats
+    function loadLocale(lang) {
+      return fetch('/locales.yml?v=' + Date.now())
+        .then(function(r) { return r.text(); })
+        .then(function(text) {
+          var result = {}, currentSection = null;
+          text.split('\n').forEach(function(line) {
+            // Section header (e.g. "zh:" or "en:")
+            var section = line.match(/^(\w+):\s*$/);
+            if (section) { currentSection = section[1]; return; }
+            // Key-value line under a section
+            if (currentSection === lang) {
+              var m = line.match(/^\s{2}([\w-]+)\s*:\s*(.*)$/);
+              if (m) {
+                var val = m[2].trim();
+                val = val.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+                result[m[1]] = val;
+              }
+            }
+          });
+          _T = result;
+        })
+        .catch(function() { /* fallback: _T stays empty */ });
+    }
+
+    const _ = (key) => _T[key] || _EN_FALLBACK[key] || key;
+
+    // English fallback for initial render before YAML loads
+    const _EN_FALLBACK = {
+      site_name:'Blog', site_desc:'A simple and elegant theme.',
+      nav_home:'Home', nav_posts:'Posts', nav_tags:'Tags',
+      nav_categories:'Categories', nav_moments:'Moments', nav_about:'About',
+      nav_archives:'Archives',
+      page_posts:'Posts', page_posts_desc:'All posts of the blog',
+      page_tags:'Tags', page_tags_desc:'All tags of the blog',
+      page_categories:'Categories', page_categories_desc:'All categories of the blog',
+      page_moments:'Moments', page_moments_desc:'Moments',
+      page_archives:'Archives', page_archives_desc:'All archived posts',
+      status:'Status', statusDesc:'Service Status',
+      loading:'Loading...', networkError:'Network error',
+      commentSuccess:'Comment submitted successfully', commentFail:'Failed to submit comment',
+      nickName:'Nick Name', email:'Email', website:'Website (optional)',
+      commentContent:'Comment', submit:'Submit', reply:'Reply', avatar:'Avatar',
+      noPosts:'No posts yet', noComments:'No comments yet', noTalks:'No moments yet',
+      serverOnline:'Online', serverOffline:'Offline',
+      cpr:'C 2025 Blog Material You', forward:'Read', postsYear:'',
+      nav_friends:'Friends', page_friends:'Friends', page_friends_desc:'My Friends',
+      page_allPosts:'Posts', page_archives:'Archives', page_about:'About', page_moments:'Moments',
+      noFriends:'No friends yet',
+    };
+    function getTitle(p) { return _LANG === 'en' && p.title_en ? p.title_en : p.title; }
+    function getContent(p) { return _LANG === 'en' && p.content_en ? p.content_en : p.content; }
+    function getTags(p) { return _LANG === 'en' && p.tags_en && p.tags_en.length ? p.tags_en : (p.tags || []); }
+    function getCats(p) { return _LANG === 'en' && p.categories_en && p.categories_en.length ? p.categories_en : (p.categories || []); }
+
+    // Build sidebar from config and update nav labels
+    function renderSidebar() {
+      var list = document.getElementById('sidebar-list');
+      if (!list || !blogConfig || !blogConfig.menu) return;
+      var html = '';
+      blogConfig.menu.forEach(function(item) {
+        var label = _(item.text_key) || item.text_key;
+        html += '<mdui-list-item rounded href="' + item.route + '" data-route="' + item.route + '">' +
+                label +
+                '<mdui-icon src="' + item.icon + '" slot="icon"></mdui-icon>' +
+                '</mdui-list-item>';
+      });
+      list.innerHTML = html;
+
+      var navName = document.getElementById('nav-name');
+      var navSlogan = document.getElementById('nav-slogan');
+      if (navName) navName.textContent = blogConfig.title || 'Blog';
+      if (navSlogan) navSlogan.textContent = blogConfig.desc || '';
+    }
+
+    // ===== Helpers =====
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    function stripHtml(html) {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      return div.textContent || div.innerText || '';
+    }
+
+    function truncate(text, len) {
+      if (!text) return '';
+      if (text.length <= len) return text;
+      return text.slice(0, len) + '...';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function isMobile() {
+      return window.innerWidth <= 900;
+    }
+
+    // ===== Navigation =====
+    function updateNavActive(path) {
+      document.querySelectorAll('.navigation-drawer-list mdui-list-item').forEach(function(item) {
+        var route = item.getAttribute('data-route');
+        if (!route) return;
+        if (path.startsWith('/posts/') && route === '/posts/') {
+          item.active = true;
+        } else if (path.startsWith('/post/') && route === '/posts/') {
+          item.active = true;
+        } else if (path.startsWith('/tags/' ) && route === '/tags/') {
+          item.active = true;
+        } else if (path.startsWith('/categories/') && route === '/categories/') {
+          item.active = true;
+        } else if (path.startsWith('/archives/') && route === '/archives/') {
+          item.active = true;
+        } else if (path.startsWith('/about') && route === '/about/') {
+          item.active = true;
+        } else if (path.startsWith('/talks') && route === '/talks/') {
+          item.active = true;
+        } else {
+          item.active = route === path;
+        }
+      });
+    }
+
+    // ===== API Calls =====
+    async function apiFetch(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('API error: ' + res.status);
+      return res.json();
+    }
+
+    async function loadConfig() {
+      if (blogConfig) return blogConfig;
+      blogConfig = await apiFetch('/api/config');
+      // Update UI with config
+      const titleEl = document.getElementById('app-bar-title');
+      if (titleEl) titleEl.textContent = blogConfig.title || 'Blog';
+      const navName = document.getElementById('nav-name');
+      if (navName) navName.textContent = blogConfig.name || '';
+      const navSlogan = document.getElementById('nav-slogan');
+      if (navSlogan) navSlogan.textContent = blogConfig.slogan || '';
+      const navAvatar = document.getElementById('nav-avatar');
+      if (navAvatar && blogConfig.avatar) navAvatar.src = blogConfig.avatar;
+      document.title = blogConfig.title || 'Blog Material You';
+      // Build sidebar and update multilingual labels
+      renderSidebar();
+      return blogConfig;
+    }
+
+    async function loadPosts() {
+      if (allPosts) return allPosts;
+      allPosts = await apiFetch('/api/posts');
+      return allPosts;
+    }
+
+    async function loadPost(slug) {
+      return apiFetch('/api/posts/' + encodeURIComponent(slug));
+    }
+
+    async function loadTags() {
+      return apiFetch('/api/tags');
+    }
+
+    async function loadTagPosts(tag) {
+      return apiFetch('/api/tags/' + encodeURIComponent(tag));
+    }
+
+    async function loadCategories() {
+      return apiFetch('/api/categories');
+    }
+
+    async function loadCategoryPosts(cat) {
+      return apiFetch('/api/categories/' + encodeURIComponent(cat));
+    }
+
+    async function loadArchives() {
+      return apiFetch('/api/archives');
+    }
+
+    async function loadPage(slug) {
+      return apiFetch('/api/pages/' + slug);
+    }
+
+    async function loadTalks() {
+      return apiFetch('/api/talks');
+    }
+
+    async function loadComments(path) {
+      return apiFetch('/api/comments?path=' + encodeURIComponent(path));
+    }
+
+    async function loadCommentCount(path) {
+      return apiFetch('/api/comments?type=count&path=' + encodeURIComponent(path));
+    }
+
+
+    function useEn(post, field) {
+      if (_LANG === 'en' && post && post[field + '_en']) return post[field + '_en'];
+      return post ? post[field] : '';
+    }
+
+    // ===== Renderers =====
+
+    function renderHome() {
+      const posts = allPosts || [];
+      let html = `
+          <style>
+            @import url('/css/index.css');
+            @import url('/css/post-card.css');
+          </style>
+          <mdui-card variant="filled" class="index-header-card">
+            <div class="index-header-title">${escapeHtml(blogConfig.title)}</div>
+            <div class="index-header-content">${escapeHtml(blogConfig.description)}</div>
+          </mdui-card>
+          <div class="card-container" id="card-container">
+        `;
+
+        posts.forEach(function(post) {
+          const postTitle = getTitle(post);
+          const postContent = getContent(post);
+          const excerptText = (post.excerpt || postContent || '');
+          const excerpt = post.cover && post.cover !== 'null'
+            ? truncate(excerptText, 120)
+            : truncate(excerptText, 200);
+          const coverHtml = post.cover && post.cover !== 'null'
+            ? '<img src="' + post.cover + '" alt="' + escapeHtml(postTitle) + '" class="post-card-cover post-card-meta">'
+            : '';
+
+          html += `
+            <mdui-card variant="elevated" class="post-card">
+              ${coverHtml}
+              <div class="post-card-main">
+                <div class="post-card-title post-card-meta">${escapeHtml(postTitle)}</div>
+                <div class="post-card-content post-card-meta">${escapeHtml(excerpt)}</div>
+                <div class="post-card-date post-card-meta">
+                  <mdui-icon src="/icon/calender.svg"></mdui-icon>
+                  <span>${formatDate(post.date)}</span>
+                </div>
+                <mdui-card variant="filled" class="post-card-forward" href="/post/${encodeURIComponent(post.slug)}">
+                  <div class="post-card-forward-div">
+                    <mdui-icon class="post-card-forward-icon" src="/icon/arrow-forward.svg"></mdui-icon>
+                  </div>
+                </mdui-card>
+              </div>
+            </mdui-card>`;
+        });
+
+        html += `</div><hr><div class="index-bottom"><mdui-chip>${_('cpr')}</mdui-chip></div>`;
+        return html;
+      }
+
+    function renderPostsPage() {
+      const posts = allPosts || [];
+      const years = {};
+      posts.forEach(function(p) {
+        const y = p.date ? p.date.slice(0, 4) : 'Unknown';
+        if (!years[y]) years[y] = [];
+        years[y].push(p);
+      });
+
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">${_('page_posts')}</div>
+          <div class="header-content">${_('page_posts_desc')}</div>
+        </mdui-card>
+      `;
+
+      Object.keys(years).sort().reverse().forEach(function(year) {
+        html += '<h1 class="posts-year">' + escapeHtml(year) + _('postsYear') + '</h1><mdui-list class="posts-list">';
+        years[year].forEach(function(post) {
+          var listTitle = useEn(post, 'title');
+          html += `
+            <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
+              <div class="mdui-list-item-content">
+                <div class="mdui-list-item-title">${escapeHtml(listTitle)}</div>
+                <div class="mdui-list-item-text">${formatDate(post.date)}</div>
+              </div>
+            </mdui-list-item>
+          `;
+        });
+        html += '</mdui-list>';
+      });
+
+      return html;
+    }
+
+    function renderPostPage(post) {
+      // Render raw Markdown content as simple HTML
+      const postContent = useEn(post, 'content');
+      const contentHtml = renderMarkdown(postContent || '');
+      const postTitle = useEn(post, 'title');
+
+      let chipsHtml = '';
+      var cats = (_LANG === 'en' && post.categories_en) ? post.categories_en : (post.categories || []);
+      var tags = (_LANG === 'en' && post.tags_en) ? post.tags_en : (post.tags || []);
+      if (cats && cats.length) {
+        cats.forEach(function(cat) {
+          chipsHtml += `
+            <mdui-chip rounded href="/categories/${encodeURIComponent(cat)}" class="post-chip-category">
+              <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+              ${escapeHtml(cat)}
+            </mdui-chip>
+          `;
+        });
+      }
+      if (tags && tags.length) {
+        tags.forEach(function(tag) {
+          chipsHtml += `
+            <mdui-chip rounded href="/tags/${encodeURIComponent(tag)}" class="post-chip-tag">
+              <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+              ${escapeHtml(tag)}
+            </mdui-chip>
+          `;
+        });
+      }
+
+      const coverHtml = post.cover && post.cover !== 'null'
+        ? '<div class="post-header-cover-wrapper"><div class="image-skeleton"><div class="image-skeleton-icon">🖼️</div><span>' + (_('loading') || 'Loading...') + '</span></div><img src="' + escapeHtml(post.cover) + '" alt="' + escapeHtml(postTitle) + '" class="post-header-cover post-header-meta"></div>'
+        : '';
+
+      loadCSS('/css/post-content.css');
+      loadCSS('/css/code.css');
+      const html = `
+        <style></style>
+        <mdui-snackbar class="snackbar-network-error">${_('networkError')}</mdui-snackbar>
+        <mdui-snackbar class="snackbar-comment-success">${_('commentSuccess')}</mdui-snackbar>
+        <mdui-snackbar class="snackbar-comment-failure">${_('commentFail')}</mdui-snackbar>
+        <div class="content">
+          <mdui-card variant="elevated" class="post-header">
+            ${coverHtml}
+            <div class="post-header-main">
+              <div class="post-header-title post-header-meta">${escapeHtml(postTitle)}</div>
+              <div class="post-header-date post-header-meta">
+                <mdui-icon class="post-header-date-icon" src="/icon/calender.svg"></mdui-icon>
+                <span>${formatDate(post.date)}</span>
+              </div>
+            </div>
+          </mdui-card>
+          <div class="post-header-chips">${chipsHtml}</div>
+          <hr>
+          <div class="markdown-content">${contentHtml}</div>
+          <hr>
+          <div class="comment-input">
+            <div style="display:flex;gap:8px;align-items:center">
+              <mdui-text-field id="comment-avatar" label="${_('avatar')}" variant="outlined" max-rows="1" style="flex:1" placeholder="头像URL或上传"></mdui-text-field>
+              <mdui-button id="comment-avatar-upload" variant="text" style="flex-shrink:0">📷</mdui-button>
+              <input type="file" id="comment-avatar-file" accept="image/*" style="display:none">
+              <img id="comment-avatar-preview" style="width:40px;height:40px;border-radius:50%;display:none;object-fit:cover">
+            </div>
+            <mdui-text-field id="comment-nick" label="${_('nickName')}" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-email" label="${_('email')}" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-website" label="${_('website')}" variant="outlined" max-rows="1"></mdui-text-field>
+            <mdui-text-field id="comment-content" label="${_('commentContent')}" variant="outlined" max-rows="4" autosize></mdui-text-field>
+            <mdui-button id="comment-submit-button" variant="filled">${_('submit')}</mdui-button>
+          </div>
+          <h3 class="comment-section-title" id="comment-section-title">${_('commentTitle')}</h3>
+          <mdui-list id="comments-container" class="comment-list"></mdui-list>
+        </div>
+      `;
+      return html;
+    }
+
+    function renderTagsPage(tags) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">${_('page_tags')}</div>
+          <div class="header-content">${_('page_tags_desc')}</div>
+        </mdui-card>
+        <div class="tags-container">
+      `;
+      tags.forEach(function(tag) {
+        html += `
+          <mdui-chip rounded href="/tags/${encodeURIComponent(tag.name)}">
+            ${escapeHtml(tag.name)}
+            <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+          </mdui-chip>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function renderCategoriesPage(cats) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">${_('page_categories')}</div>
+          <div class="header-content">${_('page_categories_desc')}</div>
+        </mdui-card>
+        <div class="tags-container">
+      `;
+      cats.forEach(function(cat) {
+        html += `
+          <mdui-chip rounded href="/categories/${encodeURIComponent(cat.name)}">
+            <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+            ${escapeHtml(cat.name)}
+            <span slot="badge">${cat.count}</span>
+          </mdui-chip>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function renderListPage(title, description, items) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">${escapeHtml(title)}</div>
+          <div class="header-content">${escapeHtml(description)}</div>
+        </mdui-card>
+        <mdui-list class="posts-list">
+      `;
+      items.forEach(function(item) {
+        var itemTitle = useEn(item, 'title');
+        html += `
+          <mdui-list-item href="/post/${encodeURIComponent(item.slug)}">
+            <div class="mdui-list-item-content">
+              <div class="mdui-list-item-title">${escapeHtml(itemTitle)}</div>
+              <div class="mdui-list-item-text">${formatDate(item.date)}</div>
+            </div>
+          </mdui-list-item>
+        `;
+      });
+      html += '</mdui-list>';
+      return html;
+    }
+
+    function renderArchivesPage(archives) {
+      let html = `
+        <style>@import url('/css/header-card.css');</style>
+        <mdui-card variant="filled" class="header-card">
+          <div class="header-title">${_('page_archives')}</div>
+          <div class="header-content">${_('page_archives_desc')}</div>
+        </mdui-card>
+      `;
+      Object.keys(archives).sort().reverse().forEach(function(year) {
+        html += '<h1 class="posts-year">' + escapeHtml(year) + _('postsYear') + '</h1><mdui-list class="posts-list">';
+        archives[year].forEach(function(post) {
+          var itemTitle = useEn(post, 'title');
+          html += `
+            <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
+              <div class="mdui-list-item-content">
+                <div class="mdui-list-item-title">${escapeHtml(itemTitle)}</div>
+                <div class="mdui-list-item-text">${formatDate(post.date)}</div>
+              </div>
+            </mdui-list-item>
+          `;
+        });
+        html += '</mdui-list>';
+      });
+      return html;
+    }
+
+    function renderAboutPage(page) {
+      const pageContent = useEn(page, 'content');
+      const pageTitle = useEn(page, 'title');
+      loadCSS('/css/post-content.css');
+      loadCSS('/css/code.css');
+      loadCSS('/css/about.css');
+      const html = `
+        <style></style>
+        <div class="content">
+          <mdui-card variant="elevated" class="about-header" id="about-header" style="cursor:pointer">
+            <mdui-avatar src="${blogConfig.avatar}" class="about-avatar" id="about-avatar"></mdui-avatar>
+            <div class="about-title">${escapeHtml(pageTitle || blogConfig.title)}</div>
+            <div class="about-description">${escapeHtml(blogConfig.description)}</div>
+          </mdui-card>
+          <hr>
+          <div class="markdown-content">${renderMarkdown(pageContent || '')}</div>
+          <hr>
+        </div>
+      `;
+      return html;
+    }
+
+    function renderTalksPage(talksList) {
+      const talks = Array.isArray(talksList) ? talksList : [];
+      let items = '';
+      talks.forEach(function(t) {
+        var dateStr = '';
+        if (t.create_time) {
+          var d = new Date(parseInt(t.create_time) * 1000);
+          dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        }
+        items += '<hr><div class="talk-item" style="padding:8px 0"><div class="markdown-content">' + renderMarkdown(t.content || '') + '</div>' +
+                 '<span style="font-size:12px;color:rgb(var(--mdui-color-outline))">' + dateStr + '</span></div>';
+      });
+      loadCSS('/css/post-content.css');
+      loadCSS('/css/code.css');
+      loadCSS('/css/about.css');
+      const html = `
+        <style></style>
+        <div class="content">
+          <mdui-card variant="elevated" class="about-header">
+            <div class="about-title">${_('page_moments')}</div>
+            <div class="about-description">${_('page_moments_desc')}</div>
+          </mdui-card>
+          ${items}
+          <hr>
+        </div>
+      `;
+      return html;
+    }
+    function renderFriendsPage(list) {
+      loadCSS('/css/header-card.css');
+      var items = '';
+      if (list && list.length) {
+        list.forEach(function(f) {
+          var ftitle = (f.title_en && _LANG === 'en') ? f.title_en : f.title;
+          var fdescr = (f.descr_en && _LANG === 'en') ? f.descr_en : f.descr;
+          items += '<mdui-card variant="elevated" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px">' +
+            (f.avatar ? '<img src="' + f.avatar + '" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '') +
+            '<div style="flex:1;min-width:0">' +
+            '<a href="' + f.url + '" target="_blank" rel="noopener" style="font-size:18px;font-weight:500;text-decoration:none;color:rgb(var(--mdui-color-primary))">' + escapeHtml(ftitle) + '</a>' +
+            (fdescr ? '<div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-top:4px">' + escapeHtml(fdescr) + '</div>' : '') +
+            '</div></mdui-card>';
+        });
+      } else {
+        items = '<p style="text-align:center;padding:32px;color:rgb(var(--mdui-color-outline))">' + _('noFriends') + '</p>';
+      }
+      return '<style>@import url("/css/header-card.css");</style>' +
+        '<mdui-card variant="filled" class="header-card">' +
+        '<div class="header-title">' + _('page_friends') + '</div>' +
+        '<div class="header-content">' + _('page_friends_desc') + '</div></mdui-card>' +
+        '<div style="padding:16px">' + items + '</div>';
+    }
+
+    // ===== CSS Loader (cross-browser: Firefox doesn't support @import in dynamic <style>) =====
+    var _cssLoaded = {};
+    function loadCSS(path) {
+      if (_cssLoaded[path]) return;
+      _cssLoaded[path] = true;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = path;
+      document.head.appendChild(link);
+    }
+
+    // ===== PJAX link interceptor =====
+    // Intercept clicks on MDUI elements with internal hrefs so MDUI keeps
+    // its built-in ripple/cursor behavior while navigation uses pushState.
+    document.addEventListener('click', function(e) {
+      var el = e.target;
+      // Walk up to find the element that has an internal href
+      while (el && el !== document.body) {
+        var href = el.getAttribute && el.getAttribute('href');
+        if (href && href.startsWith('/') && !href.startsWith('//') &&
+            !href.startsWith('/api/') && !href.startsWith('/admin')) {
+          e.preventDefault();
+          navigate(href, true);
+          return;
+        }
+        el = el.parentElement;
+      }
+    });
+
+    // ===== Markdown Renderer =====
+    function renderMarkdown(text) {
+      if (!text) return '';
+      // Use marked library for proper GFM markdown parsing
+      return marked.parse(text);
+    }
+
+    // ===== Router =====
+    async function navigate(path, pushState) {
+      if (pushState !== false) {
+        history.pushState({}, '', path);
+      }
+
+      const container = document.getElementById('content-container');
+      container.classList.add('loading');
+      // Scroll to top of page (MDUI layout uses its own scroll container)
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      if (container) container.scrollTop = 0;
+      var layoutMain = document.querySelector('mdui-layout-main') || document.querySelector('.layout-main');
+      if (layoutMain) layoutMain.scrollTop = 0;
+
+      try {
+        // Load config if not loaded
+        await loadConfig();
+
+        // Update document title
+        var newTitle = 'Blog Material You';
+        if (path.startsWith('/post/')) {
+          var slug = path.replace('/post/', '').replace(/\/$/, '');
+          if (allPosts) {
+            var p = allPosts.find(function(p2) { return p2.slug === slug; });
+            if (p) newTitle = (useEn(p, 'title') || p.title) + ' - Blog Material You';
+          }
+        } else if (path === '/' || path === '') {
+          newTitle = (blogConfig ? blogConfig.title || 'Blog Material You' : 'Blog Material You') + ' - ' + (blogConfig ? blogConfig.desc || '' : '');
+        } else if (path.startsWith('/tags/') || path.startsWith('/categories/')) {
+          newTitle = decodeURIComponent(path.replace(/^\/(tags|categories)\//, '').replace(/\/$/, '')) + ' - Blog Material You';
+        } else if (path.startsWith('/about')) { newTitle = (_('page_about') || 'About') + ' - Blog Material You';
+        } else if (path.startsWith('/talks')) { newTitle = (_('page_moments') || 'Talks') + ' - Blog Material You';
+        } else if (path.startsWith('/friends')) { newTitle = (_('page_friends') || 'Friends') + ' - Blog Material You';
+        } else if (path.startsWith('/posts')) { newTitle = (_('page_allPosts') || 'Posts') + ' - Blog Material You';
+        } else if (path.startsWith('/archives')) { newTitle = (_('page_archives') || 'Archives') + ' - Blog Material You'; }
+        document.title = newTitle;
+
+        let html = '';
+
+        if (path === '/' || path === '') {
+          await loadPosts();
+          html = renderHome();
+          updateNavActive('/');
+
+        } else if (path === '/posts/' || path === '/posts') {
+          await loadPosts();
+          html = renderPostsPage();
+          updateNavActive('/posts/');
+
+        } else if (path.startsWith('/post/')) {
+          var slug = path.replace('/post/', '').replace(/\/$/, '');
+          slug = decodeURIComponent(slug);
+          var post = await loadPost(slug);
+          if (post && post.title) {
+            html = renderPostPage(post);
+          } else {
+            html = '<div class="loading-placeholder"><h2>' + (_LANG === 'zh' ? '404 — 文章不存在或无权限查看' : '404 — Post not found or access denied') + '</h2><p>' + (_LANG === 'zh' ? '该文章可能已被删除或暂时不可访问。' : 'This post may have been deleted or is temporarily unavailable.') + '</p></div>';
+          }
+          updateNavActive('/posts/');
+
+        } else if (path === '/tags/' || path === '/tags') {
+          var tags = await loadTags();
+          html = renderTagsPage(tags);
+          updateNavActive('/tags/');
+
+        } else if (path.startsWith('/tags/')) {
+          var tag = decodeURIComponent(path.replace('/tags/', '').replace(/\/$/, ''));
+          var posts = await loadTagPosts(tag);
+          html = renderListPage(tag, _('tagDesc'), posts);
+          updateNavActive('/tags/');
+
+        } else if (path === '/categories/' || path === '/categories') {
+          var cats = await loadCategories();
+          html = renderCategoriesPage(cats);
+          updateNavActive('/categories/');
+
+        } else if (path.startsWith('/categories/')) {
+          var cat = decodeURIComponent(path.replace('/categories/', '').replace(/\/$/, ''));
+          var posts2 = await loadCategoryPosts(cat);
+          html = renderListPage(cat, _('catDesc'), posts2);
+          updateNavActive('/categories/');
+
+        } else if (path === '/archives/' || path === '/archives') {
+          var archives = await loadArchives();
+          html = renderArchivesPage(archives);
+          updateNavActive('/archives/');
+
+        } else if (path === '/about/' || path === '/about') {
+          var page = await loadPage('about');
+          html = renderAboutPage(page);
+          updateNavActive('/about/');
+          _aboutClickCount = 0;
+
+        } else if (path === '/easter-egg/' || path === '/easter-egg') {
+          html = renderEasterEgg();
+          updateNavActive('/about/');
+
+        } else if (path === '/talks/' || path === '/talks') {
+          var talksList = await loadTalks();
+          html = renderTalksPage(talksList);
+          updateNavActive('/talks/');
+
+        } else if (path === '/friends/' || path === '/friends') {
+          var friendsList = await apiFetch('/api/friends');
+          html = renderFriendsPage(friendsList);
+          updateNavActive('/friends/');
+
+        } else if (path === '/status/' || path === '/status') {
+          html = renderStatusPage();
+          updateNavActive('/status/');
+
+        } else if (path === '/auth/' || path === '/auth') {
+          html = renderAuthPage();
+          updateNavActive('/about/');
+
+        } else if (path === '/calendar/' || path === '/calendar') {
+          html = '<div class="loading-placeholder"><p>' + (_LANG === 'zh' ? '日历已合并到 Status 页面。' : 'Calendar has been merged into the Status page.') + '</p><mdui-button variant="text" onclick="navigate(\'/status/\',true)">' + (_LANG === 'zh' ? '前往 Status' : 'Go to Status') + '</mdui-button></div>';
+          updateNavActive('/status/');
+
+        } else {
+          html = '<div class="loading-placeholder"><h2>' + (_LANG === 'zh' ? '404 — 页面未找到' : '404 — Page Not Found') + '</h2><p>' + (_LANG === 'zh' ? '您要查找的页面不存在。' : 'The page you\'re looking for doesn\'t exist.') + '</p></div>';
+        }
+
+        container.innerHTML = html;
+        document.title = blogConfig.title || 'Blog Material You';
+
+        // Re-trigger pjax-style plugins (waterfall, code cleanup)
+        postRender(container);
+      } catch (err) {
+        console.error('Navigation error:', err);
+        container.innerHTML = '<div class="loading-placeholder"><h2>Error</h2><p>Failed to load page: ' + escapeHtml(err.message) + '</p></div>';
+      }
+
+      container.classList.remove('loading');
+    }
+
+    // ===== Post-Render Hooks =====
+    function postRender(container) {
+      // 1. Remove gutter from code blocks
+      document.querySelectorAll('.highlight .gutter').forEach(function(el) {
+        el.remove();
+      });
+
+      // 2. Waterfall layout on home
+      if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        requestAnimationFrame(function() {
+          requestAnimationFrame(function() {
+            layoutWaterfall();
+          });
+        });
+      }
+
+      // 3. Comments on post pages
+      if (window.location.pathname.startsWith('/post/')) {
+        initComments();
+      }
+
+      // 4. Attach click handlers to custom elements
+      if (container) attachClickHandlers(container);
+
+      // 5. Render LaTeX math with KaTeX
+      renderMath();
+
+      // 6. Easter egg: track clicks on About page header/avatar
+      initAboutEasterEgg();
+
+      // 7. Image loading placeholders with fade-in
+      setupImagePlaceholders();
+    }
+
+    // ===== Image Loading Placeholder =====
+    function setupImagePlaceholders() {
+      // Cover image on post pages
+      document.querySelectorAll('.post-header-cover-wrapper img').forEach(function(img) {
+        if (img.dataset._placeholder) return;
+        img.dataset._placeholder = '1';
+        img.addEventListener('load', function() {
+          img.closest('.post-header-cover-wrapper')?.classList.add('loaded');
+        });
+        img.addEventListener('error', function() {
+          var wrapper = img.closest('.post-header-cover-wrapper');
+          if (wrapper) {
+            wrapper.querySelector('.image-skeleton').innerHTML =
+              '<div class="image-skeleton-icon">❌</div><span>' + (_('loadFailed') || 'Failed to load') + '</span>';
+          }
+        });
+        if (img.complete) {
+          if (img.naturalWidth > 0) {
+            img.closest('.post-header-cover-wrapper')?.classList.add('loaded');
+          } else {
+            img.dispatchEvent(new Event('error'));
+          }
+        }
+      });
+
+      // Inline images in markdown content
+      document.querySelectorAll('.markdown-content img').forEach(function(img) {
+        if (img.dataset._placeholder) return;
+        img.dataset._placeholder = '1';
+
+        // Create wrapper and skeleton
+        var wrapper = document.createElement('div');
+        wrapper.className = 'image-wrapper';
+        var skeleton = document.createElement('div');
+        skeleton.className = 'image-skeleton';
+        skeleton.innerHTML = '<div class="image-skeleton-icon">🖼️</div><span>' + (_('loading') || 'Loading...') + '</span>';
+
+        img.parentNode.insertBefore(wrapper, img);
+        wrapper.appendChild(skeleton);
+        wrapper.appendChild(img);
+
+        img.addEventListener('load', function() {
+          wrapper.classList.add('loaded');
+        });
+        img.addEventListener('error', function() {
+          skeleton.innerHTML = '<div class="image-skeleton-icon">❌</div><span>' + (_('loadFailed') || 'Failed to load') + '</span>';
+        });
+        if (img.complete) {
+          if (img.naturalWidth > 0) {
+            wrapper.classList.add('loaded');
+          } else {
+            img.dispatchEvent(new Event('error'));
+          }
+        }
+      });
+    }
+
+    // ===== KaTeX Math Rendering =====
+    function renderMath() {
+      if (typeof renderMathInElement !== 'function') {
+        setTimeout(renderMath, 200);
+        return;
+      }
+      document.querySelectorAll('.markdown-content').forEach(function(el) {
+        renderMathInElement(el, {
+          delimiters: [
+            {left: '$$', right: '$$', display: true},
+            {left: '$', right: '$', display: false},
+            {left: '\\[', right: '\\]', display: true},
+            {left: '\\(', right: '\\)', display: false}
+          ],
+          throwOnError: false
+        });
+      });
+    }
+
+    // ===== Waterfall Layout =====
+    function layoutWaterfall() {
+      var container = document.querySelector('.card-container');
+      var items = document.querySelectorAll('.card-container .post-card');
+      var content = document.querySelector('.content-container');
+
+      if (!container || !items.length || !content) return;
+
+      var windowWidth = content.offsetWidth - 48;
+      var column = 1;
+      if (windowWidth >= 840) {
+        column = 3;
+      } else if (windowWidth >= 428) {
+        column = 2;
+      }
+
+      var gap = 16;
+      var width = (windowWidth - (column - 1) * gap) / column;
+
+      var columnHeights = new Array(column).fill(0);
+      var columnLefts = new Array(column);
+      var columnRights = new Array(column);
+      for (var i = 0; i < column; i++) {
+        columnLefts[i] = i * (width + gap);
+        columnRights[i] = columnLefts[i] + width;
+      }
+
+      items.forEach(function(item) {
+        var minHeight = Math.min.apply(null, columnHeights);
+        var columnIndex = columnHeights.indexOf(minHeight);
+
+        item.style.position = 'absolute';
+        item.style.top = minHeight + 'px';
+        item.style.left = columnLefts[columnIndex] + 'px';
+        item.style.right = (windowWidth - columnRights[columnIndex]) + 'px';
+        item.style.width = width + 'px';
+
+        columnHeights[columnIndex] += item.offsetHeight + gap;
+      });
+
+      var maxHeight = Math.max.apply(null, columnHeights);
+      container.style.height = (maxHeight + gap) + 'px';
+    }
+
+    // ===== Click Handlers (SPA navigation) =====
+    function attachClickHandlers(root) {
+      if (!root) root = document;
+      root.querySelectorAll('mdui-chip[href], mdui-list-item[href], mdui-card[href]').forEach(function(el) {
+        if (el._spaAttached) return;
+        el._spaAttached = true;
+        el.addEventListener('click', function(e) {
+          var href = el.getAttribute('href');
+          if (!href) return;
+          if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
+          if (href === window.location.pathname) return;
+          e.preventDefault();
+          e.stopPropagation();
+
+          navigate(href);
+
+          var nav = document.querySelector('.navigation-drawer');
+          if (nav && isMobile()) {
+            nav.open = false;
+          }
+        });
+      });
+    }
+
+    // ===== Comments =====
+    function initComments() {
+      var path = window.location.pathname;
+
+      // Load comment count + list via async fetch
+      var countUrl = '/api/comments?type=count&path=' + encodeURIComponent(path);
+      var listUrl = '/api/comments?path=' + encodeURIComponent(path);
+
+      Promise.all([
+        fetch(countUrl).then(function(r) { return r.json(); }),
+        fetch(listUrl).then(function(r) { return r.json(); })
+      ]).then(function(results) {
+        var countResult = results[0];
+        var listResult = results[1];
+
+        // Update comment count title
+        var titleEl = document.getElementById('comment-section-title');
+        if (titleEl && countResult.data) {
+          var count = parseInt(countResult.data.count) || 0;
+          titleEl.textContent = count + ' Comment' + (count !== 1 ? 's' : '');
+        }
+
+        // Render comments
+        var container = document.getElementById('comments-container');
+        if (!container) return;
+        container.innerHTML = '';
+        if (listResult.data && listResult.data.data && listResult.data.data.forEach) {
+          listResult.data.data.forEach(function(comment) {
+            var item = document.createElement('mdui-list-item');
+            item.classList.add('comment');
+            item.alignment = 'start';
+            item.nonclickable = true;
+            item.innerHTML = '<div slot="custom" class="comment-block">' +
+              (comment.avatar ? '<img src="' + comment.avatar + '" class="comment-avatar">' : '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>') +
+              '<div class="comment-right-area">' +
+              '<p class="comment-nick-name">' + escapeHtml(comment.nick || '') + '</p>' +
+              '<div class="comment-content">' + escapeHtml(comment.comment || '') + '</div>' +
+              '</div></div>';
+            container.appendChild(item);
+          });
+        }
+      }).catch(function(e) {
+        console.error('Comments load error:', e);
+      });
+
+      // Submit comment button
+      var submitBtn = document.getElementById('comment-submit-button');
+      if (submitBtn) {
+        var newBtn = submitBtn.cloneNode(true);
+        submitBtn.parentNode.replaceChild(newBtn, submitBtn);
+        newBtn.addEventListener('click', function() {
+          submitComment(path);
+        });
+      }
+
+      // Avatar upload handler
+      var uploadBtn = document.getElementById('comment-avatar-upload');
+      var fileInput = document.getElementById('comment-avatar-file');
+      var avatarPreview = document.getElementById('comment-avatar-preview');
+      var avatarField = document.getElementById('comment-avatar');
+      if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', function() { fileInput.click(); });
+        fileInput.addEventListener('change', function() {
+          var file = fileInput.files[0];
+          if (!file) return;
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            // Show preview
+            avatarPreview.src = e.target.result;
+            avatarPreview.style.display = 'block';
+            // Upload to server
+            fetch('/api/upload-avatar', { method: 'POST', body: e.target.result })
+              .then(function(r) { return r.json(); })
+              .then(function(d) {
+                if (d.errno === 0 && avatarField) {
+                  avatarField.value = d.data.url;
+                }
+              }).catch(function() {});
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+      // Avatar URL input → update preview
+      if (avatarField && avatarPreview) {
+        avatarField.addEventListener('input', function() {
+          if (avatarField.value) {
+            avatarPreview.src = avatarField.value;
+            avatarPreview.style.display = 'block';
+          } else {
+            avatarPreview.style.display = 'none';
+          }
+        });
+      }
+    }
+
+    function submitComment(path) {
+      var btn = document.getElementById('comment-submit-button');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.loading = true;
+
+      var nick = document.getElementById('comment-nick').value.trim();
+      var email = document.getElementById('comment-email').value.trim();
+      var website = document.getElementById('comment-website').value.trim();
+      var content = document.getElementById('comment-content').value.trim();
+      var avatar = document.getElementById('comment-avatar').value.trim();
+
+      // Disable inputs
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = true;
+      });
+
+      // Validation
+      var hasError = false;
+      if (!nick) {
+        var nickField = document.getElementById('comment-nick');
+        if (nickField) nickField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+        hasError = true;
+      }
+      if (!email) {
+        var emailField = document.getElementById('comment-email');
+        if (emailField) emailField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+        hasError = true;
+      }
+      if (!content) {
+        var contentField = document.getElementById('comment-content');
+        if (contentField) contentField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
+        hasError = true;
+      }
+
+      if (hasError) {
+        showSnackbar('comment-failure');
+        resetCommentForm();
+        return;
+      }
+
+      fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nick: nick,
+          mail: email,
+          comment: content,
+          link: website,
+          ua: navigator.userAgent,
+          url: path,
+          avatar: avatar
+        })
+      }).then(function(res) {
+        return res.json();
+      }).then(function(result) {
+        if (result.errno === 0) {
+          showSnackbar('comment-success');
+          // Reload comments then clear form
+          initComments();
+          setTimeout(function() {
+            ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
+              var el = document.getElementById(id);
+              if (el) el.value = '';
+            });
+            resetCommentForm();
+          }, 100);
+        } else {
+          showSnackbar('comment-failure');
+          resetCommentForm();
+        }
+      }).catch(function(err) {
+        showSnackbar('network-error');
+        resetCommentForm();
+      });
+    }
+
+    function resetCommentForm() {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
+      var btn = document.getElementById('comment-submit-button');
+      if (btn) {
+        btn.disabled = false;
+        btn.loading = false;
+      }
+    }
+
+    function showSnackbar(type) {
+      var el = document.querySelector('.snackbar-' + type);
+      if (el) el.show = true;
+    }
+
+    // ===== Initialization =====
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load locale file
+      loadLocale(_LANG).then(function() {
+        // Attach SPA click handlers and navigate
+        attachClickHandlers(document);
+        navigate(window.location.pathname, false);
+      }).catch(function() {
+        attachClickHandlers(document);
+        navigate(window.location.pathname, false);
+      });
+
+      // Handle browser back/forward
+      window.addEventListener('popstate', function(e) {
+        navigate(window.location.pathname, false);
+      });
+
+      // Re-attach handlers to new content after SPA navigation
+      var observer = new MutationObserver(function() {
+        attachClickHandlers(document.getElementById('content-container'));
+      });
+      var container = document.getElementById('content-container');
+      if (container) {
+        observer.observe(container, { childList: true, subtree: true });
+      }
+    });
+
+    // Waterfall resize observer
+    var resizeObserver = new ResizeObserver(function() {
+      if (window.location.pathname === '/') {
+        layoutWaterfall();
+      }
+    });
+    var contentContainer = document.querySelector('.content-container');
+    if (contentContainer) {
+      resizeObserver.observe(contentContainer);
+    }
+
+    // ===== Auth State =====
+    function getAuthEmail() { return localStorage.getItem('auth_email'); }
+    function getAuthName() { return localStorage.getItem('auth_name'); }
+    function getAuthPerms() { try { return JSON.parse(localStorage.getItem('auth_perms') || '[]'); } catch(e) { return []; } }
+    function hasPerm(p) { return getAuthPerms().indexOf(p) !== -1; }
+    function setAuth(email, name, perms) {
+      if (email) { localStorage.setItem('auth_email', email); localStorage.setItem('auth_name', name || email); localStorage.setItem('auth_perms', JSON.stringify(perms || [])); }
+      else { localStorage.removeItem('auth_email'); localStorage.removeItem('auth_name'); localStorage.removeItem('auth_perms'); }
+    }
+    function isAuthed() { return !!getAuthEmail(); }
+
+    // ===== Status Page =====
+    function renderStatusPage() {
+      fetch('/api/status').then(function(r) { return r.json(); }).then(function(d) {
+        var el = document.getElementById('status-online');
+        if (el) el.textContent = d.online ? (_LANG === 'zh' ? '✅ 在线' : '✅ Online') : (_LANG === 'zh' ? '❌ 离线' : '❌ Offline');
+        var el2 = document.getElementById('status-users');
+        if (el2) el2.textContent = '' + (d.registered_users || 0);
+      }).catch(function() {
+        var el = document.getElementById('status-online');
+        if (el) el.textContent = _LANG === 'zh' ? '❌ 无法连接' : '❌ Connection failed';
+      });
+      setTimeout(initStatusPage, 50);
+      var zh = _LANG === 'zh';
+      loadCSS('/css/post-content.css');
+      return ''
+        + '<style>'
+        + '  @import url("/css/header-card.css");'
+        + '</style>'
+        + '<div class="content">'
+        + '<mdui-card variant="filled" class="header-card">'
+        + '  <div class="header-title">' + _('status') + '</div>'
+        + '  <div class="header-content">' + _('statusDesc') + '</div>'
+        + '</mdui-card>'
+        + '<mdui-card variant="elevated" style="padding:24px;width:100%">'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '服务器状态' : 'Server Status') + '</span><span id="status-online">' + (zh ? '检测中...' : 'Checking...') + '</span></div>'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">🔒 ' + (zh ? '锁定状态' : 'Lock State') + '</span><span>' + (isAuthed() ? (zh ? '🔓 已认证' : '🔓 Authenticated') : (zh ? '🔒 未认证' : '🔒 Unauthenticated')) + '</span></div>'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '当前播放' : 'Now Playing') + '</span><span>' + getCurrentPlayback() + '</span></div>'
+        + '  <div style="display:flex;justify-content:space-between;padding:12px 0"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '注册用户' : 'Registered Users') + '</span><span id="status-users">-</span></div>'
+        + '</mdui-card>'
+        + (isAuthed() ? '<mdui-card variant="elevated" style="padding:16px;margin-top:12px;width:100%"><div style="font-size:14px">👤 ' + escapeHtml(getAuthName()) + ' (' + escapeHtml(getAuthEmail()) + ')</div><div style="font-size:12px;color:rgb(var(--mdui-color-outline));margin-top:4px">' + (zh ? '权限: ' : 'Permissions: ') + (getAuthPerms().join(', ') || (zh ? '无' : 'None')) + '</div></mdui-card>' : '')
+        + '<div id="status-calendar" style="margin-top:16px"><p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:16px">📅 ' + (zh ? '加载中...' : 'Loading...') + '</p></div>'
+        + '<mdui-button variant="text" style="margin-top:16px" onclick="navigate(\'/\', true)">' + (zh ? '← 返回首页' : '← Back to Home') + '</mdui-button>'
+        + '</div>';
+    }
+
+    function initStatusPage() {
+      updatePlaybackStatus();
+      loadStatusCalendar();
+    }
+
+    function loadStatusCalendar() {
+      var el = document.getElementById('status-calendar');
+      if (!el) return;
+      if (!isAuthed()) {
+        el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
+          + '<div style="font-size:36px;margin-bottom:12px">🔐</div>'
+          + '<div style="font-size:16px;margin-bottom:12px">' + (_LANG === 'zh' ? '日历 — 无法查看。你是谁？' : 'Calendar — Cannot view. Who are you?') + '</div>'
+          + '<mdui-button variant="filled" onclick="navigate(\'/auth/\',true)">' + (_LANG === 'zh' ? '前往认证' : 'Go to Auth') + '</mdui-button>'
+          + '</mdui-card>';
+        return;
+      }
+      if (!hasPerm('calendar')) {
+        el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
+          + '<div style="font-size:36px;margin-bottom:12px">🚫</div>'
+          + '<div style="font-size:16px;margin-bottom:12px">' + (_LANG === 'zh' ? '日历 — 无权限查看' : 'Calendar — No permission') + '</div>'
+          + '</mdui-card>';
+        return;
+      }
+      fetch('/api/calendar', { headers: { 'X-User-Email': getAuthEmail() } })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var events = (data.errno === 0 && Array.isArray(data.data)) ? data.data : [];
+          renderCalendarInStatus(events);
+        })
+        .catch(function(e) {
+          el.innerHTML = '<p style="color:rgb(var(--mdui-color-error));text-align:center">加载失败: ' + escapeHtml(e.message) + '</p>';
+        });
+    }
+
+    function renderCalendarInStatus(events) {
+      var el = document.getElementById('status-calendar');
+      if (!el) return;
+      var html = '<mdui-card variant="elevated" style="padding:16px;width:100%">'
+        + '<h2 style="font-size:16px;font-weight:500;margin-bottom:12px">📅 ' + (_LANG === 'zh' ? '日历' : 'Calendar') + '</h2>';
+      if (events.length === 0) {
+        html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">' + (_LANG === 'zh' ? '暂无安排' : 'No upcoming events') + '</p>';
+      } else {
+        var today = new Date().toISOString().slice(0, 10);
+        events.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
+        var shown = 0;
+        events.forEach(function(e) {
+          if (shown >= 5) return;
+          if (e.date && e.date >= today) {
+            var isToday = e.date === today;
+            html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.1)">'
+              + '<div><strong>' + escapeHtml(e.title) + '</strong>'
+              + (e.description ? '<div style="font-size:12px;color:rgb(var(--mdui-color-outline))">' + escapeHtml(e.description) + '</div>' : '')
+              + '</div>'
+              + '<div style="text-align:right;font-size:12px;color:rgb(var(--mdui-color-outline));flex-shrink:0;margin-left:12px">'
+              + (isToday ? '<span style="color:rgb(var(--mdui-color-primary));font-weight:500">' + (_LANG === 'zh' ? '今天' : 'Today') + '</span>' : e.date)
+              + (e.time ? ' ' + e.time : '')
+              + '</div></div>';
+            shown++;
+          }
+        });
+        if (shown === 0) {
+          html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">' + (_LANG === 'zh' ? '近期暂无安排' : 'No upcoming events') + '</p>';
+        }
+      }
+      html += '</mdui-card>';
+      el.innerHTML = html;
+    }
+
+    function getCurrentPlayback() {
+      var p = window._currentPlayback;
+      if (p) return '🎵 ' + escapeHtml(p);
+      // Check if any audio/video elements are playing
+      var media = document.querySelectorAll('audio,video');
+      for (var i = 0; i < media.length; i++) {
+        if (!media[i].paused) return '🎵 正在播放媒体';
+      }
+      return '⏸️ 无';
+    }
+
+    function updatePlaybackStatus() {
+      if (navigator.mediaSession && navigator.mediaSession.metadata) {
+        window._currentPlayback = navigator.mediaSession.metadata.title || '';
+      }
+      // Try AudioContext
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'running') {
+          if (!window._currentPlayback) window._currentPlayback = _LANG === 'zh' ? '音频活动中' : 'Audio active';
+        }
+      } catch(e) {}
+    }
+
+    // ===== Auth Page =====
+    function renderAuthPage() {
+      var authed = isAuthed();
+      var zh = _LANG === 'zh';
+      return '<div class="content" style="padding:32px;max-width:500px;margin:0 auto">'
+        + '<style>@import url("/css/header-card.css");</style>'
+        + '<mdui-card variant="filled" class="header-card"><div class="header-title">🔐 ' + (zh ? '访客认证' : 'Guest Auth') + '</div><div class="header-content">' + _('authDesc') + '</div></mdui-card>'
+        + (authed ? renderAuthLoggedIn() : renderAuthForm())
+        + '</div>';
+    }
+
+    function renderAuthLoggedIn() {
+      return '<mdui-card variant="elevated" style="padding:24px;margin-top:16px;text-align:center">'
+        + '<div style="font-size:48px;margin-bottom:12px">👤</div>'
+        + '<div style="font-size:18px;font-weight:500;margin-bottom:4px">' + escapeHtml(getAuthName()) + '</div>'
+        + '<div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-bottom:16px">' + escapeHtml(getAuthEmail()) + '</div>'
+        + '<div style="font-size:13px;margin-bottom:16px">' + (_LANG === 'zh' ? '权限: ' : 'Permissions: ') + (getAuthPerms().join(', ') || (_LANG === 'zh' ? '无' : 'None')) + '</div>'
+        + '<div style="display:flex;gap:8px;justify-content:center">'
+        + '<mdui-button variant="text" onclick="setAuth(null);navigate(\'/auth/\',true)">' + (_LANG === 'zh' ? '退出登录' : 'Logout') + '</mdui-button>'
+        + '<mdui-button variant="text" onclick="navigate(\'/\',true)">' + (_LANG === 'zh' ? '← 首页' : '← Home') + '</mdui-button>'
+        + '</div></mdui-card>';
+    }
+
+    function renderAuthForm() {
+      return '<mdui-card variant="elevated" style="padding:24px;margin-top:16px">'
+        + '<div class="form-group"><label>' + (_LANG === 'zh' ? '邮箱地址' : 'Email Address') + '</label><input id="auth-email-input" type="email" placeholder="you@example.com" style="width:100%;padding:10px 12px;border:1px solid rgba(var(--mdui-color-outline),0.4);border-radius:8px;font-size:14px;background:rgb(var(--mdui-color-surface));color:rgb(var(--mdui-color-on-surface))"></div>'
+        + '<div style="display:flex;gap:8px;margin-top:12px">'
+        + '<mdui-button variant="filled" id="auth-submit-btn" onclick="doAuth()">' + (_LANG === 'zh' ? '验证' : 'Verify') + '</mdui-button>'
+        + '<mdui-button variant="text" onclick="navigate(\'/\',true)">' + (_LANG === 'zh' ? '取消' : 'Cancel') + '</mdui-button>'
+        + '</div>'
+        + '<p id="auth-result" style="margin-top:12px;font-size:14px"></p>'
+        + '</mdui-card>';
+    }
+
+    async function doAuth() {
+      var email = document.getElementById('auth-email-input')?.value?.trim();
+      var resultEl = document.getElementById('auth-result');
+      if (!email || !email.match(/^[^@]+@[^@]+\.[^@]+$/)) {
+        resultEl.textContent = _LANG === 'zh' ? '请输入有效的邮箱地址' : 'Please enter a valid email address';
+        resultEl.style.color = 'rgb(var(--mdui-color-error))';
+        return;
+      }
+      try {
+        var res = await fetch('/api/auth/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        var data = await res.json();
+        if (data.errno === 0 && data.data) {
+          if (data.data.registered) {
+            setAuth(email, data.data.name, data.data.permissions);
+            resultEl.textContent = _LANG === 'zh' ? '✅ 认证成功！' : '✅ Auth success!';
+            resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
+            setTimeout(function() { navigate('/calendar/', true); }, 800);
+          } else {
+            // Not registered - show register option
+            resultEl.innerHTML = (_LANG === 'zh' ? '该邮箱尚未注册。<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 发送注册请求</mdui-button>' : 'Email not registered.<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 Send registration request</mdui-button>');
+            resultEl.style.color = 'rgb(var(--mdui-color-outline))';
+            window._pendingAuthEmail = email;
+          }
+        } else {
+          resultEl.textContent = (data.errmsg || (_LANG === 'zh' ? '验证失败' : 'Verification failed'));
+          resultEl.style.color = 'rgb(var(--mdui-color-error))';
+        }
+      } catch(e) {
+        resultEl.textContent = (_LANG === 'zh' ? '网络错误: ' : 'Network error: ') + e.message;
+        resultEl.style.color = 'rgb(var(--mdui-color-error))';
+      }
+    }
+
+    async function registerAuth() {
+      var email = window._pendingAuthEmail;
+      if (!email) return;
+      var resultEl = document.getElementById('auth-result');
+      try {
+        var res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email })
+        });
+        var data = await res.json();
+        if (data.errno === 0) {
+          resultEl.innerHTML = (_LANG === 'zh' ? '✅ 注册请求已提交！请等待管理员审核。<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← 返回首页</mdui-button>' : '✅ Registration request submitted! Please wait for admin approval.<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← Back to Home</mdui-button>');
+          resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
+        } else {
+          resultEl.textContent = data.errmsg || (_LANG === 'zh' ? '请求失败' : 'Request failed');
+          resultEl.style.color = 'rgb(var(--mdui-color-error))';
+        }
+      } catch(e) {
+        resultEl.textContent = (_LANG === 'zh' ? '网络错误: ' : 'Network error: ') + e.message;
+        resultEl.style.color = 'rgb(var(--mdui-color-error))';
+      }
+    }
+
+    // ===== Easter Egg: About Page Click Counter =====
+    let _aboutClickCount = 0;
+
+    function initAboutEasterEgg() {
+      if (window.location.pathname !== '/about/' && window.location.pathname !== '/about') return;
+      const header = document.getElementById('about-header');
+      const avatar = document.getElementById('about-avatar');
+      const targets = [];
+      if (header) targets.push(header);
+      if (avatar) targets.push(avatar);
+      targets.forEach(function(el) {
+        el.addEventListener('click', function(e) {
+          _aboutClickCount++;
+          // Visual feedback: avatar pulse
+          var a = document.getElementById('about-avatar');
+          if (a) {
+            a.style.transition = 'transform 0.15s';
+            a.style.transform = 'scale(1.15)';
+            setTimeout(function() { a.style.transform = 'scale(1)'; }, 150);
+          }
+          if (_aboutClickCount >= 7) {
+            _aboutClickCount = 0;
+            navigate('/easter-egg/', true);
+          }
+        });
+      });
+    }
+
+    // ===== 2048 Game =====
+    function renderEasterEgg() {
+      setTimeout(init2048Game, 50);
+      return `
+        <style>
+          .game-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgb(var(--mdui-color-surface));
+            z-index: 10000; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            animation: fadeIn 0.3s ease;
+          }
+          @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+          .game-container { text-align: center; }
+          .game-title { font-size: 28px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-primary)); }
+          .game-subtitle { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 12px; }
+          .game-header { display: flex; justify-content: space-between; align-items: center; max-width: 400px; margin: 0 auto 8px; padding: 0 4px; }
+          .game-score { font-size: 16px; font-weight: 600; color: rgb(var(--mdui-color-on-surface)); }
+          .game-score span { color: rgb(var(--mdui-color-primary)); font-size: 20px; }
+          .grid-2048 {
+            display: inline-grid; grid-template-columns: repeat(4, 88px); gap: 6px;
+            background: rgba(var(--mdui-color-outline), 0.15);
+            padding: 6px; border-radius: 8px; user-select: none;
+          }
+          .cell-2048 {
+            width: 88px; height: 88px; display: flex; align-items: center; justify-content: center;
+            font-size: 32px; font-weight: 700; border-radius: 4px;
+            background: rgba(var(--mdui-color-outline), 0.08);
+            color: rgb(var(--mdui-color-on-surface));
+            transition: all 0.08s ease;
+          }
+          .cell-0 { background: rgba(var(--mdui-color-outline), 0.08); }
+          .cell-2 { background: #eee4da; color: #776e65; }
+          .cell-4 { background: #ede0c8; color: #776e65; }
+          .cell-8 { background: #f2b179; color: #f9f6f2; }
+          .cell-16 { background: #f59563; color: #f9f6f2; }
+          .cell-32 { background: #f67c5f; color: #f9f6f2; }
+          .cell-64 { background: #f65e3b; color: #f9f6f2; }
+          .cell-128 { background: #edcf72; color: #f9f6f2; font-size: 28px; }
+          .cell-256 { background: #edcc61; color: #f9f6f2; font-size: 28px; }
+          .cell-512 { background: #edc850; color: #f9f6f2; font-size: 28px; }
+          .cell-1024 { background: #edc53f; color: #f9f6f2; font-size: 22px; }
+          .cell-2048 { background: #edc22e; color: #f9f6f2; font-size: 22px; box-shadow: 0 0 30px 10px rgba(237,194,46,0.3); }
+          .cell-super { background: #3c3a32; color: #f9f6f2; font-size: 18px; }
+          .game-controls { margin-top: 16px; display: flex; gap: 12px; justify-content: center; }
+          .game-hint { font-size: 13px; color: rgb(var(--mdui-color-outline)); margin-top: 10px; }
+          .game-close-btn {
+            position: fixed; top: 16px; right: 16px; z-index: 10002;
+            width: 40px; height: 40px; border-radius: 50%;
+            border: none; background: rgba(var(--mdui-color-outline), 0.2);
+            color: rgb(var(--mdui-color-on-surface)); font-size: 22px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+          }
+          .game-close-btn:hover { background: rgba(var(--mdui-color-outline), 0.4); }
+          .game-overlay-won, .game-overlay-lost {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; align-items: center; justify-content: center; border-radius: 8px;
+            animation: fadeIn 0.3s;
+          }
+          .game-overlay-won { background: rgba(237,194,46,0.5); }
+          .game-overlay-lost { background: rgba(0,0,0,0.4); }
+          .game-overlay-msg { padding: 24px; border-radius: 12px; text-align: center; background: rgb(var(--mdui-color-surface)); }
+          .game-overlay-msg h2 { font-size: 28px; margin-bottom: 8px; }
+          .game-grid-wrap { position: relative; }
+          @media (max-width: 480px) {
+            .grid-2048 { grid-template-columns: repeat(4, 68px); gap: 4px; padding: 4px; }
+            .cell-2048 { width: 68px; height: 68px; font-size: 24px; }
+            .cell-128, .cell-256, .cell-512 { font-size: 20px; }
+            .cell-1024, .cell-2048 { font-size: 16px; }
+            .cell-super { font-size: 14px; }
+          }
+        </style>
+        <div class="game-overlay" id="game-overlay">
+          <button class="game-close-btn" onclick="closeEasterEgg()">✕</button>
+          <div class="game-container">
+            <div class="game-title">2048</div>
+            <div class="game-subtitle">${zh ? '方向键滑动合并，达到 2048 即获胜！' : 'Swipe/Arrow keys to merge tiles, reach 2048 to win!'}</div>
+            <div class="game-header">
+              <div class="game-score">${zh ? '得分' : 'Score'}: <span id="game-score">0</span></div>
+              <div class="game-score">${zh ? '最高' : 'Best'}: <span id="game-best">0</span></div>
+            </div>
+            <div class="game-grid-wrap">
+              <div class="grid-2048" id="grid-2048"></div>
+            </div>
+            <div class="game-controls">
+              <mdui-button variant="filled" onclick="new2048Game()">${zh ? '新一局' : 'New Game'}</mdui-button>
+              <mdui-button variant="text" onclick="closeEasterEgg()">${zh ? '返回' : 'Back'}</mdui-button>
+            </div>
+            <div class="game-hint">← ↑ → ↓ / WASD ${zh ? '滑动手势' : 'Swipe'}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ===== 2048 Engine =====
+    var g2048 = null;
+    var g2048Best = parseInt(localStorage.getItem('g2048_best') || '0');
+
+    function new2048Game() {
+      // Remove any existing win/lose overlays
+      document.querySelectorAll('.game-overlay-won, .game-overlay-lost').forEach(function(el) { el.remove(); });
+      g2048 = {
+        grid: [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
+        score: 0,
+        won: false,
+        over: false
+      };
+      addRandom2048();
+      addRandom2048();
+      render2048Grid();
+    }
+
+    function init2048Game() {
+      if (!g2048) new2048Game();
+      else render2048Grid();
+    }
+
+    function addRandom2048() {
+      var empty = [];
+      for (var r = 0; r < 4; r++)
+        for (var c = 0; c < 4; c++)
+          if (g2048.grid[r][c] === 0) empty.push([r, c]);
+      if (empty.length === 0) return;
+      var pos = empty[Math.floor(Math.random() * empty.length)];
+      g2048.grid[pos[0]][pos[1]] = Math.random() < 0.9 ? 2 : 4;
+    }
+
+    // Slide a single row to the left, return {row, score, moved}
+    function slideRow(row) {
+      // Remove zeros
+      var arr = row.filter(function(v) { return v !== 0; });
+      var score = 0;
+      // Merge adjacent equal numbers
+      for (var i = 0; i < arr.length - 1; i++) {
+        if (arr[i] === arr[i + 1]) {
+          arr[i] *= 2;
+          score += arr[i];
+          arr.splice(i + 1, 1);
+        }
+      }
+      // Pad with zeros
+      while (arr.length < 4) arr.push(0);
+      var moved = false;
+      for (var i = 0; i < 4; i++) {
+        if (arr[i] !== row[i]) { moved = true; break; }
+      }
+      return { row: arr, score: score, moved: moved };
+    }
+
+    function move2048(dir) {
+      if (!g2048 || g2048.over || g2048.won) return;
+
+      var totalMoved = false;
+      var totalScore = 0;
+
+      if (dir === 'left') {
+        for (var r = 0; r < 4; r++) {
+          var res = slideRow(g2048.grid[r]);
+          if (res.moved) totalMoved = true;
+          g2048.grid[r] = res.row;
+          totalScore += res.score;
+        }
+      } else if (dir === 'right') {
+        for (var r = 0; r < 4; r++) {
+          var rev = g2048.grid[r].slice().reverse();
+          var res = slideRow(rev);
+          if (res.moved) totalMoved = true;
+          g2048.grid[r] = res.row.reverse();
+          totalScore += res.score;
+        }
+      } else if (dir === 'up') {
+        for (var c = 0; c < 4; c++) {
+          var col = [g2048.grid[0][c], g2048.grid[1][c], g2048.grid[2][c], g2048.grid[3][c]];
+          var res = slideRow(col);
+          if (res.moved) totalMoved = true;
+          for (var r = 0; r < 4; r++) g2048.grid[r][c] = res.row[r];
+          totalScore += res.score;
+        }
+      } else if (dir === 'down') {
+        for (var c = 0; c < 4; c++) {
+          var col = [g2048.grid[3][c], g2048.grid[2][c], g2048.grid[1][c], g2048.grid[0][c]];
+          var res = slideRow(col);
+          if (res.moved) totalMoved = true;
+          for (var r = 0; r < 4; r++) g2048.grid[3 - r][c] = res.row[r];
+          totalScore += res.score;
+        }
+      }
+
+      if (totalMoved) {
+        g2048.score += totalScore;
+        addRandom2048();
+        check2048State();
+        render2048Grid();
+      }
+    }
+
+    function check2048State() {
+      // Check win
+      for (var r = 0; r < 4; r++)
+        for (var c = 0; c < 4; c++)
+          if (g2048.grid[r][c] === 2048) g2048.won = true;
+
+      // Check game over
+      if (!g2048.won) {
+        var hasEmpty = false;
+        for (var r = 0; r < 4 && !hasEmpty; r++)
+          for (var c = 0; c < 4 && !hasEmpty; c++)
+            if (g2048.grid[r][c] === 0) hasEmpty = true;
+
+        if (!hasEmpty) {
+          var canMerge = false;
+          for (var r = 0; r < 4 && !canMerge; r++)
+            for (var c = 0; c < 4 && !canMerge; c++) {
+              var v = g2048.grid[r][c];
+              if ((c < 3 && v === g2048.grid[r][c + 1]) ||
+                  (r < 3 && v === g2048.grid[r + 1][c])) canMerge = true;
+            }
+          if (!canMerge) g2048.over = true;
+        }
+      }
+
+      // Update best score
+      if (g2048.score > g2048Best) {
+        g2048Best = g2048.score;
+        localStorage.setItem('g2048_best', '' + g2048Best);
+      }
+    }
+
+    function render2048Grid() {
+      if (!g2048) return;
+      var grid = document.getElementById('grid-2048');
+      if (!grid) return;
+
+      var html = '';
+      for (var r = 0; r < 4; r++) {
+        for (var c = 0; c < 4; c++) {
+          var val = g2048.grid[r][c];
+          var cls = 'cell-2048 cell-' + val;
+          if (val > 2048) cls = 'cell-2048 cell-super';
+          html += '<div class="' + cls + '">' + (val || '') + '</div>';
+        }
+      }
+      grid.innerHTML = html;
+
+      document.getElementById('game-score').textContent = '' + g2048.score;
+      document.getElementById('game-best').textContent = '' + g2048Best;
+
+      // Overlay for win/lose
+      var wrap = grid.parentElement;
+      var oldOverlay = wrap.querySelector('.game-overlay-won, .game-overlay-lost');
+      if (oldOverlay) oldOverlay.remove();
+
+      if (g2048.won) {
+        var wonDiv = document.createElement('div');
+        wonDiv.className = 'game-overlay-won';
+        wonDiv.innerHTML = '<div class="game-overlay-msg"><h2>🎉 You Win!</h2><p style="margin-bottom:12px">' + (_LANG === 'zh' ? '你达到了 2048！' : 'You reached 2048!') + '</p><mdui-button variant="filled" onclick="new2048Game()">' + (_LANG === 'zh' ? '继续挑战' : 'Keep Going') + '</mdui-button></div>';
+        wrap.appendChild(wonDiv);
+      } else if (g2048.over) {
+        var lostDiv = document.createElement('div');
+        lostDiv.className = 'game-overlay-lost';
+        lostDiv.innerHTML = '<div class="game-overlay-msg"><h2>💀 Game Over</h2><p style="margin-bottom:12px;color:rgb(var(--mdui-color-outline))">' + (_LANG === 'zh' ? '得分' : 'Score') + ': ' + g2048.score + '</p><mdui-button variant="filled" onclick="new2048Game()">' + (_LANG === 'zh' ? '再来一局' : 'Play Again') + '</mdui-button></div>';
+        wrap.appendChild(lostDiv);
+      }
+    }
+
+    // Keyboard handler
+    document.addEventListener('keydown', function(e) {
+      if (!document.getElementById('game-overlay')) return;
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+      var map = { ArrowLeft: 'left', ArrowUp: 'up', ArrowRight: 'right', ArrowDown: 'down',
+                  a: 'left', w: 'up', d: 'right', s: 'down',
+                  A: 'left', W: 'up', D: 'right', S: 'down' };
+      var dir = map[e.key];
+      if (dir) { e.preventDefault(); move2048(dir); }
+    });
+
+    // Touch/swipe support
+    document.addEventListener('touchstart', function(e) {
+      var overlay = document.getElementById('game-overlay');
+      if (!overlay) return;
+      var touch = e.touches[0];
+      window._swipeStartX = touch.clientX;
+      window._swipeStartY = touch.clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', function(e) {
+      var overlay = document.getElementById('game-overlay');
+      if (!overlay) return;
+      if (window._swipeStartX == null) return;
+      var touch = e.changedTouches[0];
+      var dx = touch.clientX - window._swipeStartX;
+      var dy = touch.clientY - window._swipeStartY;
+      var absDx = Math.abs(dx), absDy = Math.abs(dy);
+      if (Math.max(absDx, absDy) < 30) return; // Too short
+      if (absDx > absDy) {
+        move2048(dx > 0 ? 'right' : 'left');
+      } else {
+        move2048(dy > 0 ? 'down' : 'up');
+      }
+      window._swipeStartX = null;
+      window._swipeStartY = null;
+    }, { passive: true });
+
+    function closeEasterEgg() {
+      g2048 = null;
+      navigate('/about/', true);
+    }
+  </script>
+</body>
+</html>
+\n\n================ FILE: ./blog/data/admin.json ================
+{"user":"admin","salt":"9+zjump8","data":"fvinn6S\/GisVETyC6vADlSvlgGZUpVrTxUU1LQE0+Uk=","setup_done":true}\n\n================ FILE: ./backend/data/imghost.json ================
+{"username":"admin","ssh_key_path":"\/home\/user\/.ssh\/id_rsa","public_url_base":"https:\/\/res.yourdomain.com","filename_template":"{yy}-{mm}-{dd}.{file_extension}","remote_dir":"\/var\/www\/images","enabled":false,"host":"sftp.example.com","port":22}

@@ -482,39 +482,6 @@
         submitBtn.parentNode.replaceChild(newBtn, submitBtn);
         newBtn.addEventListener('click', function() { submitComment(path); });
       }
-
-      // Avatar upload
-      var uploadBtn = document.getElementById('comment-avatar-upload');
-      var fileInput = document.getElementById('comment-avatar-file');
-      var avatarPreview = document.getElementById('comment-avatar-preview');
-      var avatarField = document.getElementById('comment-avatar');
-      if (uploadBtn && fileInput) {
-        uploadBtn.addEventListener('click', function() { fileInput.click(); });
-        fileInput.addEventListener('change', function() {
-          var file = fileInput.files[0];
-          if (!file) return;
-          var reader = new FileReader();
-          reader.onload = function(e) {
-            avatarPreview.src = e.target.result;
-            avatarPreview.style.display = 'block';
-            fetch('/api/upload-avatar', { method: 'POST', body: e.target.result })
-              .then(function(r) { return r.json(); })
-              .then(function(d) { if (d.errno === 0 && avatarField) avatarField.value = d.data.url; })
-              .catch(function() {});
-          };
-          reader.readAsDataURL(file);
-        });
-      }
-      if (avatarField && avatarPreview) {
-        avatarField.addEventListener('input', function() {
-          if (avatarField.value) {
-            avatarPreview.src = avatarField.value;
-            avatarPreview.style.display = 'block';
-          } else {
-            avatarPreview.style.display = 'none';
-          }
-        });
-      }
     }
 
     function submitComment(path) {
@@ -527,9 +494,8 @@
       var email = document.getElementById('comment-email').value.trim();
       var website = document.getElementById('comment-website').value.trim();
       var content = document.getElementById('comment-content').value.trim();
-      var avatar = document.getElementById('comment-avatar').value.trim();
 
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.disabled = true;
       });
@@ -551,7 +517,7 @@
         body: JSON.stringify({
           nick: nick, mail: email, comment: content,
           link: website, ua: navigator.userAgent,
-          url: path, avatar: avatar
+          url: path
         })
       }).then(function(res) { return res.json(); })
       .then(function(result) {
@@ -559,7 +525,7 @@
           showSnackbar('comment-success');
           initComments();
           setTimeout(function() {
-            ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
+            ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
               var el = document.getElementById(id);
               if (el) el.value = '';
             });
@@ -576,7 +542,7 @@
     }
 
     function resetCommentForm() {
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
+      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.disabled = false;
       });
