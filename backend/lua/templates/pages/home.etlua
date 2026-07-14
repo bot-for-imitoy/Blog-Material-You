@@ -11,8 +11,8 @@
   <% local title = _h.get_title(post) %>
   <% local postContent = _h.get_content(post) %>
   <% local excerptText = (post.excerpt or postContent or '') %>
-  <% local excerpt = (post.cover and post.cover ~= "null") and _h.truncate(excerptText, 120) or _h.truncate(excerptText, 200) %>
-  <% local has_cover = post.cover and post.cover ~= "null" %>
+  <% local has_cover = post.cover and tostring(post.cover) ~= "null" and tostring(post.cover) ~= "" %>
+  <% local excerpt = has_cover and _h.truncate(excerptText, 120) or _h.truncate(excerptText, 200) %>
   <mdui-card variant="elevated" class="post-card">
     <% if has_cover then %>
     <img src="<%= post.cover %>" alt="<%= _h.h(title) %>" class="post-card-cover post-card-meta">
