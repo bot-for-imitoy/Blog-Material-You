@@ -1,0 +1,14 @@
+<style>@import url('/css/header-card.css');</style>
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= _h._("page_categories") %></div>
+  <div class="header-content"><%= _h._("page_categories_desc") %></div>
+</mdui-card>
+<div class="tags-container">
+<% for _, cat in ipairs(cats or {}) do %>
+  <mdui-chip rounded href="/categories/<%= _h.url_encode(cat.name) %>">
+    <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+    <%= _h.h(cat.name) %>
+    <span slot="badge"><%= cat.count %></span>
+  </mdui-chip>
+<% end %>
+</div>

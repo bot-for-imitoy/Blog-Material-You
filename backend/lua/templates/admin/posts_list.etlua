@@ -1,0 +1,23 @@
+<div class="page-header">
+  <h1><%= _LANG == "zh" and "文章管理" or "Posts" %></h1>
+  <mdui-button data-action="new-post" variant="filled"><%= _LANG == "zh" and "写新文章" or "New Post" %></mdui-button>
+</div>
+<mdui-card variant="elevated" style="padding:16px">
+  <% if posts and #posts > 0 then %>
+    <% for _, p in ipairs(posts) do %>
+    <div class="post-item">
+      <div class="post-info">
+        <h3><%= _h.h(p.title) %><% if p.archived then %><span style="color:rgb(var(--mdui-color-tertiary));font-size:12px"> 📦 <%= _LANG == "zh" and "已归档" or "Archived" %></span><% end %></h3>
+        <span><%= _h.format_date(p.date) %> | <%= p.tags and #p.tags > 0 and table.concat(p.tags, ", ") or (_LANG == "zh" and "无标签" or "No tags") %></span>
+      </div>
+      <div class="post-actions">
+        <mdui-button data-action="edit-post" data-args="<%= p.slug %>" variant="text"><%= _LANG == "zh" and "编辑" or "Edit" %></mdui-button>
+        <mdui-button data-action="toggle-archive" data-args="<%= p.slug %>" variant="text"><%= p.archived and (_LANG == "zh" and "📤 移出归档" or "📤 Unarchive") or (_LANG == "zh" and "📦 归档" or "📦 Archive") %></mdui-button>
+        <mdui-button data-action="delete-post" data-args="<%= p.slug %>" variant="text" style="color:rgb(var(--mdui-color-error))"><%= _LANG == "zh" and "删除" or "Delete" %></mdui-button>
+      </div>
+    </div>
+    <% end %>
+  <% else %>
+    <p style="padding:16px;color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "还没有文章，点击\"写新文章\"开始" or "No posts yet. Click \"New Post\" to start." %></p>
+  <% end %>
+</mdui-card>

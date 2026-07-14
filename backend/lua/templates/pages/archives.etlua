@@ -1,0 +1,24 @@
+<style>@import url('/css/header-card.css');</style>
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= _h._("page_archives") %></div>
+  <div class="header-content"><%= _h._("page_archives_desc") %></div>
+</mdui-card>
+<%
+  local sorted_years = {}
+  for y, _ in pairs(archives or {}) do table.insert(sorted_years, y) end
+  table.sort(sorted_years, function(a, b) return a > b end)
+%>
+<% for _, year in ipairs(sorted_years) do %>
+<h1 class="posts-year"><%= _h.h(year) %><%= _h._("postsYear") %></h1>
+<mdui-list class="posts-list">
+  <% for _, post in ipairs(archives[year] or {}) do %>
+  <% local itemTitle = _h.get_title(post) %>
+  <mdui-list-item href="/post/<%= _h.url_encode(post.slug) %>">
+    <div class="mdui-list-item-content">
+      <div class="mdui-list-item-title"><%= _h.h(itemTitle) %></div>
+      <div class="mdui-list-item-text"><%= _h.format_date(post.date) %></div>
+    </div>
+  </mdui-list-item>
+  <% end %>
+</mdui-list>
+<% end %>

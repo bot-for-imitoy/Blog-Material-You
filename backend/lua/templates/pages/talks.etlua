@@ -1,0 +1,24 @@
+<link rel="stylesheet" href="/css/post-content.css">
+<link rel="stylesheet" href="/css/code.css">
+<link rel="stylesheet" href="/css/about.css">
+<div class="content">
+  <mdui-card variant="elevated" class="about-header">
+    <div class="about-title"><%= _h._("page_moments") %></div>
+    <div class="about-description"><%= _h._("page_moments_desc") %></div>
+  </mdui-card>
+  <% for _, t in ipairs(talks or {}) do %>
+  <%
+    local ds = ""
+    if t.create_time then
+      local dt = os.date("*t", tonumber(t.create_time))
+      ds = string.format("%04d-%02d-%02d", dt.year, dt.month, dt.day)
+    end
+  %>
+  <hr>
+  <div class="talk-item" style="padding:8px 0">
+    <div class="markdown-content"><%- t.content or "" %></div>
+    <span style="font-size:12px;color:rgb(var(--mdui-color-outline))"><%= ds %></span>
+  </div>
+  <% end %>
+  <hr>
+</div>

@@ -1,0 +1,16 @@
+<style>@import url('/css/header-card.css');</style>
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= _h.h(title) %></div>
+  <div class="header-content"><%= _h.h(description) %></div>
+</mdui-card>
+<mdui-list class="posts-list">
+<% for _, item in ipairs(items or {}) do %>
+<% local itemTitle = _h.get_title(item) %>
+  <mdui-list-item href="/post/<%= _h.url_encode(item.slug) %>">
+    <div class="mdui-list-item-content">
+      <div class="mdui-list-item-title"><%= _h.h(itemTitle) %></div>
+      <div class="mdui-list-item-text"><%= _h.format_date(item.date) %></div>
+    </div>
+  </mdui-list-item>
+<% end %>
+</mdui-list>

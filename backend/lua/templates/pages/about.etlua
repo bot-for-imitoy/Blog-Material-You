@@ -1,0 +1,13 @@
+<link rel="stylesheet" href="/css/post-content.css">
+<link rel="stylesheet" href="/css/code.css">
+<link rel="stylesheet" href="/css/about.css">
+<div class="content">
+  <mdui-card variant="elevated" class="about-header" id="about-header" style="cursor:pointer">
+    <mdui-avatar src="<%= blog_config.avatar %>" class="about-avatar" id="about-avatar"></mdui-avatar>
+    <div class="about-title"><%= _h.h(pageTitle or blog_config.title) %></div>
+    <div class="about-description"><%= _h.h(blog_config.desc) %></div>
+  </mdui-card>
+  <hr>
+  <div class="markdown-content"><%- contentHtml %></div>
+  <hr>
+</div>

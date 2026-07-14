@@ -1,0 +1,21 @@
+<%
+  local f = friend or {}
+  local isNew = friend == nil
+%>
+<div class="page-header"><h1><%= isNew and (_LANG == "zh" and "添加友链" or "Add Friend") or (_LANG == "zh" and "编辑友链" or "Edit Friend") %></h1></div>
+<mdui-card variant="elevated" style="padding:32px;max-width:600px;margin:0 auto">
+  <div class="form-group"><label><%= _LANG == "zh" and "标题 *" or "Title *" %></label><input id="f-title" class="form-input" value="<%= _h.h(f.title or "") %>"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "网站 URL *" or "URL *" %></label><input id="f-url" class="form-input" value="<%= _h.h(f.url or "") %>" placeholder="https://"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "描述" or "Description" %></label><input id="f-descr" class="form-input" value="<%= _h.h(f.descr or "") %>"></div>
+  <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+  <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
+  <div class="form-group"><label>English Title</label><input id="f-title-en" class="form-input" value="<%= _h.h(f.title_en or "") %>"></div>
+  <div class="form-group"><label>English Description</label><input id="f-descr-en" class="form-input" value="<%= _h.h(f.descr_en or "") %>"></div>
+  <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
+  <div class="form-group"><label><%= _LANG == "zh" and "头像 URL" or "Avatar URL" %></label><input id="f-avatar" class="form-input" value="<%= _h.h(f.avatar or "") %>" placeholder="<%= _LANG == "zh" and "可选" or "optional" %>"></div>
+  <div class="form-group"><label><%= _LANG == "zh" and "排序" or "Sort Order" %></label><input id="f-sort" class="form-input" type="number" value="<%= f.sort_order or 0 %>"></div>
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <mdui-button data-action="save-friend" variant="filled"><%= _LANG == "zh" and "保存" or "Save" %></mdui-button>
+    <mdui-button onclick="renderContent()" variant="text"><%= _LANG == "zh" and "取消" or "Cancel" %></mdui-button>
+  </div>
+</mdui-card>

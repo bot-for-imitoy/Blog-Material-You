@@ -1,0 +1,28 @@
+<link rel="stylesheet" href="/css/header-card.css">
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= _h._("page_friends") %></div>
+  <div class="header-content"><%= _h._("page_friends_desc") %></div>
+</mdui-card>
+<div style="padding:16px">
+<% if list and #list > 0 then %>
+  <% for _, f in ipairs(list) do %>
+  <%
+    local ftitle = (f.title_en and _LANG == "en") and f.title_en or f.title
+    local fdescr = (f.descr_en and _LANG == "en") and f.descr_en or f.descr
+  %>
+  <mdui-card variant="elevated" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px">
+    <% if f.avatar then %>
+    <img src="<%= f.avatar %>" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0">
+    <% end %>
+    <div style="flex:1;min-width:0">
+      <a href="<%= f.url %>" target="_blank" rel="noopener" style="font-size:18px;font-weight:500;text-decoration:none;color:rgb(var(--mdui-color-primary))"><%= _h.h(ftitle) %></a>
+      <% if fdescr then %>
+      <div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-top:4px"><%= _h.h(fdescr) %></div>
+      <% end %>
+    </div>
+  </mdui-card>
+  <% end %>
+<% else %>
+  <p style="text-align:center;padding:32px;color:rgb(var(--mdui-color-outline))"><%= _h._("noFriends") %></p>
+<% end %>
+</div>

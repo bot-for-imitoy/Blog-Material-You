@@ -1,0 +1,60 @@
+<style></style>
+<mdui-snackbar class="snackbar-network-error"><%= _h._("networkError") %></mdui-snackbar>
+<mdui-snackbar class="snackbar-comment-success"><%= _h._("commentSuccess") %></mdui-snackbar>
+<mdui-snackbar class="snackbar-comment-failure"><%= _h._("commentFail") %></mdui-snackbar>
+<div class="content">
+  <mdui-card variant="elevated" class="post-header">
+    <% if post.cover and post.cover ~= "null" then %>
+    <div class="post-header-cover-wrapper">
+      <div class="image-skeleton">
+        <div class="image-skeleton-icon">🖼️</div>
+        <span><%= _h._("loading") %></span>
+      </div>
+      <img src="<%= _h.h(post.cover) %>" alt="<%= _h.h(postTitle) %>" class="post-header-cover post-header-meta">
+    </div>
+    <% end %>
+    <div class="post-header-main">
+      <div class="post-header-title post-header-meta"><%= _h.h(postTitle) %></div>
+      <div class="post-header-date post-header-meta">
+        <mdui-icon class="post-header-date-icon" src="/icon/calender.svg"></mdui-icon>
+        <span><%= _h.format_date(post.date) %></span>
+      </div>
+    </div>
+  </mdui-card>
+  <div class="post-header-chips">
+    <% if cats and #cats > 0 then %>
+      <% for _, cat in ipairs(cats) do %>
+    <mdui-chip rounded href="/categories/<%= _h.url_encode(cat) %>" class="post-chip-category">
+      <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+      <%= _h.h(cat) %>
+    </mdui-chip>
+      <% end %>
+    <% end %>
+    <% if tags and #tags > 0 then %>
+      <% for _, tag in ipairs(tags) do %>
+    <mdui-chip rounded href="/tags/<%= _h.url_encode(tag) %>" class="post-chip-tag">
+      <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+      <%= _h.h(tag) %>
+    </mdui-chip>
+      <% end %>
+    <% end %>
+  </div>
+  <hr>
+  <div class="markdown-content"><%- contentHtml %></div>
+  <hr>
+  <div class="comment-input">
+    <div style="display:flex;gap:8px;align-items:center">
+      <mdui-text-field id="comment-avatar" label="<%= _h._("avatar") %>" variant="outlined" max-rows="1" style="flex:1" placeholder="<%= _h._("avatar") %>"></mdui-text-field>
+      <mdui-button id="comment-avatar-upload" variant="text" style="flex-shrink:0">📷</mdui-button>
+      <input type="file" id="comment-avatar-file" accept="image/*" style="display:none">
+      <img id="comment-avatar-preview" style="width:40px;height:40px;border-radius:50%;display:none;object-fit:cover">
+    </div>
+    <mdui-text-field id="comment-nick" label="<%= _h._("nickName") %>" variant="outlined" max-rows="1"></mdui-text-field>
+    <mdui-text-field id="comment-email" label="<%= _h._("email") %>" variant="outlined" max-rows="1"></mdui-text-field>
+    <mdui-text-field id="comment-website" label="<%= _h._("website") %>" variant="outlined" max-rows="1"></mdui-text-field>
+    <mdui-text-field id="comment-content" label="<%= _h._("commentContent") %>" variant="outlined" max-rows="4" autosize></mdui-text-field>
+    <mdui-button id="comment-submit-button" variant="filled"><%= _h._("submit") %></mdui-button>
+  </div>
+  <h3 class="comment-section-title" id="comment-section-title"><%= _h._("commentTitle") or "Comments" %></h3>
+  <mdui-list id="comments-container" class="comment-list"></mdui-list>
+</div>

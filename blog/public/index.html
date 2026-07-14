@@ -68,12 +68,11 @@
   <script type="module" src="/js/color.js"></script>
 
   <script>
-    // ===== Blog Material You SPA — Client-Side Rendering =====
-    // Data store
+    // ===== Blog Material You SPA — SSR-Powered =====
+    // Data store (minimal — only config and auth state on client)
     let blogConfig = null;
-    let allPosts = null;
 
-    // ===== Multilingual support (UN 6 languages) =====
+    // ===== Multilingual =====
     const _LANG = (function() {
       var lang = navigator.language || navigator.userLanguage || '';
       if (lang.startsWith('zh')) return 'zh';
@@ -85,18 +84,15 @@
     })();
     let _T = {};
 
-    // Minimal YAML parser for our flat structure
-    // Handles both flat (key: value) and nested (lang:\n  key: value) formats
+    // Minimal YAML parser
     function loadLocale(lang) {
       return fetch('/locales.yml?v=' + Date.now())
         .then(function(r) { return r.text(); })
         .then(function(text) {
           var result = {}, currentSection = null;
           text.split('\n').forEach(function(line) {
-            // Section header (e.g. "zh:" or "en:")
             var section = line.match(/^(\w+):\s*$/);
             if (section) { currentSection = section[1]; return; }
-            // Key-value line under a section
             if (currentSection === lang) {
               var m = line.match(/^\s{2}([\w-]+)\s*:\s*(.*)$/);
               if (m) {
@@ -108,81 +104,20 @@
           });
           _T = result;
         })
-        .catch(function() { /* fallback: _T stays empty */ });
+        .catch(function() {});
     }
+
+    // English fallback
+    const _EN_FALLBACK = {
+      nav_home:'Home', nav_posts:'Posts', nav_tags:'Tags',
+      nav_categories:'Categories', nav_moments:'Moments', nav_about:'About',
+      nav_archives:'Archives', nav_friends:'Friends',
+      status:'Status',
+    };
 
     const _ = (key) => _T[key] || _EN_FALLBACK[key] || key;
 
-    // English fallback for initial render before YAML loads
-    const _EN_FALLBACK = {
-      site_name:'Blog', site_desc:'A simple and elegant theme.',
-      nav_home:'Home', nav_posts:'Posts', nav_tags:'Tags',
-      nav_categories:'Categories', nav_moments:'Moments', nav_about:'About',
-      nav_archives:'Archives',
-      page_posts:'Posts', page_posts_desc:'All posts of the blog',
-      page_tags:'Tags', page_tags_desc:'All tags of the blog',
-      page_categories:'Categories', page_categories_desc:'All categories of the blog',
-      page_moments:'Moments', page_moments_desc:'Moments',
-      page_archives:'Archives', page_archives_desc:'All archived posts',
-      status:'Status', statusDesc:'Service Status',
-      loading:'Loading...', networkError:'Network error',
-      commentSuccess:'Comment submitted successfully', commentFail:'Failed to submit comment',
-      nickName:'Nick Name', email:'Email', website:'Website (optional)',
-      commentContent:'Comment', submit:'Submit', reply:'Reply', avatar:'Avatar',
-      noPosts:'No posts yet', noComments:'No comments yet', noTalks:'No moments yet',
-      serverOnline:'Online', serverOffline:'Offline',
-      cpr:'C 2025 Blog Material You', forward:'Read', postsYear:'',
-      nav_friends:'Friends', page_friends:'Friends', page_friends_desc:'My Friends',
-      page_allPosts:'Posts', page_archives:'Archives', page_about:'About', page_moments:'Moments',
-      noFriends:'No friends yet',
-    };
-    function getTitle(p) { return _LANG === 'en' && p.title_en ? p.title_en : p.title; }
-    function getContent(p) { return _LANG === 'en' && p.content_en ? p.content_en : p.content; }
-    function getTags(p) { return _LANG === 'en' && p.tags_en && p.tags_en.length ? p.tags_en : (p.tags || []); }
-    function getCats(p) { return _LANG === 'en' && p.categories_en && p.categories_en.length ? p.categories_en : (p.categories || []); }
-
-    // Build sidebar from config and update nav labels
-    function renderSidebar() {
-      var list = document.getElementById('sidebar-list');
-      if (!list || !blogConfig || !blogConfig.menu) return;
-      var html = '';
-      blogConfig.menu.forEach(function(item) {
-        var label = _(item.text_key) || item.text_key;
-        html += '<mdui-list-item rounded href="' + item.route + '" data-route="' + item.route + '">' +
-                label +
-                '<mdui-icon src="' + item.icon + '" slot="icon"></mdui-icon>' +
-                '</mdui-list-item>';
-      });
-      list.innerHTML = html;
-
-      var navName = document.getElementById('nav-name');
-      var navSlogan = document.getElementById('nav-slogan');
-      if (navName) navName.textContent = blogConfig.title || 'Blog';
-      if (navSlogan) navSlogan.textContent = blogConfig.desc || '';
-    }
-
     // ===== Helpers =====
-    function formatDate(dateStr) {
-      if (!dateStr) return '';
-      const d = new Date(dateStr);
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return y + '-' + m + '-' + day;
-    }
-
-    function stripHtml(html) {
-      const div = document.createElement('div');
-      div.innerHTML = html;
-      return div.textContent || div.innerText || '';
-    }
-
-    function truncate(text, len) {
-      if (!text) return '';
-      if (text.length <= len) return text;
-      return text.slice(0, len) + '...';
-    }
-
     function escapeHtml(str) {
       const div = document.createElement('div');
       div.textContent = str;
@@ -198,23 +133,16 @@
       document.querySelectorAll('.navigation-drawer-list mdui-list-item').forEach(function(item) {
         var route = item.getAttribute('data-route');
         if (!route) return;
-        if (path.startsWith('/posts/') && route === '/posts/') {
-          item.active = true;
-        } else if (path.startsWith('/post/') && route === '/posts/') {
-          item.active = true;
-        } else if (path.startsWith('/tags/' ) && route === '/tags/') {
-          item.active = true;
-        } else if (path.startsWith('/categories/') && route === '/categories/') {
-          item.active = true;
-        } else if (path.startsWith('/archives/') && route === '/archives/') {
-          item.active = true;
-        } else if (path.startsWith('/about') && route === '/about/') {
-          item.active = true;
-        } else if (path.startsWith('/talks') && route === '/talks/') {
-          item.active = true;
-        } else {
-          item.active = route === path;
-        }
+        if (path.startsWith('/posts/') && route === '/posts/') { item.active = true; }
+        else if (path.startsWith('/post/') && route === '/posts/') { item.active = true; }
+        else if (path.startsWith('/tags/') && route === '/tags/') { item.active = true; }
+        else if (path.startsWith('/categories/') && route === '/categories/') { item.active = true; }
+        else if (path.startsWith('/archives/') && route === '/archives/') { item.active = true; }
+        else if (path.startsWith('/about') && route === '/about/') { item.active = true; }
+        else if (path.startsWith('/talks') && route === '/talks/') { item.active = true; }
+        else if (path.startsWith('/friends') && route === '/friends/') { item.active = true; }
+        else if (path.startsWith('/status') && route === '/status/') { item.active = true; }
+        else { item.active = route === path; }
       });
     }
 
@@ -225,10 +153,10 @@
       return res.json();
     }
 
+    // Load config from API and update the static UI elements
     async function loadConfig() {
       if (blogConfig) return blogConfig;
       blogConfig = await apiFetch('/api/config');
-      // Update UI with config
       const titleEl = document.getElementById('app-bar-title');
       if (titleEl) titleEl.textContent = blogConfig.title || 'Blog';
       const navName = document.getElementById('nav-name');
@@ -238,437 +166,49 @@
       const navAvatar = document.getElementById('nav-avatar');
       if (navAvatar && blogConfig.avatar) navAvatar.src = blogConfig.avatar;
       document.title = blogConfig.title || 'Blog Material You';
-      // Build sidebar and update multilingual labels
       renderSidebar();
       return blogConfig;
     }
 
-    async function loadPosts() {
-      if (allPosts) return allPosts;
-      allPosts = await apiFetch('/api/posts');
-      return allPosts;
-    }
-
-    async function loadPost(slug) {
-      return apiFetch('/api/posts/' + encodeURIComponent(slug));
-    }
-
-    async function loadTags() {
-      return apiFetch('/api/tags');
-    }
-
-    async function loadTagPosts(tag) {
-      return apiFetch('/api/tags/' + encodeURIComponent(tag));
-    }
-
-    async function loadCategories() {
-      return apiFetch('/api/categories');
-    }
-
-    async function loadCategoryPosts(cat) {
-      return apiFetch('/api/categories/' + encodeURIComponent(cat));
-    }
-
-    async function loadArchives() {
-      return apiFetch('/api/archives');
-    }
-
-    async function loadPage(slug) {
-      return apiFetch('/api/pages/' + slug);
-    }
-
-    async function loadTalks() {
-      return apiFetch('/api/talks');
-    }
-
-    async function loadComments(path) {
-      return apiFetch('/api/comments?path=' + encodeURIComponent(path));
-    }
-
-    async function loadCommentCount(path) {
-      return apiFetch('/api/comments?type=count&path=' + encodeURIComponent(path));
-    }
-
-
-    function useEn(post, field) {
-      if (_LANG === 'en' && post && post[field + '_en']) return post[field + '_en'];
-      return post ? post[field] : '';
-    }
-
-    // ===== Renderers =====
-
-    function renderHome() {
-      const posts = allPosts || [];
-      let html = `
-          <style>
-            @import url('/css/index.css');
-            @import url('/css/post-card.css');
-          </style>
-          <mdui-card variant="filled" class="index-header-card">
-            <div class="index-header-title">${escapeHtml(blogConfig.title)}</div>
-            <div class="index-header-content">${escapeHtml(blogConfig.description)}</div>
-          </mdui-card>
-          <div class="card-container" id="card-container">
-        `;
-
-        posts.forEach(function(post) {
-          const postTitle = getTitle(post);
-          const postContent = getContent(post);
-          const excerptText = (post.excerpt || postContent || '');
-          const excerpt = post.cover && post.cover !== 'null'
-            ? truncate(excerptText, 120)
-            : truncate(excerptText, 200);
-          const coverHtml = post.cover && post.cover !== 'null'
-            ? '<img src="' + post.cover + '" alt="' + escapeHtml(postTitle) + '" class="post-card-cover post-card-meta">'
-            : '';
-
-          html += `
-            <mdui-card variant="elevated" class="post-card">
-              ${coverHtml}
-              <div class="post-card-main">
-                <div class="post-card-title post-card-meta">${escapeHtml(postTitle)}</div>
-                <div class="post-card-content post-card-meta">${escapeHtml(excerpt)}</div>
-                <div class="post-card-date post-card-meta">
-                  <mdui-icon src="/icon/calender.svg"></mdui-icon>
-                  <span>${formatDate(post.date)}</span>
-                </div>
-                <mdui-card variant="filled" class="post-card-forward" href="/post/${encodeURIComponent(post.slug)}">
-                  <div class="post-card-forward-div">
-                    <mdui-icon class="post-card-forward-icon" src="/icon/arrow-forward.svg"></mdui-icon>
-                  </div>
-                </mdui-card>
-              </div>
-            </mdui-card>`;
-        });
-
-        html += `</div><hr><div class="index-bottom"><mdui-chip>${_('cpr')}</mdui-chip></div>`;
-        return html;
-      }
-
-    function renderPostsPage() {
-      const posts = allPosts || [];
-      const years = {};
-      posts.forEach(function(p) {
-        const y = p.date ? p.date.slice(0, 4) : 'Unknown';
-        if (!years[y]) years[y] = [];
-        years[y].push(p);
+    // Build sidebar from config
+    function renderSidebar() {
+      var list = document.getElementById('sidebar-list');
+      if (!list || !blogConfig || !blogConfig.menu) return;
+      var html = '';
+      blogConfig.menu.forEach(function(item) {
+        var label = _(item.text_key) || item.text_key;
+        html += '<mdui-list-item rounded href="' + item.route + '" data-route="' + item.route + '">'
+                + label +
+                '<mdui-icon src="' + item.icon + '" slot="icon"></mdui-icon>'
+                + '</mdui-list-item>';
       });
-
-      let html = `
-        <style>@import url('/css/header-card.css');</style>
-        <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('page_posts')}</div>
-          <div class="header-content">${_('page_posts_desc')}</div>
-        </mdui-card>
-      `;
-
-      Object.keys(years).sort().reverse().forEach(function(year) {
-        html += '<h1 class="posts-year">' + escapeHtml(year) + _('postsYear') + '</h1><mdui-list class="posts-list">';
-        years[year].forEach(function(post) {
-          var listTitle = useEn(post, 'title');
-          html += `
-            <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
-              <div class="mdui-list-item-content">
-                <div class="mdui-list-item-title">${escapeHtml(listTitle)}</div>
-                <div class="mdui-list-item-text">${formatDate(post.date)}</div>
-              </div>
-            </mdui-list-item>
-          `;
-        });
-        html += '</mdui-list>';
-      });
-
-      return html;
+      list.innerHTML = html;
     }
 
-    function renderPostPage(post) {
-      // Render raw Markdown content as simple HTML
-      const postContent = useEn(post, 'content');
-      const contentHtml = renderMarkdown(postContent || '');
-      const postTitle = useEn(post, 'title');
-
-      let chipsHtml = '';
-      var cats = (_LANG === 'en' && post.categories_en) ? post.categories_en : (post.categories || []);
-      var tags = (_LANG === 'en' && post.tags_en) ? post.tags_en : (post.tags || []);
-      if (cats && cats.length) {
-        cats.forEach(function(cat) {
-          chipsHtml += `
-            <mdui-chip rounded href="/categories/${encodeURIComponent(cat)}" class="post-chip-category">
-              <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
-              ${escapeHtml(cat)}
-            </mdui-chip>
-          `;
-        });
-      }
-      if (tags && tags.length) {
-        tags.forEach(function(tag) {
-          chipsHtml += `
-            <mdui-chip rounded href="/tags/${encodeURIComponent(tag)}" class="post-chip-tag">
-              <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
-              ${escapeHtml(tag)}
-            </mdui-chip>
-          `;
-        });
-      }
-
-      const coverHtml = post.cover && post.cover !== 'null'
-        ? '<div class="post-header-cover-wrapper"><div class="image-skeleton"><div class="image-skeleton-icon">🖼️</div><span>' + (_('loading') || 'Loading...') + '</span></div><img src="' + escapeHtml(post.cover) + '" alt="' + escapeHtml(postTitle) + '" class="post-header-cover post-header-meta"></div>'
-        : '';
-
-      loadCSS('/css/post-content.css');
-      loadCSS('/css/code.css');
-      const html = `
-        <style></style>
-        <mdui-snackbar class="snackbar-network-error">${_('networkError')}</mdui-snackbar>
-        <mdui-snackbar class="snackbar-comment-success">${_('commentSuccess')}</mdui-snackbar>
-        <mdui-snackbar class="snackbar-comment-failure">${_('commentFail')}</mdui-snackbar>
-        <div class="content">
-          <mdui-card variant="elevated" class="post-header">
-            ${coverHtml}
-            <div class="post-header-main">
-              <div class="post-header-title post-header-meta">${escapeHtml(postTitle)}</div>
-              <div class="post-header-date post-header-meta">
-                <mdui-icon class="post-header-date-icon" src="/icon/calender.svg"></mdui-icon>
-                <span>${formatDate(post.date)}</span>
-              </div>
-            </div>
-          </mdui-card>
-          <div class="post-header-chips">${chipsHtml}</div>
-          <hr>
-          <div class="markdown-content">${contentHtml}</div>
-          <hr>
-          <div class="comment-input">
-            <div style="display:flex;gap:8px;align-items:center">
-              <mdui-text-field id="comment-avatar" label="${_('avatar')}" variant="outlined" max-rows="1" style="flex:1" placeholder="头像URL或上传"></mdui-text-field>
-              <mdui-button id="comment-avatar-upload" variant="text" style="flex-shrink:0">📷</mdui-button>
-              <input type="file" id="comment-avatar-file" accept="image/*" style="display:none">
-              <img id="comment-avatar-preview" style="width:40px;height:40px;border-radius:50%;display:none;object-fit:cover">
-            </div>
-            <mdui-text-field id="comment-nick" label="${_('nickName')}" variant="outlined" max-rows="1"></mdui-text-field>
-            <mdui-text-field id="comment-email" label="${_('email')}" variant="outlined" max-rows="1"></mdui-text-field>
-            <mdui-text-field id="comment-website" label="${_('website')}" variant="outlined" max-rows="1"></mdui-text-field>
-            <mdui-text-field id="comment-content" label="${_('commentContent')}" variant="outlined" max-rows="4" autosize></mdui-text-field>
-            <mdui-button id="comment-submit-button" variant="filled">${_('submit')}</mdui-button>
-          </div>
-          <h3 class="comment-section-title" id="comment-section-title">${_('commentTitle')}</h3>
-          <mdui-list id="comments-container" class="comment-list"></mdui-list>
-        </div>
-      `;
-      return html;
-    }
-
-    function renderTagsPage(tags) {
-      let html = `
-        <style>@import url('/css/header-card.css');</style>
-        <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('page_tags')}</div>
-          <div class="header-content">${_('page_tags_desc')}</div>
-        </mdui-card>
-        <div class="tags-container">
-      `;
-      tags.forEach(function(tag) {
-        html += `
-          <mdui-chip rounded href="/tags/${encodeURIComponent(tag.name)}">
-            ${escapeHtml(tag.name)}
-            <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
-          </mdui-chip>
-        `;
-      });
-      html += '</div>';
-      return html;
-    }
-
-    function renderCategoriesPage(cats) {
-      let html = `
-        <style>@import url('/css/header-card.css');</style>
-        <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('page_categories')}</div>
-          <div class="header-content">${_('page_categories_desc')}</div>
-        </mdui-card>
-        <div class="tags-container">
-      `;
-      cats.forEach(function(cat) {
-        html += `
-          <mdui-chip rounded href="/categories/${encodeURIComponent(cat.name)}">
-            <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
-            ${escapeHtml(cat.name)}
-            <span slot="badge">${cat.count}</span>
-          </mdui-chip>
-        `;
-      });
-      html += '</div>';
-      return html;
-    }
-
-    function renderListPage(title, description, items) {
-      let html = `
-        <style>@import url('/css/header-card.css');</style>
-        <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${escapeHtml(title)}</div>
-          <div class="header-content">${escapeHtml(description)}</div>
-        </mdui-card>
-        <mdui-list class="posts-list">
-      `;
-      items.forEach(function(item) {
-        var itemTitle = useEn(item, 'title');
-        html += `
-          <mdui-list-item href="/post/${encodeURIComponent(item.slug)}">
-            <div class="mdui-list-item-content">
-              <div class="mdui-list-item-title">${escapeHtml(itemTitle)}</div>
-              <div class="mdui-list-item-text">${formatDate(item.date)}</div>
-            </div>
-          </mdui-list-item>
-        `;
-      });
-      html += '</mdui-list>';
-      return html;
-    }
-
-    function renderArchivesPage(archives) {
-      let html = `
-        <style>@import url('/css/header-card.css');</style>
-        <mdui-card variant="filled" class="header-card">
-          <div class="header-title">${_('page_archives')}</div>
-          <div class="header-content">${_('page_archives_desc')}</div>
-        </mdui-card>
-      `;
-      Object.keys(archives).sort().reverse().forEach(function(year) {
-        html += '<h1 class="posts-year">' + escapeHtml(year) + _('postsYear') + '</h1><mdui-list class="posts-list">';
-        archives[year].forEach(function(post) {
-          var itemTitle = useEn(post, 'title');
-          html += `
-            <mdui-list-item href="/post/${encodeURIComponent(post.slug)}">
-              <div class="mdui-list-item-content">
-                <div class="mdui-list-item-title">${escapeHtml(itemTitle)}</div>
-                <div class="mdui-list-item-text">${formatDate(post.date)}</div>
-              </div>
-            </mdui-list-item>
-          `;
-        });
-        html += '</mdui-list>';
-      });
-      return html;
-    }
-
-    function renderAboutPage(page) {
-      const pageContent = useEn(page, 'content');
-      const pageTitle = useEn(page, 'title');
-      loadCSS('/css/post-content.css');
-      loadCSS('/css/code.css');
-      loadCSS('/css/about.css');
-      const html = `
-        <style></style>
-        <div class="content">
-          <mdui-card variant="elevated" class="about-header" id="about-header" style="cursor:pointer">
-            <mdui-avatar src="${blogConfig.avatar}" class="about-avatar" id="about-avatar"></mdui-avatar>
-            <div class="about-title">${escapeHtml(pageTitle || blogConfig.title)}</div>
-            <div class="about-description">${escapeHtml(blogConfig.description)}</div>
-          </mdui-card>
-          <hr>
-          <div class="markdown-content">${renderMarkdown(pageContent || '')}</div>
-          <hr>
-        </div>
-      `;
-      return html;
-    }
-
-    function renderTalksPage(talksList) {
-      const talks = Array.isArray(talksList) ? talksList : [];
-      let items = '';
-      talks.forEach(function(t) {
-        var dateStr = '';
-        if (t.create_time) {
-          var d = new Date(parseInt(t.create_time) * 1000);
-          dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-        }
-        items += '<hr><div class="talk-item" style="padding:8px 0"><div class="markdown-content">' + renderMarkdown(t.content || '') + '</div>' +
-                 '<span style="font-size:12px;color:rgb(var(--mdui-color-outline))">' + dateStr + '</span></div>';
-      });
-      loadCSS('/css/post-content.css');
-      loadCSS('/css/code.css');
-      loadCSS('/css/about.css');
-      const html = `
-        <style></style>
-        <div class="content">
-          <mdui-card variant="elevated" class="about-header">
-            <div class="about-title">${_('page_moments')}</div>
-            <div class="about-description">${_('page_moments_desc')}</div>
-          </mdui-card>
-          ${items}
-          <hr>
-        </div>
-      `;
-      return html;
-    }
-    function renderFriendsPage(list) {
-      loadCSS('/css/header-card.css');
-      var items = '';
-      if (list && list.length) {
-        list.forEach(function(f) {
-          var ftitle = (f.title_en && _LANG === 'en') ? f.title_en : f.title;
-          var fdescr = (f.descr_en && _LANG === 'en') ? f.descr_en : f.descr;
-          items += '<mdui-card variant="elevated" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px">' +
-            (f.avatar ? '<img src="' + f.avatar + '" style="width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0">' : '') +
-            '<div style="flex:1;min-width:0">' +
-            '<a href="' + f.url + '" target="_blank" rel="noopener" style="font-size:18px;font-weight:500;text-decoration:none;color:rgb(var(--mdui-color-primary))">' + escapeHtml(ftitle) + '</a>' +
-            (fdescr ? '<div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-top:4px">' + escapeHtml(fdescr) + '</div>' : '') +
-            '</div></mdui-card>';
-        });
-      } else {
-        items = '<p style="text-align:center;padding:32px;color:rgb(var(--mdui-color-outline))">' + _('noFriends') + '</p>';
-      }
-      return '<style>@import url("/css/header-card.css");</style>' +
-        '<mdui-card variant="filled" class="header-card">' +
-        '<div class="header-title">' + _('page_friends') + '</div>' +
-        '<div class="header-content">' + _('page_friends_desc') + '</div></mdui-card>' +
-        '<div style="padding:16px">' + items + '</div>';
-    }
-
-    // ===== CSS Loader (cross-browser: Firefox doesn't support @import in dynamic <style>) =====
-    var _cssLoaded = {};
-    function loadCSS(path) {
-      if (_cssLoaded[path]) return;
-      _cssLoaded[path] = true;
-      var link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = path;
-      document.head.appendChild(link);
-    }
-
-    // ===== PJAX link interceptor =====
-    // Intercept clicks on MDUI elements with internal hrefs so MDUI keeps
-    // its built-in ripple/cursor behavior while navigation uses pushState.
-    document.addEventListener('click', function(e) {
-      var el = e.target;
-      // Walk up to find the element that has an internal href
-      while (el && el !== document.body) {
-        var href = el.getAttribute && el.getAttribute('href');
-        if (href && href.startsWith('/') && !href.startsWith('//') &&
-            !href.startsWith('/api/') && !href.startsWith('/admin')) {
-          e.preventDefault();
-          navigate(href, true);
-          return;
-        }
-        el = el.parentElement;
-      }
-    });
-
-    // ===== Markdown Renderer =====
-    function renderMarkdown(text) {
-      if (!text) return '';
-      // Use marked library for proper GFM markdown parsing
-      return marked.parse(text);
+    // ===== SSR Fetch =====
+    // Core: fetch server-rendered HTML fragment for any route
+    async function fetchSSR(path) {
+      // Map frontend routes to SSR API paths
+      var ssrPath = path;
+      if (ssrPath === '/' || ssrPath === '') ssrPath = '';
+      else if (ssrPath.endsWith('/')) ssrPath = ssrPath.slice(0, -1);
+      // Trailing slashes stripped; the SSR router handles both with/without
+      const res = await fetch('/api/ssr' + ssrPath);
+      if (!res.ok) return '<div class="loading-placeholder"><h2>Error</h2><p>Failed to load page (' + res.status + ')</p></div>';
+      return res.text();
     }
 
     // ===== Router =====
     async function navigate(path, pushState) {
+      // Store path for the comment system
+      window._currentPath = path;
+
       if (pushState !== false) {
         history.pushState({}, '', path);
       }
 
       const container = document.getElementById('content-container');
       container.classList.add('loading');
-      // Scroll to top of page (MDUI layout uses its own scroll container)
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
       if (container) container.scrollTop = 0;
@@ -676,118 +216,29 @@
       if (layoutMain) layoutMain.scrollTop = 0;
 
       try {
-        // Load config if not loaded
         await loadConfig();
 
         // Update document title
-        var newTitle = 'Blog Material You';
-        if (path.startsWith('/post/')) {
-          var slug = path.replace('/post/', '').replace(/\/$/, '');
-          if (allPosts) {
-            var p = allPosts.find(function(p2) { return p2.slug === slug; });
-            if (p) newTitle = (useEn(p, 'title') || p.title) + ' - Blog Material You';
-          }
-        } else if (path === '/' || path === '') {
-          newTitle = (blogConfig ? blogConfig.title || 'Blog Material You' : 'Blog Material You') + ' - ' + (blogConfig ? blogConfig.desc || '' : '');
-        } else if (path.startsWith('/tags/') || path.startsWith('/categories/')) {
-          newTitle = decodeURIComponent(path.replace(/^\/(tags|categories)\//, '').replace(/\/$/, '')) + ' - Blog Material You';
-        } else if (path.startsWith('/about')) { newTitle = (_('page_about') || 'About') + ' - Blog Material You';
-        } else if (path.startsWith('/talks')) { newTitle = (_('page_moments') || 'Talks') + ' - Blog Material You';
-        } else if (path.startsWith('/friends')) { newTitle = (_('page_friends') || 'Friends') + ' - Blog Material You';
-        } else if (path.startsWith('/posts')) { newTitle = (_('page_allPosts') || 'Posts') + ' - Blog Material You';
-        } else if (path.startsWith('/archives')) { newTitle = (_('page_archives') || 'Archives') + ' - Blog Material You'; }
-        document.title = newTitle;
-
-        let html = '';
-
-        if (path === '/' || path === '') {
-          await loadPosts();
-          html = renderHome();
-          updateNavActive('/');
-
-        } else if (path === '/posts/' || path === '/posts') {
-          await loadPosts();
-          html = renderPostsPage();
-          updateNavActive('/posts/');
-
-        } else if (path.startsWith('/post/')) {
-          var slug = path.replace('/post/', '').replace(/\/$/, '');
-          slug = decodeURIComponent(slug);
-          var post = await loadPost(slug);
-          if (post && post.title) {
-            html = renderPostPage(post);
-          } else {
-            html = '<div class="loading-placeholder"><h2>' + (_LANG === 'zh' ? '404 — 文章不存在或无权限查看' : '404 — Post not found or access denied') + '</h2><p>' + (_LANG === 'zh' ? '该文章可能已被删除或暂时不可访问。' : 'This post may have been deleted or is temporarily unavailable.') + '</p></div>';
-          }
-          updateNavActive('/posts/');
-
-        } else if (path === '/tags/' || path === '/tags') {
-          var tags = await loadTags();
-          html = renderTagsPage(tags);
-          updateNavActive('/tags/');
-
-        } else if (path.startsWith('/tags/')) {
-          var tag = decodeURIComponent(path.replace('/tags/', '').replace(/\/$/, ''));
-          var posts = await loadTagPosts(tag);
-          html = renderListPage(tag, _('tagDesc'), posts);
-          updateNavActive('/tags/');
-
-        } else if (path === '/categories/' || path === '/categories') {
-          var cats = await loadCategories();
-          html = renderCategoriesPage(cats);
-          updateNavActive('/categories/');
-
-        } else if (path.startsWith('/categories/')) {
-          var cat = decodeURIComponent(path.replace('/categories/', '').replace(/\/$/, ''));
-          var posts2 = await loadCategoryPosts(cat);
-          html = renderListPage(cat, _('catDesc'), posts2);
-          updateNavActive('/categories/');
-
-        } else if (path === '/archives/' || path === '/archives') {
-          var archives = await loadArchives();
-          html = renderArchivesPage(archives);
-          updateNavActive('/archives/');
-
-        } else if (path === '/about/' || path === '/about') {
-          var page = await loadPage('about');
-          html = renderAboutPage(page);
-          updateNavActive('/about/');
-          _aboutClickCount = 0;
-
-        } else if (path === '/easter-egg/' || path === '/easter-egg') {
-          html = renderEasterEgg();
-          updateNavActive('/about/');
-
-        } else if (path === '/talks/' || path === '/talks') {
-          var talksList = await loadTalks();
-          html = renderTalksPage(talksList);
-          updateNavActive('/talks/');
-
-        } else if (path === '/friends/' || path === '/friends') {
-          var friendsList = await apiFetch('/api/friends');
-          html = renderFriendsPage(friendsList);
-          updateNavActive('/friends/');
-
-        } else if (path === '/status/' || path === '/status') {
-          html = renderStatusPage();
-          updateNavActive('/status/');
-
-        } else if (path === '/auth/' || path === '/auth') {
-          html = renderAuthPage();
-          updateNavActive('/about/');
-
-        } else if (path === '/calendar/' || path === '/calendar') {
-          html = '<div class="loading-placeholder"><p>' + (_LANG === 'zh' ? '日历已合并到 Status 页面。' : 'Calendar has been merged into the Status page.') + '</p><mdui-button variant="text" onclick="navigate(\'/status/\',true)">' + (_LANG === 'zh' ? '前往 Status' : 'Go to Status') + '</mdui-button></div>';
-          updateNavActive('/status/');
-
-        } else {
-          html = '<div class="loading-placeholder"><h2>' + (_LANG === 'zh' ? '404 — 页面未找到' : '404 — Page Not Found') + '</h2><p>' + (_LANG === 'zh' ? '您要查找的页面不存在。' : 'The page you\'re looking for doesn\'t exist.') + '</p></div>';
-        }
-
-        container.innerHTML = html;
         document.title = blogConfig.title || 'Blog Material You';
 
-        // Re-trigger pjax-style plugins (waterfall, code cleanup)
+        // Fetch SSR-rendered HTML fragment
+        var html = await fetchSSR(path);
+
+        // Special handling for post pages: render markdown on client
+        if (path.startsWith('/post/')) {
+          // The SSR returns raw markdown in .markdown-content — render it client-side
+          container.innerHTML = html;
+          var mdEl = container.querySelector('.markdown-content');
+          if (mdEl) {
+            mdEl.innerHTML = marked.parse(mdEl.textContent || '');
+          }
+        } else {
+          container.innerHTML = html;
+        }
+
+        updateNavActive(path);
+
+        // Re-trigger plugins
         postRender(container);
       } catch (err) {
         console.error('Navigation error:', err);
@@ -800,16 +251,12 @@
     // ===== Post-Render Hooks =====
     function postRender(container) {
       // 1. Remove gutter from code blocks
-      document.querySelectorAll('.highlight .gutter').forEach(function(el) {
-        el.remove();
-      });
+      document.querySelectorAll('.highlight .gutter').forEach(function(el) { el.remove(); });
 
       // 2. Waterfall layout on home
       if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
         requestAnimationFrame(function() {
-          requestAnimationFrame(function() {
-            layoutWaterfall();
-          });
+          requestAnimationFrame(function() { layoutWaterfall(); });
         });
       }
 
@@ -818,22 +265,115 @@
         initComments();
       }
 
-      // 4. Attach click handlers to custom elements
+      // 4. Attach click handlers
       if (container) attachClickHandlers(container);
 
-      // 5. Render LaTeX math with KaTeX
+      // 5. Render LaTeX
       renderMath();
 
-      // 6. Easter egg: track clicks on About page header/avatar
+      // 6. Easter egg
       initAboutEasterEgg();
 
-      // 7. Image loading placeholders with fade-in
+      // 7. Image loading placeholders
       setupImagePlaceholders();
+
+      // 8. Status page init
+      if (window.location.pathname.startsWith('/status')) {
+        initStatusPage();
+      }
+
+      // 9. 2048 game init
+      if (window.location.pathname.startsWith('/easter-egg')) {
+        setTimeout(init2048Game, 50);
+      }
+    }
+
+    // ===== Waterfall Layout =====
+    function layoutWaterfall() {
+      var container = document.querySelector('.card-container');
+      var items = document.querySelectorAll('.card-container .post-card');
+      var content = document.querySelector('.content-container');
+      if (!container || !items.length || !content) return;
+
+      var windowWidth = content.offsetWidth - 48;
+      var column = 1;
+      if (windowWidth >= 840) column = 3;
+      else if (windowWidth >= 428) column = 2;
+
+      var gap = 16;
+      var width = (windowWidth - (column - 1) * gap) / column;
+
+      var columnHeights = new Array(column).fill(0);
+      var columnLefts = new Array(column);
+      var columnRights = new Array(column);
+      for (var i = 0; i < column; i++) {
+        columnLefts[i] = i * (width + gap);
+        columnRights[i] = columnLefts[i] + width;
+      }
+
+      items.forEach(function(item) {
+        var minHeight = Math.min.apply(null, columnHeights);
+        var columnIndex = columnHeights.indexOf(minHeight);
+        item.style.position = 'absolute';
+        item.style.top = minHeight + 'px';
+        item.style.left = columnLefts[columnIndex] + 'px';
+        item.style.right = (windowWidth - columnRights[columnIndex]) + 'px';
+        item.style.width = width + 'px';
+        columnHeights[columnIndex] += item.offsetHeight + gap;
+      });
+
+      var maxHeight = Math.max.apply(null, columnHeights);
+      container.style.height = (maxHeight + gap) + 'px';
+    }
+
+    // ===== Click Handlers (SPA navigation) =====
+    function attachClickHandlers(root) {
+      if (!root) root = document;
+      root.querySelectorAll('mdui-chip[href], mdui-list-item[href], mdui-card[href]').forEach(function(el) {
+        if (el._spaAttached) return;
+        el._spaAttached = true;
+        el.addEventListener('click', function(e) {
+          var href = el.getAttribute('href');
+          if (!href) return;
+          if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
+          if (href === window.location.pathname) return;
+          e.preventDefault();
+          e.stopPropagation();
+          navigate(href);
+          var nav = document.querySelector('.navigation-drawer');
+          if (nav && isMobile()) nav.open = false;
+        });
+      });
+    }
+
+    // ===== PJAX link interceptor =====
+    document.addEventListener('click', function(e) {
+      var el = e.target;
+      while (el && el !== document.body) {
+        var href = el.getAttribute && el.getAttribute('href');
+        if (href && href.startsWith('/') && !href.startsWith('//') &&
+            !href.startsWith('/api/') && !href.startsWith('/admin')) {
+          e.preventDefault();
+          navigate(href, true);
+          return;
+        }
+        el = el.parentElement;
+      }
+    });
+
+    // ===== CSS Loader (cross-browser) =====
+    var _cssLoaded = {};
+    function loadCSS(path) {
+      if (_cssLoaded[path]) return;
+      _cssLoaded[path] = true;
+      var link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = path;
+      document.head.appendChild(link);
     }
 
     // ===== Image Loading Placeholder =====
     function setupImagePlaceholders() {
-      // Cover image on post pages
       document.querySelectorAll('.post-header-cover-wrapper img').forEach(function(img) {
         if (img.dataset._placeholder) return;
         img.dataset._placeholder = '1';
@@ -844,46 +384,33 @@
           var wrapper = img.closest('.post-header-cover-wrapper');
           if (wrapper) {
             wrapper.querySelector('.image-skeleton').innerHTML =
-              '<div class="image-skeleton-icon">❌</div><span>' + (_('loadFailed') || 'Failed to load') + '</span>';
+              '<div class="image-skeleton-icon">❌</div><span>Failed to load</span>';
           }
         });
         if (img.complete) {
-          if (img.naturalWidth > 0) {
-            img.closest('.post-header-cover-wrapper')?.classList.add('loaded');
-          } else {
-            img.dispatchEvent(new Event('error'));
-          }
+          if (img.naturalWidth > 0) img.closest('.post-header-cover-wrapper')?.classList.add('loaded');
+          else img.dispatchEvent(new Event('error'));
         }
       });
 
-      // Inline images in markdown content
       document.querySelectorAll('.markdown-content img').forEach(function(img) {
         if (img.dataset._placeholder) return;
         img.dataset._placeholder = '1';
-
-        // Create wrapper and skeleton
         var wrapper = document.createElement('div');
         wrapper.className = 'image-wrapper';
         var skeleton = document.createElement('div');
         skeleton.className = 'image-skeleton';
-        skeleton.innerHTML = '<div class="image-skeleton-icon">🖼️</div><span>' + (_('loading') || 'Loading...') + '</span>';
-
+        skeleton.innerHTML = '<div class="image-skeleton-icon">🖼️</div><span>Loading...</span>';
         img.parentNode.insertBefore(wrapper, img);
         wrapper.appendChild(skeleton);
         wrapper.appendChild(img);
-
-        img.addEventListener('load', function() {
-          wrapper.classList.add('loaded');
-        });
+        img.addEventListener('load', function() { wrapper.classList.add('loaded'); });
         img.addEventListener('error', function() {
-          skeleton.innerHTML = '<div class="image-skeleton-icon">❌</div><span>' + (_('loadFailed') || 'Failed to load') + '</span>';
+          skeleton.innerHTML = '<div class="image-skeleton-icon">❌</div><span>Failed to load</span>';
         });
         if (img.complete) {
-          if (img.naturalWidth > 0) {
-            wrapper.classList.add('loaded');
-          } else {
-            img.dispatchEvent(new Event('error'));
-          }
+          if (img.naturalWidth > 0) wrapper.classList.add('loaded');
+          else img.dispatchEvent(new Event('error'));
         }
       });
     }
@@ -907,79 +434,9 @@
       });
     }
 
-    // ===== Waterfall Layout =====
-    function layoutWaterfall() {
-      var container = document.querySelector('.card-container');
-      var items = document.querySelectorAll('.card-container .post-card');
-      var content = document.querySelector('.content-container');
-
-      if (!container || !items.length || !content) return;
-
-      var windowWidth = content.offsetWidth - 48;
-      var column = 1;
-      if (windowWidth >= 840) {
-        column = 3;
-      } else if (windowWidth >= 428) {
-        column = 2;
-      }
-
-      var gap = 16;
-      var width = (windowWidth - (column - 1) * gap) / column;
-
-      var columnHeights = new Array(column).fill(0);
-      var columnLefts = new Array(column);
-      var columnRights = new Array(column);
-      for (var i = 0; i < column; i++) {
-        columnLefts[i] = i * (width + gap);
-        columnRights[i] = columnLefts[i] + width;
-      }
-
-      items.forEach(function(item) {
-        var minHeight = Math.min.apply(null, columnHeights);
-        var columnIndex = columnHeights.indexOf(minHeight);
-
-        item.style.position = 'absolute';
-        item.style.top = minHeight + 'px';
-        item.style.left = columnLefts[columnIndex] + 'px';
-        item.style.right = (windowWidth - columnRights[columnIndex]) + 'px';
-        item.style.width = width + 'px';
-
-        columnHeights[columnIndex] += item.offsetHeight + gap;
-      });
-
-      var maxHeight = Math.max.apply(null, columnHeights);
-      container.style.height = (maxHeight + gap) + 'px';
-    }
-
-    // ===== Click Handlers (SPA navigation) =====
-    function attachClickHandlers(root) {
-      if (!root) root = document;
-      root.querySelectorAll('mdui-chip[href], mdui-list-item[href], mdui-card[href]').forEach(function(el) {
-        if (el._spaAttached) return;
-        el._spaAttached = true;
-        el.addEventListener('click', function(e) {
-          var href = el.getAttribute('href');
-          if (!href) return;
-          if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('#')) return;
-          if (href === window.location.pathname) return;
-          e.preventDefault();
-          e.stopPropagation();
-
-          navigate(href);
-
-          var nav = document.querySelector('.navigation-drawer');
-          if (nav && isMobile()) {
-            nav.open = false;
-          }
-        });
-      });
-    }
-
     // ===== Comments =====
     function initComments() {
       var path = window.location.pathname;
-
-      // Load comment count + list via async fetch
       var countUrl = '/api/comments?type=count&path=' + encodeURIComponent(path);
       var listUrl = '/api/comments?path=' + encodeURIComponent(path);
 
@@ -990,14 +447,12 @@
         var countResult = results[0];
         var listResult = results[1];
 
-        // Update comment count title
         var titleEl = document.getElementById('comment-section-title');
         if (titleEl && countResult.data) {
           var count = parseInt(countResult.data.count) || 0;
           titleEl.textContent = count + ' Comment' + (count !== 1 ? 's' : '');
         }
 
-        // Render comments
         var container = document.getElementById('comments-container');
         if (!container) return;
         container.innerHTML = '';
@@ -1007,12 +462,12 @@
             item.classList.add('comment');
             item.alignment = 'start';
             item.nonclickable = true;
-            item.innerHTML = '<div slot="custom" class="comment-block">' +
-              (comment.avatar ? '<img src="' + comment.avatar + '" class="comment-avatar">' : '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>') +
-              '<div class="comment-right-area">' +
-              '<p class="comment-nick-name">' + escapeHtml(comment.nick || '') + '</p>' +
-              '<div class="comment-content">' + escapeHtml(comment.comment || '') + '</div>' +
-              '</div></div>';
+            item.innerHTML = '<div slot="custom" class="comment-block">'
+              + (comment.avatar ? '<img src="' + comment.avatar + '" class="comment-avatar">' : '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>')
+              + '<div class="comment-right-area">'
+              + '<p class="comment-nick-name">' + escapeHtml(comment.nick || '') + '</p>'
+              + '<div class="comment-content">' + escapeHtml(comment.comment || '') + '</div>'
+              + '</div></div>';
             container.appendChild(item);
           });
         }
@@ -1020,17 +475,15 @@
         console.error('Comments load error:', e);
       });
 
-      // Submit comment button
+      // Submit comment button (clone to remove old listeners)
       var submitBtn = document.getElementById('comment-submit-button');
       if (submitBtn) {
         var newBtn = submitBtn.cloneNode(true);
         submitBtn.parentNode.replaceChild(newBtn, submitBtn);
-        newBtn.addEventListener('click', function() {
-          submitComment(path);
-        });
+        newBtn.addEventListener('click', function() { submitComment(path); });
       }
 
-      // Avatar upload handler
+      // Avatar upload
       var uploadBtn = document.getElementById('comment-avatar-upload');
       var fileInput = document.getElementById('comment-avatar-file');
       var avatarPreview = document.getElementById('comment-avatar-preview');
@@ -1042,22 +495,16 @@
           if (!file) return;
           var reader = new FileReader();
           reader.onload = function(e) {
-            // Show preview
             avatarPreview.src = e.target.result;
             avatarPreview.style.display = 'block';
-            // Upload to server
             fetch('/api/upload-avatar', { method: 'POST', body: e.target.result })
               .then(function(r) { return r.json(); })
-              .then(function(d) {
-                if (d.errno === 0 && avatarField) {
-                  avatarField.value = d.data.url;
-                }
-              }).catch(function() {});
+              .then(function(d) { if (d.errno === 0 && avatarField) avatarField.value = d.data.url; })
+              .catch(function() {});
           };
           reader.readAsDataURL(file);
         });
       }
-      // Avatar URL input → update preview
       if (avatarField && avatarPreview) {
         avatarField.addEventListener('input', function() {
           if (avatarField.value) {
@@ -1082,29 +529,15 @@
       var content = document.getElementById('comment-content').value.trim();
       var avatar = document.getElementById('comment-avatar').value.trim();
 
-      // Disable inputs
       ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
         var el = document.getElementById(id);
         if (el) el.disabled = true;
       });
 
-      // Validation
       var hasError = false;
-      if (!nick) {
-        var nickField = document.getElementById('comment-nick');
-        if (nickField) nickField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
-        hasError = true;
-      }
-      if (!email) {
-        var emailField = document.getElementById('comment-email');
-        if (emailField) emailField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
-        hasError = true;
-      }
-      if (!content) {
-        var contentField = document.getElementById('comment-content');
-        if (contentField) contentField.innerHTML = '<span slot="helper" style="color: rgb(var(--mdui-color-error))">This field is required</span>';
-        hasError = true;
-      }
+      if (!nick) { hasError = true; }
+      if (!email) { hasError = true; }
+      if (!content) { hasError = true; }
 
       if (hasError) {
         showSnackbar('comment-failure');
@@ -1116,20 +549,14 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          nick: nick,
-          mail: email,
-          comment: content,
-          link: website,
-          ua: navigator.userAgent,
-          url: path,
-          avatar: avatar
+          nick: nick, mail: email, comment: content,
+          link: website, ua: navigator.userAgent,
+          url: path, avatar: avatar
         })
-      }).then(function(res) {
-        return res.json();
-      }).then(function(result) {
+      }).then(function(res) { return res.json(); })
+      .then(function(result) {
         if (result.errno === 0) {
           showSnackbar('comment-success');
-          // Reload comments then clear form
           initComments();
           setTimeout(function() {
             ['comment-nick', 'comment-email', 'comment-website', 'comment-content', 'comment-avatar'].forEach(function(id) {
@@ -1142,7 +569,7 @@
           showSnackbar('comment-failure');
           resetCommentForm();
         }
-      }).catch(function(err) {
+      }).catch(function() {
         showSnackbar('network-error');
         resetCommentForm();
       });
@@ -1154,10 +581,7 @@
         if (el) el.disabled = false;
       });
       var btn = document.getElementById('comment-submit-button');
-      if (btn) {
-        btn.disabled = false;
-        btn.loading = false;
-      }
+      if (btn) { btn.disabled = false; btn.loading = false; }
     }
 
     function showSnackbar(type) {
@@ -1165,91 +589,47 @@
       if (el) el.show = true;
     }
 
-    // ===== Initialization =====
-    document.addEventListener('DOMContentLoaded', function() {
-      // Load locale file
-      loadLocale(_LANG).then(function() {
-        // Attach SPA click handlers and navigate
-        attachClickHandlers(document);
-        navigate(window.location.pathname, false);
-      }).catch(function() {
-        attachClickHandlers(document);
-        navigate(window.location.pathname, false);
-      });
-
-      // Handle browser back/forward
-      window.addEventListener('popstate', function(e) {
-        navigate(window.location.pathname, false);
-      });
-
-      // Re-attach handlers to new content after SPA navigation
-      var observer = new MutationObserver(function() {
-        attachClickHandlers(document.getElementById('content-container'));
-      });
-      var container = document.getElementById('content-container');
-      if (container) {
-        observer.observe(container, { childList: true, subtree: true });
-      }
-    });
-
-    // Waterfall resize observer
-    var resizeObserver = new ResizeObserver(function() {
-      if (window.location.pathname === '/') {
-        layoutWaterfall();
-      }
-    });
-    var contentContainer = document.querySelector('.content-container');
-    if (contentContainer) {
-      resizeObserver.observe(contentContainer);
-    }
-
-    // ===== Auth State =====
+    // ===== Auth State (client-side) =====
     function getAuthEmail() { return localStorage.getItem('auth_email'); }
     function getAuthName() { return localStorage.getItem('auth_name'); }
     function getAuthPerms() { try { return JSON.parse(localStorage.getItem('auth_perms') || '[]'); } catch(e) { return []; } }
     function hasPerm(p) { return getAuthPerms().indexOf(p) !== -1; }
     function setAuth(email, name, perms) {
-      if (email) { localStorage.setItem('auth_email', email); localStorage.setItem('auth_name', name || email); localStorage.setItem('auth_perms', JSON.stringify(perms || [])); }
-      else { localStorage.removeItem('auth_email'); localStorage.removeItem('auth_name'); localStorage.removeItem('auth_perms'); }
+      if (email) {
+        localStorage.setItem('auth_email', email);
+        localStorage.setItem('auth_name', name || email);
+        localStorage.setItem('auth_perms', JSON.stringify(perms || []));
+      } else {
+        localStorage.removeItem('auth_email');
+        localStorage.removeItem('auth_name');
+        localStorage.removeItem('auth_perms');
+      }
     }
     function isAuthed() { return !!getAuthEmail(); }
 
     // ===== Status Page =====
-    function renderStatusPage() {
+    function initStatusPage() {
+      // Fetch server status
       fetch('/api/status').then(function(r) { return r.json(); }).then(function(d) {
         var el = document.getElementById('status-online');
-        if (el) el.textContent = d.online ? (_LANG === 'zh' ? '✅ 在线' : '✅ Online') : (_LANG === 'zh' ? '❌ 离线' : '❌ Offline');
+        if (el) el.textContent = d.online ? '✅ Online' : '❌ Offline';
         var el2 = document.getElementById('status-users');
         if (el2) el2.textContent = '' + (d.registered_users || 0);
       }).catch(function() {
         var el = document.getElementById('status-online');
-        if (el) el.textContent = _LANG === 'zh' ? '❌ 无法连接' : '❌ Connection failed';
+        if (el) el.textContent = '❌ Connection failed';
       });
-      setTimeout(initStatusPage, 50);
-      var zh = _LANG === 'zh';
-      loadCSS('/css/post-content.css');
-      return ''
-        + '<style>'
-        + '  @import url("/css/header-card.css");'
-        + '</style>'
-        + '<div class="content">'
-        + '<mdui-card variant="filled" class="header-card">'
-        + '  <div class="header-title">' + _('status') + '</div>'
-        + '  <div class="header-content">' + _('statusDesc') + '</div>'
-        + '</mdui-card>'
-        + '<mdui-card variant="elevated" style="padding:24px;width:100%">'
-        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '服务器状态' : 'Server Status') + '</span><span id="status-online">' + (zh ? '检测中...' : 'Checking...') + '</span></div>'
-        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">🔒 ' + (zh ? '锁定状态' : 'Lock State') + '</span><span>' + (isAuthed() ? (zh ? '🔓 已认证' : '🔓 Authenticated') : (zh ? '🔒 未认证' : '🔒 Unauthenticated')) + '</span></div>'
-        + '  <div style="display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid rgba(var(--mdui-color-outline),0.2)"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '当前播放' : 'Now Playing') + '</span><span>' + getCurrentPlayback() + '</span></div>'
-        + '  <div style="display:flex;justify-content:space-between;padding:12px 0"><span style="color:rgb(var(--mdui-color-outline))">' + (zh ? '注册用户' : 'Registered Users') + '</span><span id="status-users">-</span></div>'
-        + '</mdui-card>'
-        + (isAuthed() ? '<mdui-card variant="elevated" style="padding:16px;margin-top:12px;width:100%"><div style="font-size:14px">👤 ' + escapeHtml(getAuthName()) + ' (' + escapeHtml(getAuthEmail()) + ')</div><div style="font-size:12px;color:rgb(var(--mdui-color-outline));margin-top:4px">' + (zh ? '权限: ' : 'Permissions: ') + (getAuthPerms().join(', ') || (zh ? '无' : 'None')) + '</div></mdui-card>' : '')
-        + '<div id="status-calendar" style="margin-top:16px"><p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:16px">📅 ' + (zh ? '加载中...' : 'Loading...') + '</p></div>'
-        + '<mdui-button variant="text" style="margin-top:16px" onclick="navigate(\'/\', true)">' + (zh ? '← 返回首页' : '← Back to Home') + '</mdui-button>'
-        + '</div>';
-    }
 
-    function initStatusPage() {
+      // Auth card
+      var authCardEl = document.getElementById('status-auth-card');
+      if (authCardEl) {
+        if (isAuthed()) {
+          authCardEl.innerHTML = '<mdui-card variant="elevated" style="padding:16px;margin-top:12px;width:100%"><div style="font-size:14px">👤 ' + escapeHtml(getAuthName()) + ' (' + escapeHtml(getAuthEmail()) + ')</div><div style="font-size:12px;color:rgb(var(--mdui-color-outline));margin-top:4px">Permissions: ' + (getAuthPerms().join(', ') || 'None') + '</div></mdui-card>';
+        }
+        var lockEl = document.getElementById('status-lock');
+        if (lockEl) lockEl.textContent = isAuthed() ? '🔓 Authenticated' : '🔒 Unauthenticated';
+      }
+
       updatePlaybackStatus();
       loadStatusCalendar();
     }
@@ -1260,15 +640,15 @@
       if (!isAuthed()) {
         el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
           + '<div style="font-size:36px;margin-bottom:12px">🔐</div>'
-          + '<div style="font-size:16px;margin-bottom:12px">' + (_LANG === 'zh' ? '日历 — 无法查看。你是谁？' : 'Calendar — Cannot view. Who are you?') + '</div>'
-          + '<mdui-button variant="filled" onclick="navigate(\'/auth/\',true)">' + (_LANG === 'zh' ? '前往认证' : 'Go to Auth') + '</mdui-button>'
+          + '<div style="font-size:16px;margin-bottom:12px">Calendar — Cannot view. Who are you?</div>'
+          + '<mdui-button variant="filled" onclick="navigate(\'/auth/\',true)">Go to Auth</mdui-button>'
           + '</mdui-card>';
         return;
       }
       if (!hasPerm('calendar')) {
         el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
           + '<div style="font-size:36px;margin-bottom:12px">🚫</div>'
-          + '<div style="font-size:16px;margin-bottom:12px">' + (_LANG === 'zh' ? '日历 — 无权限查看' : 'Calendar — No permission') + '</div>'
+          + '<div style="font-size:16px;margin-bottom:12px">Calendar — No permission</div>'
           + '</mdui-card>';
         return;
       }
@@ -1279,7 +659,7 @@
           renderCalendarInStatus(events);
         })
         .catch(function(e) {
-          el.innerHTML = '<p style="color:rgb(var(--mdui-color-error));text-align:center">加载失败: ' + escapeHtml(e.message) + '</p>';
+          el.innerHTML = '<p style="color:rgb(var(--mdui-color-error));text-align:center">Load failed: ' + escapeHtml(e.message) + '</p>';
         });
     }
 
@@ -1287,9 +667,9 @@
       var el = document.getElementById('status-calendar');
       if (!el) return;
       var html = '<mdui-card variant="elevated" style="padding:16px;width:100%">'
-        + '<h2 style="font-size:16px;font-weight:500;margin-bottom:12px">📅 ' + (_LANG === 'zh' ? '日历' : 'Calendar') + '</h2>';
+        + '<h2 style="font-size:16px;font-weight:500;margin-bottom:12px">📅 Calendar</h2>';
       if (events.length === 0) {
-        html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">' + (_LANG === 'zh' ? '暂无安排' : 'No upcoming events') + '</p>';
+        html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">No upcoming events</p>';
       } else {
         var today = new Date().toISOString().slice(0, 10);
         events.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
@@ -1303,15 +683,13 @@
               + (e.description ? '<div style="font-size:12px;color:rgb(var(--mdui-color-outline))">' + escapeHtml(e.description) + '</div>' : '')
               + '</div>'
               + '<div style="text-align:right;font-size:12px;color:rgb(var(--mdui-color-outline));flex-shrink:0;margin-left:12px">'
-              + (isToday ? '<span style="color:rgb(var(--mdui-color-primary));font-weight:500">' + (_LANG === 'zh' ? '今天' : 'Today') + '</span>' : e.date)
+              + (isToday ? '<span style="color:rgb(var(--mdui-color-primary));font-weight:500">Today</span>' : e.date)
               + (e.time ? ' ' + e.time : '')
               + '</div></div>';
             shown++;
           }
         });
-        if (shown === 0) {
-          html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">' + (_LANG === 'zh' ? '近期暂无安排' : 'No upcoming events') + '</p>';
-        }
+        if (shown === 0) html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">No upcoming events</p>';
       }
       html += '</mdui-card>';
       el.innerHTML = html;
@@ -1320,66 +698,34 @@
     function getCurrentPlayback() {
       var p = window._currentPlayback;
       if (p) return '🎵 ' + escapeHtml(p);
-      // Check if any audio/video elements are playing
       var media = document.querySelectorAll('audio,video');
       for (var i = 0; i < media.length; i++) {
-        if (!media[i].paused) return '🎵 正在播放媒体';
+        if (!media[i].paused) return '🎵 Playing media';
       }
-      return '⏸️ 无';
+      return '⏸️ None';
     }
 
     function updatePlaybackStatus() {
       if (navigator.mediaSession && navigator.mediaSession.metadata) {
         window._currentPlayback = navigator.mediaSession.metadata.title || '';
       }
-      // Try AudioContext
       try {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         if (ctx.state === 'running') {
-          if (!window._currentPlayback) window._currentPlayback = _LANG === 'zh' ? '音频活动中' : 'Audio active';
+          if (!window._currentPlayback) window._currentPlayback = 'Audio active';
         }
       } catch(e) {}
+
+      var el = document.getElementById('status-playback');
+      if (el) el.textContent = getCurrentPlayback();
     }
 
     // ===== Auth Page =====
-    function renderAuthPage() {
-      var authed = isAuthed();
-      var zh = _LANG === 'zh';
-      return '<div class="content" style="padding:32px;max-width:500px;margin:0 auto">'
-        + '<style>@import url("/css/header-card.css");</style>'
-        + '<mdui-card variant="filled" class="header-card"><div class="header-title">🔐 ' + (zh ? '访客认证' : 'Guest Auth') + '</div><div class="header-content">' + _('authDesc') + '</div></mdui-card>'
-        + (authed ? renderAuthLoggedIn() : renderAuthForm())
-        + '</div>';
-    }
-
-    function renderAuthLoggedIn() {
-      return '<mdui-card variant="elevated" style="padding:24px;margin-top:16px;text-align:center">'
-        + '<div style="font-size:48px;margin-bottom:12px">👤</div>'
-        + '<div style="font-size:18px;font-weight:500;margin-bottom:4px">' + escapeHtml(getAuthName()) + '</div>'
-        + '<div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-bottom:16px">' + escapeHtml(getAuthEmail()) + '</div>'
-        + '<div style="font-size:13px;margin-bottom:16px">' + (_LANG === 'zh' ? '权限: ' : 'Permissions: ') + (getAuthPerms().join(', ') || (_LANG === 'zh' ? '无' : 'None')) + '</div>'
-        + '<div style="display:flex;gap:8px;justify-content:center">'
-        + '<mdui-button variant="text" onclick="setAuth(null);navigate(\'/auth/\',true)">' + (_LANG === 'zh' ? '退出登录' : 'Logout') + '</mdui-button>'
-        + '<mdui-button variant="text" onclick="navigate(\'/\',true)">' + (_LANG === 'zh' ? '← 首页' : '← Home') + '</mdui-button>'
-        + '</div></mdui-card>';
-    }
-
-    function renderAuthForm() {
-      return '<mdui-card variant="elevated" style="padding:24px;margin-top:16px">'
-        + '<div class="form-group"><label>' + (_LANG === 'zh' ? '邮箱地址' : 'Email Address') + '</label><input id="auth-email-input" type="email" placeholder="you@example.com" style="width:100%;padding:10px 12px;border:1px solid rgba(var(--mdui-color-outline),0.4);border-radius:8px;font-size:14px;background:rgb(var(--mdui-color-surface));color:rgb(var(--mdui-color-on-surface))"></div>'
-        + '<div style="display:flex;gap:8px;margin-top:12px">'
-        + '<mdui-button variant="filled" id="auth-submit-btn" onclick="doAuth()">' + (_LANG === 'zh' ? '验证' : 'Verify') + '</mdui-button>'
-        + '<mdui-button variant="text" onclick="navigate(\'/\',true)">' + (_LANG === 'zh' ? '取消' : 'Cancel') + '</mdui-button>'
-        + '</div>'
-        + '<p id="auth-result" style="margin-top:12px;font-size:14px"></p>'
-        + '</mdui-card>';
-    }
-
     async function doAuth() {
       var email = document.getElementById('auth-email-input')?.value?.trim();
       var resultEl = document.getElementById('auth-result');
       if (!email || !email.match(/^[^@]+@[^@]+\.[^@]+$/)) {
-        resultEl.textContent = _LANG === 'zh' ? '请输入有效的邮箱地址' : 'Please enter a valid email address';
+        resultEl.textContent = 'Please enter a valid email address';
         resultEl.style.color = 'rgb(var(--mdui-color-error))';
         return;
       }
@@ -1393,21 +739,20 @@
         if (data.errno === 0 && data.data) {
           if (data.data.registered) {
             setAuth(email, data.data.name, data.data.permissions);
-            resultEl.textContent = _LANG === 'zh' ? '✅ 认证成功！' : '✅ Auth success!';
+            resultEl.textContent = '✅ Auth success!';
             resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
             setTimeout(function() { navigate('/calendar/', true); }, 800);
           } else {
-            // Not registered - show register option
-            resultEl.innerHTML = (_LANG === 'zh' ? '该邮箱尚未注册。<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 发送注册请求</mdui-button>' : 'Email not registered.<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 Send registration request</mdui-button>');
+            resultEl.innerHTML = 'Email not registered.<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 Send registration request</mdui-button>';
             resultEl.style.color = 'rgb(var(--mdui-color-outline))';
             window._pendingAuthEmail = email;
           }
         } else {
-          resultEl.textContent = (data.errmsg || (_LANG === 'zh' ? '验证失败' : 'Verification failed'));
+          resultEl.textContent = (data.errmsg || 'Verification failed');
           resultEl.style.color = 'rgb(var(--mdui-color-error))';
         }
       } catch(e) {
-        resultEl.textContent = (_LANG === 'zh' ? '网络错误: ' : 'Network error: ') + e.message;
+        resultEl.textContent = 'Network error: ' + e.message;
         resultEl.style.color = 'rgb(var(--mdui-color-error))';
       }
     }
@@ -1424,14 +769,14 @@
         });
         var data = await res.json();
         if (data.errno === 0) {
-          resultEl.innerHTML = (_LANG === 'zh' ? '✅ 注册请求已提交！请等待管理员审核。<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← 返回首页</mdui-button>' : '✅ Registration request submitted! Please wait for admin approval.<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← Back to Home</mdui-button>');
+          resultEl.innerHTML = '✅ Registration request submitted! Please wait for admin approval.<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← Back to Home</mdui-button>';
           resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
         } else {
-          resultEl.textContent = data.errmsg || (_LANG === 'zh' ? '请求失败' : 'Request failed');
+          resultEl.textContent = data.errmsg || 'Request failed';
           resultEl.style.color = 'rgb(var(--mdui-color-error))';
         }
       } catch(e) {
-        resultEl.textContent = (_LANG === 'zh' ? '网络错误: ' : 'Network error: ') + e.message;
+        resultEl.textContent = 'Network error: ' + e.message;
         resultEl.style.color = 'rgb(var(--mdui-color-error))';
       }
     }
@@ -1449,7 +794,6 @@
       targets.forEach(function(el) {
         el.addEventListener('click', function(e) {
           _aboutClickCount++;
-          // Visual feedback: avatar pulse
           var a = document.getElementById('about-avatar');
           if (a) {
             a.style.transition = 'transform 0.15s';
@@ -1467,96 +811,7 @@
     // ===== 2048 Game =====
     function renderEasterEgg() {
       setTimeout(init2048Game, 50);
-      return `
-        <style>
-          .game-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgb(var(--mdui-color-surface));
-            z-index: 10000; display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            animation: fadeIn 0.3s ease;
-          }
-          @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-          .game-container { text-align: center; }
-          .game-title { font-size: 28px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-primary)); }
-          .game-subtitle { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 12px; }
-          .game-header { display: flex; justify-content: space-between; align-items: center; max-width: 400px; margin: 0 auto 8px; padding: 0 4px; }
-          .game-score { font-size: 16px; font-weight: 600; color: rgb(var(--mdui-color-on-surface)); }
-          .game-score span { color: rgb(var(--mdui-color-primary)); font-size: 20px; }
-          .grid-2048 {
-            display: inline-grid; grid-template-columns: repeat(4, 88px); gap: 6px;
-            background: rgba(var(--mdui-color-outline), 0.15);
-            padding: 6px; border-radius: 8px; user-select: none;
-          }
-          .cell-2048 {
-            width: 88px; height: 88px; display: flex; align-items: center; justify-content: center;
-            font-size: 32px; font-weight: 700; border-radius: 4px;
-            background: rgba(var(--mdui-color-outline), 0.08);
-            color: rgb(var(--mdui-color-on-surface));
-            transition: all 0.08s ease;
-          }
-          .cell-0 { background: rgba(var(--mdui-color-outline), 0.08); }
-          .cell-2 { background: #eee4da; color: #776e65; }
-          .cell-4 { background: #ede0c8; color: #776e65; }
-          .cell-8 { background: #f2b179; color: #f9f6f2; }
-          .cell-16 { background: #f59563; color: #f9f6f2; }
-          .cell-32 { background: #f67c5f; color: #f9f6f2; }
-          .cell-64 { background: #f65e3b; color: #f9f6f2; }
-          .cell-128 { background: #edcf72; color: #f9f6f2; font-size: 28px; }
-          .cell-256 { background: #edcc61; color: #f9f6f2; font-size: 28px; }
-          .cell-512 { background: #edc850; color: #f9f6f2; font-size: 28px; }
-          .cell-1024 { background: #edc53f; color: #f9f6f2; font-size: 22px; }
-          .cell-2048 { background: #edc22e; color: #f9f6f2; font-size: 22px; box-shadow: 0 0 30px 10px rgba(237,194,46,0.3); }
-          .cell-super { background: #3c3a32; color: #f9f6f2; font-size: 18px; }
-          .game-controls { margin-top: 16px; display: flex; gap: 12px; justify-content: center; }
-          .game-hint { font-size: 13px; color: rgb(var(--mdui-color-outline)); margin-top: 10px; }
-          .game-close-btn {
-            position: fixed; top: 16px; right: 16px; z-index: 10002;
-            width: 40px; height: 40px; border-radius: 50%;
-            border: none; background: rgba(var(--mdui-color-outline), 0.2);
-            color: rgb(var(--mdui-color-on-surface)); font-size: 22px;
-            cursor: pointer; display: flex; align-items: center; justify-content: center;
-            transition: background 0.15s;
-          }
-          .game-close-btn:hover { background: rgba(var(--mdui-color-outline), 0.4); }
-          .game-overlay-won, .game-overlay-lost {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            display: flex; align-items: center; justify-content: center; border-radius: 8px;
-            animation: fadeIn 0.3s;
-          }
-          .game-overlay-won { background: rgba(237,194,46,0.5); }
-          .game-overlay-lost { background: rgba(0,0,0,0.4); }
-          .game-overlay-msg { padding: 24px; border-radius: 12px; text-align: center; background: rgb(var(--mdui-color-surface)); }
-          .game-overlay-msg h2 { font-size: 28px; margin-bottom: 8px; }
-          .game-grid-wrap { position: relative; }
-          @media (max-width: 480px) {
-            .grid-2048 { grid-template-columns: repeat(4, 68px); gap: 4px; padding: 4px; }
-            .cell-2048 { width: 68px; height: 68px; font-size: 24px; }
-            .cell-128, .cell-256, .cell-512 { font-size: 20px; }
-            .cell-1024, .cell-2048 { font-size: 16px; }
-            .cell-super { font-size: 14px; }
-          }
-        </style>
-        <div class="game-overlay" id="game-overlay">
-          <button class="game-close-btn" onclick="closeEasterEgg()">✕</button>
-          <div class="game-container">
-            <div class="game-title">2048</div>
-            <div class="game-subtitle">${zh ? '方向键滑动合并，达到 2048 即获胜！' : 'Swipe/Arrow keys to merge tiles, reach 2048 to win!'}</div>
-            <div class="game-header">
-              <div class="game-score">${zh ? '得分' : 'Score'}: <span id="game-score">0</span></div>
-              <div class="game-score">${zh ? '最高' : 'Best'}: <span id="game-best">0</span></div>
-            </div>
-            <div class="game-grid-wrap">
-              <div class="grid-2048" id="grid-2048"></div>
-            </div>
-            <div class="game-controls">
-              <mdui-button variant="filled" onclick="new2048Game()">${zh ? '新一局' : 'New Game'}</mdui-button>
-              <mdui-button variant="text" onclick="closeEasterEgg()">${zh ? '返回' : 'Back'}</mdui-button>
-            </div>
-            <div class="game-hint">← ↑ → ↓ / WASD ${zh ? '滑动手势' : 'Swipe'}</div>
-          </div>
-        </div>
-      `;
+      // Game HTML is fetched from SSR endpoint
     }
 
     // ===== 2048 Engine =====
@@ -1564,7 +819,6 @@
     var g2048Best = parseInt(localStorage.getItem('g2048_best') || '0');
 
     function new2048Game() {
-      // Remove any existing win/lose overlays
       document.querySelectorAll('.game-overlay-won, .game-overlay-lost').forEach(function(el) { el.remove(); });
       g2048 = {
         grid: [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0]],
@@ -1592,12 +846,9 @@
       g2048.grid[pos[0]][pos[1]] = Math.random() < 0.9 ? 2 : 4;
     }
 
-    // Slide a single row to the left, return {row, score, moved}
     function slideRow(row) {
-      // Remove zeros
       var arr = row.filter(function(v) { return v !== 0; });
       var score = 0;
-      // Merge adjacent equal numbers
       for (var i = 0; i < arr.length - 1; i++) {
         if (arr[i] === arr[i + 1]) {
           arr[i] *= 2;
@@ -1605,18 +856,14 @@
           arr.splice(i + 1, 1);
         }
       }
-      // Pad with zeros
       while (arr.length < 4) arr.push(0);
       var moved = false;
-      for (var i = 0; i < 4; i++) {
-        if (arr[i] !== row[i]) { moved = true; break; }
-      }
+      for (var i = 0; i < 4; i++) { if (arr[i] !== row[i]) { moved = true; break; } }
       return { row: arr, score: score, moved: moved };
     }
 
     function move2048(dir) {
       if (!g2048 || g2048.over || g2048.won) return;
-
       var totalMoved = false;
       var totalScore = 0;
 
@@ -1662,12 +909,10 @@
     }
 
     function check2048State() {
-      // Check win
       for (var r = 0; r < 4; r++)
         for (var c = 0; c < 4; c++)
           if (g2048.grid[r][c] === 2048) g2048.won = true;
 
-      // Check game over
       if (!g2048.won) {
         var hasEmpty = false;
         for (var r = 0; r < 4 && !hasEmpty; r++)
@@ -1686,7 +931,6 @@
         }
       }
 
-      // Update best score
       if (g2048.score > g2048Best) {
         g2048Best = g2048.score;
         localStorage.setItem('g2048_best', '' + g2048Best);
@@ -1712,7 +956,6 @@
       document.getElementById('game-score').textContent = '' + g2048.score;
       document.getElementById('game-best').textContent = '' + g2048Best;
 
-      // Overlay for win/lose
       var wrap = grid.parentElement;
       var oldOverlay = wrap.querySelector('.game-overlay-won, .game-overlay-lost');
       if (oldOverlay) oldOverlay.remove();
@@ -1720,17 +963,17 @@
       if (g2048.won) {
         var wonDiv = document.createElement('div');
         wonDiv.className = 'game-overlay-won';
-        wonDiv.innerHTML = '<div class="game-overlay-msg"><h2>🎉 You Win!</h2><p style="margin-bottom:12px">' + (_LANG === 'zh' ? '你达到了 2048！' : 'You reached 2048!') + '</p><mdui-button variant="filled" onclick="new2048Game()">' + (_LANG === 'zh' ? '继续挑战' : 'Keep Going') + '</mdui-button></div>';
+        wonDiv.innerHTML = '<div class="game-overlay-msg"><h2>🎉 You Win!</h2><p style="margin-bottom:12px">You reached 2048!</p><mdui-button variant="filled" onclick="new2048Game()">Keep Going</mdui-button></div>';
         wrap.appendChild(wonDiv);
       } else if (g2048.over) {
         var lostDiv = document.createElement('div');
         lostDiv.className = 'game-overlay-lost';
-        lostDiv.innerHTML = '<div class="game-overlay-msg"><h2>💀 Game Over</h2><p style="margin-bottom:12px;color:rgb(var(--mdui-color-outline))">' + (_LANG === 'zh' ? '得分' : 'Score') + ': ' + g2048.score + '</p><mdui-button variant="filled" onclick="new2048Game()">' + (_LANG === 'zh' ? '再来一局' : 'Play Again') + '</mdui-button></div>';
+        lostDiv.innerHTML = '<div class="game-overlay-msg"><h2>💀 Game Over</h2><p style="margin-bottom:12px;color:rgb(var(--mdui-color-outline))">Score: ' + g2048.score + '</p><mdui-button variant="filled" onclick="new2048Game()">Play Again</mdui-button></div>';
         wrap.appendChild(lostDiv);
       }
     }
 
-    // Keyboard handler
+    // Keyboard handler for 2048
     document.addEventListener('keydown', function(e) {
       if (!document.getElementById('game-overlay')) return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
@@ -1741,7 +984,7 @@
       if (dir) { e.preventDefault(); move2048(dir); }
     });
 
-    // Touch/swipe support
+    // Touch/swipe for 2048
     document.addEventListener('touchstart', function(e) {
       var overlay = document.getElementById('game-overlay');
       if (!overlay) return;
@@ -1758,12 +1001,9 @@
       var dx = touch.clientX - window._swipeStartX;
       var dy = touch.clientY - window._swipeStartY;
       var absDx = Math.abs(dx), absDy = Math.abs(dy);
-      if (Math.max(absDx, absDy) < 30) return; // Too short
-      if (absDx > absDy) {
-        move2048(dx > 0 ? 'right' : 'left');
-      } else {
-        move2048(dy > 0 ? 'down' : 'up');
-      }
+      if (Math.max(absDx, absDy) < 30) return;
+      if (absDx > absDy) move2048(dx > 0 ? 'right' : 'left');
+      else move2048(dy > 0 ? 'down' : 'up');
       window._swipeStartX = null;
       window._swipeStartY = null;
     }, { passive: true });
@@ -1772,6 +1012,34 @@
       g2048 = null;
       navigate('/about/', true);
     }
+
+    // ===== Initialization =====
+    document.addEventListener('DOMContentLoaded', function() {
+      loadLocale(_LANG).then(function() {
+        attachClickHandlers(document);
+        navigate(window.location.pathname, false);
+      }).catch(function() {
+        attachClickHandlers(document);
+        navigate(window.location.pathname, false);
+      });
+
+      window.addEventListener('popstate', function(e) {
+        navigate(window.location.pathname, false);
+      });
+
+      var observer = new MutationObserver(function() {
+        attachClickHandlers(document.getElementById('content-container'));
+      });
+      var container = document.getElementById('content-container');
+      if (container) observer.observe(container, { childList: true, subtree: true });
+    });
+
+    // Waterfall resize observer
+    var resizeObserver = new ResizeObserver(function() {
+      if (window.location.pathname === '/') layoutWaterfall();
+    });
+    var contentContainer = document.querySelector('.content-container');
+    if (contentContainer) resizeObserver.observe(contentContainer);
   </script>
 </body>
 </html>
