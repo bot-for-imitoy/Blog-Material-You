@@ -160,9 +160,9 @@
       const titleEl = document.getElementById('app-bar-title');
       if (titleEl) titleEl.textContent = blogConfig.title || 'Blog';
       const navName = document.getElementById('nav-name');
-      if (navName) navName.textContent = blogConfig.name || '';
+      if (navName) navName.textContent = blogConfig.title || 'Blog';
       const navSlogan = document.getElementById('nav-slogan');
-      if (navSlogan) navSlogan.textContent = blogConfig.slogan || '';
+      if (navSlogan) navSlogan.textContent = blogConfig.desc || '';
       const navAvatar = document.getElementById('nav-avatar');
       if (navAvatar && blogConfig.avatar) navAvatar.src = blogConfig.avatar;
       document.title = blogConfig.title || 'Blog Material You';

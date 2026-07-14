@@ -4,7 +4,7 @@
 <mdui-snackbar class="snackbar-comment-failure"><%= _h._("commentFail") %></mdui-snackbar>
 <div class="content">
   <mdui-card variant="elevated" class="post-header">
-    <% if post.cover and post.cover ~= "null" then %>
+    <% if post.cover and tostring(post.cover) ~= "null" and tostring(post.cover) ~= "" then %>
     <div class="post-header-cover-wrapper">
       <div class="image-skeleton">
         <div class="image-skeleton-icon">🖼️</div>
