@@ -1,6 +1,7 @@
 --[[
   ssr.lua — Server-Side Rendering: injects post/page content into the SPA
   shell so search engines see real content (title, meta description, article body).
+  All data loaded from MariaDB via posts module.
 ]]
 local cjson = require("cjson")
 local posts_module = require("posts")
@@ -88,28 +89,17 @@ function _M.render_post(slug)
     return shell
 end
 
--- Render a full HTML page for static pages (about, talks)
+-- Render a full HTML page for static pages (about, talks) via DB
 function _M.render_page(page_slug)
     local shell = get_shell()
     if not shell then return nil end
 
-    -- Load page from API
-    local http = require("resty.http")
-    -- For simplicity, read page file directly
-    local pages_dir = require("utils").blog_dir() .. "/pages"
-    local f = io.open(pages_dir .. "/" .. page_slug .. ".json", "r")
-    if not f then
-        f = io.open(pages_dir .. "/" .. page_slug .. ".en.json", "r")
-    end
-    if not f then return nil end
+    -- Load page from DB via posts module
+    local page = posts_module.load_page(page_slug)
+    if not page then return nil end
 
-    local page_data = f:read("*a")
-    f:close()
-    local ok, page = pcall(cjson.decode, page_data)
-    if not ok then return nil end
-
-    local title = page.title or page_slug
-    local content = page.content or ""
+    local title = page.title_en and page.title_en ~= "" and page.title_en or page.title or page_slug
+    local content = page.content_en and page.content_en ~= "" and page.content_en or page.content or ""
     local desc = strip_md(content)
 
     shell = shell:gsub("<title>.-</title>",

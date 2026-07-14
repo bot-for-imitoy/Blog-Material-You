@@ -1,4 +1,4 @@
--- /api/admin/reload — Reload blog data into shared dicts
+-- /api/admin/reload — Reload blog data into shared dicts from MariaDB
 -- Requires admin auth. Call after any write operation.
 local cjson = require("cjson")
 local admin_auth = require("admin_auth")
@@ -10,13 +10,11 @@ if not user then
     return
 end
 
--- Clear the initialization flag so init.lua re-runs
+-- Clear the initialization flag so init logic re-runs on next worker init,
+-- but for this request we do the reload inline.
 local cache = ngx.shared.blog_cache
 cache:delete("initialized")
 
--- Run init logic
--- We can't directly call init.lua as a function because it's written as init_worker,
--- so we re-execute its logic inline
 local utils = require("utils")
 local posts = require("posts")
 local config = require("config")
@@ -26,7 +24,7 @@ ngx.log(ngx.NOTICE, "Blog Material You: Reloading data...")
 local cfg = config.get()
 ngx.shared.blog_config:set("data", cjson.encode(cfg))
 
--- Load all posts
+-- Load all posts from DB
 local all_posts = posts.load_all()
 local active_posts = {}
 local archived_posts = {}
@@ -72,7 +70,7 @@ for _, p in ipairs(all_posts) do
     pd:set("post:" .. p.slug, cjson.encode(p))
 end
 
--- Load pages
+-- Load pages from DB
 local pages_dict = ngx.shared.blog_pages
 for _, slug in ipairs({"about", "talks"}) do
     local page = posts.load_page(slug)
@@ -81,18 +79,18 @@ for _, slug in ipairs({"about", "talks"}) do
     end
 end
 
--- Reload talks into shared dict
-local talks = require("talks")
-local talks_list = talks.list()
+-- Reload talks from DB
+local db_talks = require("db_talks")
+local talks_list = db_talks.list()
 if #talks_list == 0 then
     pages_dict:set("talks", "[]")
 else
     pages_dict:set("talks", cjson.encode(talks_list))
 end
 
--- Reload friends into shared dict
-local friends = require("friends")
-local friends_list = friends.list()
+-- Reload friends from DB
+local db_friends = require("db_friends")
+local friends_list = db_friends.list()
 if #friends_list == 0 then
     pages_dict:set("friends", "[]")
 else

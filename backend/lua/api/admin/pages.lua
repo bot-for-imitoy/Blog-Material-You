@@ -1,6 +1,7 @@
--- /api/admin/pages — list and update static pages (about, talks)
+-- /api/admin/pages — list and update static pages (about, talks) via MariaDB
 local cjson = require("cjson")
 local posts = require("posts")
+local db_pages = require("db_pages")
 local admin_auth = require("admin_auth")
 local security = require("security")
 local utils = require("utils")
@@ -12,8 +13,6 @@ local user = admin_auth.verify_admin()
 if not user then
     return
 end
-
-local PAGES_DIR = require("utils").blog_dir() .. "/pages"
 
 if ngx.req.get_method() == "GET" then
     local slugs = { "about", "talks" }
@@ -49,30 +48,13 @@ elseif ngx.req.get_method() == "PUT" then
     end
     if not security.require_valid_slug(slug) then return end
 
-    local fm = "---\n"
-    fm = fm .. "title: " .. (data.title or slug) .. "\n"
-    if data.title_en and data.title_en ~= "" then
-        fm = fm .. "title_en: " .. data.title_en .. "\n"
-    end
-    fm = fm .. "---\n\n"
-
-    local filepath = PAGES_DIR .. "/" .. slug .. ".md"
-    local f, err = io.open(filepath, "w")
-    if not f then
+    -- Save to DB via db_pages.save()
+    local ok2, err2 = db_pages.save(slug, data.title or slug, data.content or "", data.title_en or "", data.content_en or "")
+    if not ok2 then
         ngx.status = 500
-        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to write" }))
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to write: " .. (err2 or "unknown") }))
         return
     end
-    f:write(fm .. (data.content or ""))
-    f:close()
-
-    -- Store English content in DB (was pages/*.en.json)
-    local db = require("db")
-    local now = os.time()
-    db.query(
-        "REPLACE INTO page_content (slug, content_en, updated_at) VALUES (?, ?, ?)",
-        {slug, data.content_en or "", now}
-    )
 
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug } }))
 

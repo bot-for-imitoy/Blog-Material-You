@@ -132,6 +132,42 @@ else
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         -- Avatar column for comments (migration)
         ALTER TABLE comments ADD COLUMN IF NOT EXISTS avatar VARCHAR(500) NOT NULL DEFAULT '' AFTER url;
+        -- New tables for file-to-DB migration
+        CREATE TABLE IF NOT EXISTS posts (
+            slug VARCHAR(200) PRIMARY KEY,
+            title TEXT NOT NULL,
+            content LONGTEXT NOT NULL DEFAULT '',
+            `date` VARCHAR(20) NOT NULL DEFAULT '',
+            tags TEXT NOT NULL DEFAULT '[]',
+            categories TEXT NOT NULL DEFAULT '[]',
+            cover TEXT,
+            archived INT UNSIGNED NOT NULL DEFAULT 0,
+            title_en TEXT,
+            content_en LONGTEXT,
+            tags_en TEXT NOT NULL DEFAULT '[]',
+            categories_en TEXT NOT NULL DEFAULT '[]',
+            created_at INT UNSIGNED NOT NULL,
+            updated_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        CREATE TABLE IF NOT EXISTS pages (
+            slug VARCHAR(100) PRIMARY KEY,
+            title TEXT NOT NULL,
+            content LONGTEXT NOT NULL DEFAULT '',
+            title_en TEXT,
+            content_en LONGTEXT,
+            updated_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        CREATE TABLE IF NOT EXISTS friends (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(200) NOT NULL,
+            descr TEXT,
+            title_en VARCHAR(200),
+            descr_en TEXT,
+            avatar VARCHAR(500) DEFAULT '',
+            url VARCHAR(500) NOT NULL DEFAULT '#',
+            sort_order INT DEFAULT 0,
+            created_at INT UNSIGNED NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     "
     echo "Schema migration done"
 fi
@@ -148,7 +184,7 @@ package.cpath = package.cpath .. ";/usr/lib/nginx/lualib/?.so"
 local cjson = require("cjson")
 -- BMY_BLOG_DIR placeholder — replaced at runtime:
 local blog_dir = os.getenv("BMY_BLOG_DIR") or "/app/blog"
-local DB_SOCKET = blog_dir .. "/data/mysql/mysql.sock"
+local DB_SOCKET = os.getenv("BMY_DB_SOCKET") or blog_dir .. "/data/mysql/mysql.sock"
 local DATA_DIR  = blog_dir .. "/data"
 
 local function run(sql)
@@ -242,6 +278,195 @@ if pages_handle then
     end
     pages_handle:close()
     io.stderr:write("[migrate] OK pages/*.en.json (" .. count .. ")\n")
+end
+
+-- ====== FILE TO DB MIGRATION ======
+-- Import blog/posts/*.md into posts table
+local function escape_sql(val)
+    if not val then return "''" end
+    return "'" .. tostring(val):gsub("'", "''"):gsub("\\", "\\\\") .. "'"
+end
+
+local function parse_frontmatter_v2(text)
+    local meta = {}
+    for line in text:gmatch("[^\r\n]+") do
+        local key, val = line:match("^([%w_]+):%s*(.*)")
+        if key then
+            val = val:match("^%s*(.-)%s*$") -- trim
+            -- Parse inline list like [a, b]
+            if val:match("^%[.*%]$") then
+                local items = {}
+                for item in val:gsub("[%[%]]", ""):gmatch("[^,]+") do
+                    local trimmed = item:match("^%s*(.-)%s*$")
+                    table.insert(items, trimmed)
+                end
+                meta[key] = items
+            else
+                meta[key] = val
+            end
+        end
+    end
+    return meta
+end
+
+local function parse_md_file(filepath)
+    local c = readfile(filepath)
+    if not c then return nil end
+    if c:sub(1, 3) ~= "---" then return nil end
+    local _, end_pos = c:find("---", 5, true)
+    if not end_pos then return nil end
+    local frontmatter = c:sub(5, end_pos - 2)
+    local body = c:sub(end_pos + 4)
+    local meta = parse_frontmatter_v2(frontmatter)
+    return meta, body
+end
+
+-- Check if posts table already has data
+local count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM posts\" 2>/dev/null")
+local post_count = count_check and count_check:read("*a") or "0"
+if count_check then count_check:close() end
+
+if tonumber(post_count) == 0 then
+    io.stderr:write("[migrate] Importing posts from files...\n")
+    local posts_handle = io.popen('ls "' .. blog_dir .. '/posts/*.md" 2>/dev/null')
+    if posts_handle then
+        local count = 0
+        for file in posts_handle:lines() do
+            local meta, body = parse_md_file(file)
+            if meta then
+                local slug = file:match("/([^/]+)%.md$") or ""
+                local title = meta.title or slug
+                local date_val = meta.date or "1970-01-01"
+                local tags_json = cjson.encode(meta.tags or {})
+                local cats_json = cjson.encode(meta.categories or {})
+                local tags_en_json = cjson.encode(meta.tags_en or {})
+                local cats_en_json = cjson.encode(meta.categories_en or {})
+                local archived = (meta.archived == "true" or meta.archived == true) and "1" or "0"
+                local now = tostring(os.time())
+
+                local sql = "INSERT IGNORE INTO posts (slug, title, content, `date`, tags, categories, cover, archived, title_en, content_en, tags_en, categories_en, created_at, updated_at) VALUES ("
+                sql = sql .. escape_sql(slug) .. ","
+                sql = sql .. escape_sql(title) .. ","
+                sql = sql .. escape_sql(body or "") .. ","
+                sql = sql .. escape_sql(date_val) .. ","
+                sql = sql .. escape_sql(tags_json) .. ","
+                sql = sql .. escape_sql(cats_json) .. ","
+                sql = sql .. escape_sql(meta.cover or "") .. ","
+                sql = sql .. archived .. ","
+                sql = sql .. escape_sql(meta.title_en or "") .. ","
+                sql = sql .. escape_sql(meta.content_en or "") .. ","
+                sql = sql .. escape_sql(tags_en_json) .. ","
+                sql = sql .. escape_sql(cats_en_json) .. ","
+                sql = sql .. now .. "," .. now .. ");\n"
+                run(sql)
+                count = count + 1
+            end
+        end
+        posts_handle:close()
+        io.stderr:write("[migrate] Imported " .. count .. " posts\n")
+    end
+end
+
+-- Check if pages table already has data
+count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM pages\" 2>/dev/null")
+local page_count = count_check and count_check:read("*a") or "0"
+if count_check then count_check:close() end
+
+if tonumber(page_count) == 0 then
+    io.stderr:write("[migrate] Importing pages from files...\n")
+    local pages_handle2 = io.popen('ls "' .. blog_dir .. '/pages/*.md" 2>/dev/null')
+    if pages_handle2 then
+        local count = 0
+        for file in pages_handle2:lines() do
+            local meta, body = parse_md_file(file)
+            if meta then
+                local slug = file:match("/([^/]+)%.md$") or ""
+                -- Try to load English content
+                local en_file = blog_dir .. "/pages/" .. slug .. ".en.json"
+                local en_content = ""
+                local en_title = meta.title_en or ""
+                local en_data = readfile(en_file)
+                if en_data then
+                    local ok_en, parsed_en = pcall(cjson.decode, en_data)
+                    if ok_en and parsed_en then
+                        en_content = parsed_en.content_en or ""
+                        if parsed_en.title_en then en_title = parsed_en.title_en end
+                    end
+                end
+                local now = tostring(os.time())
+                local sql = "INSERT IGNORE INTO pages (slug, title, content, title_en, content_en, updated_at) VALUES ("
+                sql = sql .. escape_sql(slug) .. ","
+                sql = sql .. escape_sql(meta.title or slug) .. ","
+                sql = sql .. escape_sql(body or "") .. ","
+                sql = sql .. escape_sql(en_title) .. ","
+                sql = sql .. escape_sql(en_content) .. ","
+                sql = sql .. now .. ");\n"
+                run(sql)
+                count = count + 1
+            end
+        end
+        pages_handle2:close()
+        io.stderr:write("[migrate] Imported " .. count .. " pages\n")
+    end
+end
+
+-- Check if friends table already has data
+count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM friends\" 2>/dev/null")
+local friend_count = count_check and count_check:read("*a") or "0"
+if count_check then count_check:close() end
+
+if tonumber(friend_count) == 0 then
+    io.stderr:write("[migrate] Importing friends from files...\n")
+    local friends_handle = io.popen('ls "' .. blog_dir .. '/friends/*.md" 2>/dev/null')
+    if friends_handle then
+        local count = 0
+        for file in friends_handle:lines() do
+            local meta, _ = parse_md_file(file)
+            if meta then
+                local now = tostring(os.time())
+                local sql = "INSERT IGNORE INTO friends (title, descr, title_en, descr_en, avatar, url, sort_order, created_at) VALUES ("
+                sql = sql .. escape_sql(meta.title or "Untitled") .. ","
+                sql = sql .. escape_sql(meta.descr or "") .. ","
+                sql = sql .. escape_sql(meta.title_en or "") .. ","
+                sql = sql .. escape_sql(meta.descr_en or "") .. ","
+                sql = sql .. escape_sql(meta.avatar or "") .. ","
+                sql = sql .. escape_sql(meta.url or "#") .. ","
+                sql = sql .. (meta.sort_order or "0") .. ","
+                sql = sql .. now .. ");\n"
+                run(sql)
+                count = count + 1
+            end
+        end
+        friends_handle:close()
+        io.stderr:write("[migrate] Imported " .. count .. " friends\n")
+    end
+end
+
+-- Check if talks table already has data
+count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM talks\" 2>/dev/null")
+local talk_count = count_check and count_check:read("*a") or "0"
+if count_check then count_check:close() end
+
+if tonumber(talk_count) == 0 then
+    io.stderr:write("[migrate] Importing talks from files...\n")
+    local talks_handle = io.popen('ls "' .. blog_dir .. '/talks/*.md" 2>/dev/null')
+    if talks_handle then
+        local count = 0
+        for file in talks_handle:lines() do
+            local meta, _ = parse_md_file(file)
+            if meta and meta.content then
+                local now = os.time()
+                local create_time = tonumber(meta.id) or now
+                local sql = "INSERT INTO talks (content, create_time) VALUES ("
+                sql = sql .. escape_sql(meta.content) .. ","
+                sql = sql .. create_time .. ");\n"
+                run(sql)
+                count = count + 1
+            end
+        end
+        talks_handle:close()
+        io.stderr:write("[migrate] Imported " .. count .. " talks\n")
+    end
 end
 
 -- Mark done
