@@ -16,6 +16,9 @@ services:
       # Mount posts/pages for easy editing from host
       - ./blog/posts:/app/blog/posts
       - ./blog/pages:/app/blog/pages
+      - ./blog/friends:/app/blog/friends
+      - ./blog/talks:/app/blog/talks
+      - ./blog/locales.yml:/app/blog/locales.yml
     restart: unless-stopped
 
 volumes:
