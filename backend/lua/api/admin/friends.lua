@@ -22,11 +22,10 @@ if method == "GET" then
     return
 end
 
-ngx.req.read_body()
-local body = ngx.req.get_body_data()
+local body, err = utils.read_request_body()
 if not body then
     ngx.status = 400
-    ngx.say(cjson.encode({ errno = -1, errmsg = "Empty body" }))
+    ngx.say(cjson.encode({ errno = -1, errmsg = err or "Empty body" }))
     return
 end
 local ok, data = pcall(cjson.decode, body)

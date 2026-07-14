@@ -2,6 +2,7 @@
   serve.lua — Serve the SPA with server-side SEO metadata injection.
   Injects <title>, <meta description>, and OG tags for every page type.
   The SPA JS still handles all client-side navigation.
+  All data loaded from MariaDB.
 ]]
 local cjson = require("cjson")
 local posts = require("posts")
@@ -59,19 +60,14 @@ if post_slug then
     end
 end
 
--- About / Talks
+-- About / Talks (load from DB via posts.load_page)
 local page_slug = uri:match("^/(about|talks)")
 if page_slug then
-    local pages_dir = require("utils").blog_dir() .. "/pages"
-    local f = io.open(pages_dir .. "/" .. page_slug .. ".json", "r")
-    if f then
-        local ok, data = pcall(cjson.decode, f:read("*a"))
-        f:close()
-        if ok and data then
-            local t = data.title_en and data.title_en ~= "" and data.title_en or data.title or site_title
-            seo_title = h(t) .. " - " .. site_title
-            seo_desc = h(strip_md(data.content or data.content_en or ""))
-        end
+    local page = posts.load_page(page_slug)
+    if page then
+        local t = page.title_en and page.title_en ~= "" and page.title_en or page.title or site_title
+        seo_title = h(t) .. " - " .. site_title
+        seo_desc = h(strip_md(page.content_en or page.content or ""))
     end
 end
 

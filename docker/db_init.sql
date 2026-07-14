@@ -37,7 +37,50 @@ CREATE USER 'blogyou'@'localhost' IDENTIFIED BY 'blog-db-pass-2025';
 GRANT SELECT, INSERT, UPDATE, DELETE ON blogyou.* TO 'blogyou'@'localhost';
 FLUSH PRIVILEGES;
 
--- ===== Tables migrated from JSON file storage =====
+-- ===== Tables migrated from file storage =====
+
+-- Posts (was blog/posts/*.md)
+CREATE TABLE IF NOT EXISTS posts (
+    slug          VARCHAR(200) PRIMARY KEY,
+    title         TEXT NOT NULL,
+    content       LONGTEXT NOT NULL DEFAULT '',
+    `date`        VARCHAR(20) NOT NULL DEFAULT '',
+    tags          TEXT NOT NULL DEFAULT '[]',
+    categories    TEXT NOT NULL DEFAULT '[]',
+    cover         TEXT,
+    archived      INT UNSIGNED NOT NULL DEFAULT 0,
+    title_en      TEXT,
+    content_en    LONGTEXT,
+    tags_en       TEXT NOT NULL DEFAULT '[]',
+    categories_en TEXT NOT NULL DEFAULT '[]',
+    created_at    INT UNSIGNED NOT NULL,
+    updated_at    INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Pages (was blog/pages/*.md + *.en.json)
+CREATE TABLE IF NOT EXISTS pages (
+    slug        VARCHAR(100) PRIMARY KEY,
+    title       TEXT NOT NULL,
+    content     LONGTEXT NOT NULL DEFAULT '',
+    title_en    TEXT,
+    content_en  LONGTEXT,
+    updated_at  INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Friends (was blog/friends/*.md)
+CREATE TABLE IF NOT EXISTS friends (
+    id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    title       VARCHAR(200) NOT NULL,
+    descr       TEXT,
+    title_en    VARCHAR(200),
+    descr_en    TEXT,
+    avatar      VARCHAR(500) DEFAULT '',
+    url         VARCHAR(500) NOT NULL DEFAULT '#',
+    sort_order  INT DEFAULT 0,
+    created_at  INT UNSIGNED NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ===== Old tables (migrated from JSON files) =====
 
 -- Key-value config store (replaces admin.json, totp.json, imghost.json)
 CREATE TABLE IF NOT EXISTS config (

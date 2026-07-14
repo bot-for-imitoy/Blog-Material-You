@@ -1,5 +1,6 @@
 --[[
   init.lua — Initialize blog data in shared dicts at worker startup.
+  All data loaded from MariaDB instead of files.
   Separates active and archived posts.
 ]]
 
@@ -21,7 +22,7 @@ ngx.log(ngx.NOTICE, "Blog Material You: Initializing...")
 local cfg = config.get()
 ngx.shared.blog_config:set("data", cjson.encode(cfg))
 
--- Load all posts
+-- Load all posts from DB
 local all_posts = posts.load_all()
 local active_posts = {}
 local archived_posts = {}
@@ -67,7 +68,7 @@ for _, p in ipairs(all_posts) do
     pd:set("post:" .. p.slug, cjson.encode(p))
 end
 
--- Load pages
+-- Load pages from DB
 local pages_dict = ngx.shared.blog_pages
 for _, slug in ipairs({"about", "talks"}) do
     local page = posts.load_page(slug)
@@ -76,20 +77,18 @@ for _, slug in ipairs({"about", "talks"}) do
     end
 end
 
--- Load talks into shared dict
-local talks = require("talks")
-local talks_list = talks.list()
--- cjson encodes empty list as [] if it's marked, but an empty table in shared dict
--- was already encoded. Store it as serialized JSON directly.
+-- Load talks from DB
+local db_talks = require("db_talks")
+local talks_list = db_talks.list()
 if #talks_list == 0 then
     pages_dict:set("talks", "[]")
 else
     pages_dict:set("talks", cjson.encode(talks_list))
 end
 
--- Load friends into shared dict
-local friends = require("friends")
-local friends_list = friends.list()
+-- Load friends from DB
+local db_friends = require("db_friends")
+local friends_list = db_friends.list()
 pages_dict:set("friends", cjson.encode(friends_list))
 
 cache:set("initialized", 1, 0)
