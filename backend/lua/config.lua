@@ -81,7 +81,7 @@ _M.data = {
     comment_title = "Comments",
 
     -- Aliases for template backward compat
-    commentContent = "Comment submitted successfully",
+    commentContent = "Comment",
     commentFail = "Failed to submit comment",
     commentSuccess = "Comment submitted successfully",
     commentTitle = "Comments",
