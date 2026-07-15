@@ -482,6 +482,10 @@ echo "Migration check done"
 
 # ===== Start OpenResty =====
 echo "Starting OpenResty..."
+
+# Fix template file permissions for nginx worker
+chmod -R o+r "$BMY_BLOG_DIR"/public/templates/ 2>/dev/null || true
+
 cd /app/backend
 mkdir -p logs tmp/body tmp/proxy tmp/fastcgi tmp/uwsgi tmp/scgi
 
