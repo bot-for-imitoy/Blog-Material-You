@@ -62,26 +62,29 @@ local action = data.action or ""
 
 if action == "start" then
     -- Generate a new TOTP secret using CSPRNG (/dev/urandom)
+    local raw = ""
     local f = io.open("/dev/urandom", "rb")
-    local raw_bytes = f and f:read(20) or ngx.encode_base64(
-        ngx.hmac_sha1(tostring(os.time()) .. tostring(math.random()), "totp-gen")
-    )
-    if f then f:close() end
-    local raw = type(raw_bytes) == "string" and raw_bytes or ""
-    if #raw < 20 then raw = raw .. ngx.encode_base64(
-        ngx.hmac_sha1(tostring(os.time()) .. tostring(math.random()), "totp-gen")
-    ) end
-    -- Filter to valid base32 chars only
+    if f then
+        raw = f:read(20)
+        f:close()
+    end
+    if not raw or #raw < 20 then
+        -- Fallback: use HMAC-based pseudo-random stream
+        raw = ""
+        for i = 1, 20 do
+            local h = ngx.hmac_sha1(tostring(os.time()) .. tostring(math.random()) .. tostring(i), "totp-gen")
+            raw = raw .. h:sub(1, 1)
+        end
+    end
+    -- Map each random byte (0-255) to a base32 character via modulo 32
+    -- This guarantees every byte produces a valid base32 character
     local b32chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
     local new_secret = ""
     for i = 1, #raw do
-        local c = raw:sub(i, i):upper()
-        if b32chars:find(c, 1, true) then
-            new_secret = new_secret .. c
-        end
-        if #new_secret >= 20 then break end
+        local byte_val = raw:byte(i)
+        local idx = (byte_val % 32) + 1  -- 1-based index into b32chars
+        new_secret = new_secret .. b32chars:sub(idx, idx)
     end
-    while #new_secret < 16 do new_secret = new_secret .. "A" end
 
     totp_store.start_enable(new_secret)
     local uri = totp.provisioning_uri(new_secret, cfg.admin_user)

@@ -1,57 +1,56 @@
-<%
-  local zh = _LANG == "zh"
-%>
-<div class="page-header"><h1>🔐 <%= zh and "安全设置" or "Security" %></h1></div>
+<div class="page-header"><h1>🔐 <%= _h._("admin_security") %></h1></div>
 <% if totp.enabled then %>
 <mdui-card variant="elevated" style="padding:24px">
-  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= zh and "两步验证 (TOTP / 2FA)" or "Two-Factor Auth" %></h2>
-  <p style="margin-bottom:16px"><%= zh and "状态：" or "Status: " %><span style="color:rgb(var(--mdui-color-tertiary))">🟢 <%= zh and "已启用" or "Enabled" %></span></p>
+  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= _h._("totp_title") %></h2>
+  <p style="margin-bottom:16px"><%= _h._("admin_totp_status") %><span style="color:rgb(var(--mdui-color-tertiary))">🟢 <%= _h._("admin_totp_enabled") %></span></p>
   <div style="text-align:center;margin-bottom:16px">
     <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=<%= _h.url_encode(totp.provisioning_uri) %>" alt="TOTP QR Code" style="width:200px;height:200px;border-radius:8px">
   </div>
   <div class="form-group">
-    <label><%= zh and "密钥" or "Secret" %></label>
+    <label><%= _h._("admin_totp_secret_label") %></label>
     <input id="totp-secret" value="<%= _h.h(totp.secret) %>" readonly>
-    <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('<%= zh and "已复制" or "Copied" %>'))" style="margin-top:8px">📋 <%= zh and "复制密钥" or "Copy Secret" %></mdui-button>
+    <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('<%= _h._("totp_copied") %>'))" style="margin-top:8px">📋 <%= _h._("totp_copy_secret") %></mdui-button>
   </div>
-  <p style="font-size:13px;color:rgb(var(--mdui-color-error));margin-top:16px">⚠️ <%= zh and "如果更换设备，请先保存密钥再禁用，否则将无法登录！" or "Save your secret before disabling, or you'll be locked out!" %></p>
-  <mdui-button data-action="totp-disable" variant="text" style="color:rgb(var(--mdui-color-error))">🔴 <%= zh and "禁用两步验证" or "Disable 2FA" %></mdui-button>
+  <p style="font-size:13px;color:rgb(var(--mdui-color-error));margin-top:16px">⚠️ <%= _h._("admin_totp_save_warning") %></p>
+  <mdui-button data-action="totp-disable" variant="text" style="color:rgb(var(--mdui-color-error))">🔴 <%= _h._("admin_totp_disable") %></mdui-button>
+  <mdui-button data-action="totp-regenerate" variant="text" style="margin-left:8px">🔄 <%= _h._("admin_totp_regenerate") %></mdui-button>
 </mdui-card>
 <% elseif totp.has_pending then %>
 <mdui-card variant="elevated" style="padding:24px">
-  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= zh and "验证绑定" or "Verify Binding" %></h2>
-  <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= zh and "请使用 Google Authenticator、Authy、1Password 等应用扫描下方二维码，然后输入应用生成的6位验证码以完成绑定。" or "Scan the QR code with Google Authenticator, Authy, 1Password, etc., then enter the 6-digit code." %></p>
+  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= _h._("admin_totp_verify") %></h2>
+  <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= _h._("admin_totp_verify_help") %></p>
   <div style="text-align:center;margin-bottom:16px">
     <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=<%= _h.url_encode(totp.provisioning_uri) %>" alt="TOTP QR Code" style="width:200px;height:200px;border-radius:8px">
   </div>
   <div class="form-group">
-    <label><%= zh and "或手动输入密钥" or "Manual Secret" %></label>
+    <label><%= _h._("totp_manual_secret") %></label>
     <input id="totp-secret" value="<%= _h.h(totp.secret) %>" readonly>
-    <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('<%= zh and "已复制" or "Copied" %>'))" style="margin-top:8px">📋 <%= zh and "复制密钥" or "Copy" %></mdui-button>
+    <mdui-button variant="text" onclick="navigator.clipboard.writeText(document.getElementById('totp-secret').value).then(()=>toast('<%= _h._("totp_copied") %>'))" style="margin-top:8px">📋 <%= _h._("totp_copy_secret") %></mdui-button>
   </div>
   <div class="form-group">
-    <label><%= zh and "验证码" or "Code" %></label>
-    <input id="totp-verify-code" placeholder="<%= zh and "输入6位验证码" or "Enter 6-digit code" %>" maxlength="6" style="font-size:18px;letter-spacing:4px;text-align:center;width:200px">
+    <label><%= _h._("admin_totp_code_label") %></label>
+    <input id="totp-verify-code" placeholder="<%= _h._("admin_totp_code_placeholder") %>" maxlength="6" style="font-size:18px;letter-spacing:4px;text-align:center;width:200px">
   </div>
   <div style="display:flex;gap:8px;margin-top:16px">
-    <mdui-button data-action="totp-verify" variant="filled"><%= zh and "验证并启用" or "Verify & Enable" %></mdui-button>
-    <mdui-button data-action="totp-cancel" variant="text"><%= zh and "取消" or "Cancel" %></mdui-button>
+    <mdui-button data-action="totp-verify" variant="filled"><%= _h._("admin_totp_verify") %></mdui-button>
+    <mdui-button data-action="totp-regenerate" variant="text">🔄 <%= _h._("admin_totp_regenerate") %></mdui-button>
+    <mdui-button data-action="totp-cancel" variant="text"><%= _h._("cancel") %></mdui-button>
   </div>
 </mdui-card>
 <% else %>
 <mdui-card variant="elevated" style="padding:24px">
-  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= zh and "两步验证 (TOTP / 2FA)" or "Two-Factor Auth" %></h2>
-  <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= zh and "状态：" or "Status: " %><span style="color:rgb(var(--mdui-color-outline))">🔴 <%= zh and "未启用" or "Disabled" %></span></p>
-  <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= zh and "启用两步验证后，登录时需要同时输入密码和身份验证器应用中的6位动态验证码。" or "When enabled, login requires password + 6-digit code from authenticator app." %></p>
-  <mdui-button data-action="totp-start" variant="filled"><%= zh and "启用两步验证" or "Enable 2FA" %></mdui-button>
+  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= _h._("totp_title") %></h2>
+  <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= _h._("admin_totp_status") %><span style="color:rgb(var(--mdui-color-outline))">🔴 <%= _h._("admin_totp_disabled") %></span></p>
+  <p style="margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= _h._("admin_totp_disabled_help") %></p>
+  <mdui-button data-action="totp-start" variant="filled"><%= _h._("admin_totp_enable") %></mdui-button>
 </mdui-card>
 <% end %>
 <mdui-card variant="elevated" style="padding:24px;margin-top:16px">
-  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= zh and "更改密码" or "Change Password" %></h2>
-  <div class="form-group"><label><%= zh and "当前密码" or "Current Password" %></label><input id="cp-old" type="password"></div>
-  <div class="form-group"><label><%= zh and "新用户名（可选）" or "New Username (optional)" %></label><input id="cp-user" value="<%= _h.h(totp.user or "") %>"></div>
-  <div class="form-group"><label><%= zh and "新密码" or "New Password" %></label><input id="cp-new" type="password"></div>
-  <div class="form-group"><label><%= zh and "确认新密码" or "Confirm Password" %></label><input id="cp-new2" type="password"></div>
+  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= _h._("admin_change_password") %></h2>
+  <div class="form-group"><label><%= _h._("admin_current_password") %></label><input id="cp-old" type="password"></div>
+  <div class="form-group"><label><%= _h._("admin_new_username") %></label><input id="cp-user" value="<%= _h.h(totp.user or "") %>"></div>
+  <div class="form-group"><label><%= _h._("admin_new_password") %></label><input id="cp-new" type="password"></div>
+  <div class="form-group"><label><%= _h._("admin_confirm_password") %></label><input id="cp-new2" type="password"></div>
   <p id="cp-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin-bottom:8px"></p>
-  <mdui-button data-action="change-password" variant="filled"><%= zh and "保存更改" or "Save Changes" %></mdui-button>
+  <mdui-button data-action="change-password" variant="filled"><%= _h._("admin_save_changes") %></mdui-button>
 </mdui-card>
