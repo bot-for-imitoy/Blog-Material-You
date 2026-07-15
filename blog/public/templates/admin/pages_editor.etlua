@@ -2,7 +2,7 @@
 <mdui-card variant="elevated" style="padding:24px">
   <div class="form-group"><label>Slug</label><input id="ed-slug" value="<%= _h.h(slug) %>" disabled></div>
   <div class="form-group"><label><%= _h._("editor_title") %></label><input id="ed-title" value="<%= _h.h((page or {}).title or "") %>"></div>
-  <div class="form-group"><label><%= Content (Markdown) %></label><textarea id="ed-content"><%= _h.h((page or {}).content or "") %></textarea></div>
+  <div class="form-group"><label><%= "Content (Markdown)" %></label><textarea id="ed-content"><%= _h.h((page or {}).content or "") %></textarea></div>
   <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
   <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
   <div class="form-group"><label>English Title</label><input id="ed-title-en" value="<%= _h.h((page or {}).title_en or "") %>" placeholder="English Title"></div>
