@@ -143,7 +143,7 @@ elseif route:match("^/categories/(.+)$") then
 
 -- Archives
 elseif route == "/archives" or route == "/archives/" then
-    local all_posts = db_posts.load_all()
+    local all_posts = db_posts.load_archived()
     local archives_data = db_posts.group_by_year(all_posts)
     render_or_404("pages/archives", { archives = archives_data or {} })
 
