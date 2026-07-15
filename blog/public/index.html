@@ -141,7 +141,7 @@
       if (!list || !blogConfig || !blogConfig.menu) return;
       var html = '';
       blogConfig.menu.forEach(function(item) {
-        var label = _(item.text_key) || item.text_key;
+        var label = item.text;
         html += '<mdui-list-item rounded href="' + item.route + '" data-route="' + item.route + '">'
                 + label +
                 '<mdui-icon src="' + item.icon + '" slot="icon"></mdui-icon>'
