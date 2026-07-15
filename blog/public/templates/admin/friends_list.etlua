@@ -1,5 +1,5 @@
-<div class="page-header"><h1>🔗 <%= _LANG == "zh" and "友链" or "Friends" %></h1></div>
-<mdui-button data-action="new-friend" variant="filled" style="margin-bottom:16px">+ <%= _LANG == "zh" and "添加友链" or "Add Friend" %></mdui-button>
+<div class="page-header"><h1>🔗 <%= _h._("admin_friends") %></h1></div>
+<mdui-button data-action="new-friend" variant="filled" style="margin-bottom:16px">+ <%= _h._("admin_new_friend") %></mdui-button>
 <mdui-card variant="elevated" style="padding:16px">
   <% if list and #list > 0 then %>
     <% for _, f in ipairs(list) do %>
@@ -10,12 +10,12 @@
         <% if f.descr then %><p style="color:gray;font-size:13px"><%= _h.h(f.descr) %></p><% end %>
       </div>
       <div class="post-actions">
-        <mdui-button data-action="edit-friend" data-args='<%= _h.h(cjson.encode(f)) %>' variant="outlined"><%= _LANG == "zh" and "编辑" or "Edit" %></mdui-button>
-        <mdui-button data-action="delete-friend" data-args="<%= f.id %>" variant="outlined" style="color:red"><%= _LANG == "zh" and "删除" or "Delete" %></mdui-button>
+        <mdui-button data-action="edit-friend" data-args='<%- (_h.cjson.encode(f)):gsub("'", "&#39;") %>' variant="outlined"><%= _h._("edit") %></mdui-button>
+        <mdui-button data-action="delete-friend" data-args="<%= f.id %>" variant="outlined" style="color:red"><%= _h._("delete") %></mdui-button>
       </div>
     </div>
     <% end %>
   <% else %>
-    <p style="color:gray"><%= _LANG == "zh" and "暂无友链" or "No friends yet" %></p>
+    <p style="color:gray"><%= _h._("admin_no_friends") %></p>
   <% end %>
 </mdui-card>

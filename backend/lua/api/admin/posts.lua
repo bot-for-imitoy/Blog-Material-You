@@ -1,6 +1,7 @@
 -- /api/admin/posts — list all posts (with full content), create, update, delete
 local cjson = require("cjson")
 local posts = require("posts")
+local db_posts = require("db_posts")
 local admin_auth = require("admin_auth")
 local security = require("security")
 local utils = require("utils")
@@ -77,6 +78,25 @@ elseif ngx.req.get_method() == "POST" then
     f:write(fm .. (data.content or ""))
     f:close()
 
+    -- Also save to DB
+    local db_data = {
+        slug = slug,
+        title = data.title,
+        date = data.date,
+        tags = data.tags or {},
+        categories = data.categories or {},
+        cover = data.cover or "",
+        title_en = data.title_en or "",
+        content_en = data.content_en or "",
+        tags_en = data.tags_en or {},
+        categories_en = data.categories_en or {},
+        content = data.content or "",
+    }
+    local ok, e = pcall(db_posts.create, db_data)
+    if not ok then
+        ngx.log(ngx.ERR, "admin/posts: failed to save post to DB: ", e)
+    end
+
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug, title = data.title } }))
 
 elseif ngx.req.get_method() == "PUT" then
@@ -135,6 +155,25 @@ elseif ngx.req.get_method() == "PUT" then
     f:write(fm .. (data.content or ""))
     f:close()
 
+    -- Also update DB
+    local db_data = {
+        slug = slug,
+        title = data.title,
+        date = data.date,
+        tags = data.tags or {},
+        categories = data.categories or {},
+        cover = data.cover or "",
+        title_en = data.title_en or "",
+        content_en = data.content_en or "",
+        tags_en = data.tags_en or {},
+        categories_en = data.categories_en or {},
+        content = data.content or "",
+    }
+    local ok, e = pcall(db_posts.update, db_data)
+    if not ok then
+        ngx.log(ngx.ERR, "admin/posts: failed to update post in DB: ", e)
+    end
+
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug } }))
 
 elseif ngx.req.get_method() == "DELETE" then
@@ -153,6 +192,12 @@ elseif ngx.req.get_method() == "DELETE" then
         ngx.status = 500
         ngx.say(cjson.encode({ errno = -1, errmsg = "Failed to delete" }))
         return
+    end
+
+    -- Also delete from DB
+    local ok2, e = pcall(db_posts.delete, slug)
+    if not ok2 then
+        ngx.log(ngx.ERR, "admin/posts: failed to delete post from DB: ", e)
     end
 
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug } }))

@@ -129,4 +129,23 @@ function _M.count(url_path)
     return res[1].cnt
 end
 
+-- List all comments, newest first
+function _M.list_all()
+    local db, err = connect()
+    if not db then
+        ngx.log(ngx.ERR, "comments.list_all connect: ", err)
+        return {}
+    end
+
+    local res, err = db:query("SELECT id, nick, mail, comment, link, url, create_time FROM comments ORDER BY create_time DESC")
+    close(db)
+
+    if not res then
+        ngx.log(ngx.ERR, "comments.list_all query: ", err)
+        return {}
+    end
+
+    return res
+end
+
 return _M

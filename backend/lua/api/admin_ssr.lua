@@ -11,7 +11,6 @@ ngx.header["X-SSR"] = "1"
 
 -- Set language
 local accept_lang = ngx.var.http_accept_language or "en"
-ngx.ctx._LANG = accept_lang:find("zh") and "zh" or "en"
 
 cache.ensure_data_loaded()
 
@@ -84,11 +83,27 @@ elseif route == "/dashboard" or route == "/dashboard/" then
 -- Posts list
 elseif route == "/posts" or route == "/posts/" then
     local posts_dict = ngx.shared.blog_posts
-    local raw = posts_dict:get("active_summaries")
+    -- Load both active and archived posts so archived posts don't disappear
     local posts = {}
-    if raw then
-        local ok, data = pcall(cjson.decode, raw)
-        if ok then posts = data end
+    local raw_active = posts_dict:get("active_summaries")
+    if raw_active then
+        local ok, data = pcall(cjson.decode, raw_active)
+        if ok then
+            for _, p in ipairs(data) do
+                p.archived = false
+                table.insert(posts, p)
+            end
+        end
+    end
+    local raw_archived = posts_dict:get("archived_summaries")
+    if raw_archived then
+        local ok, data = pcall(cjson.decode, raw_archived)
+        if ok then
+            for _, p in ipairs(data) do
+                p.archived = true
+                table.insert(posts, p)
+            end
+        end
     end
     render_or_404("admin/posts_list", { posts = posts })
 
@@ -107,12 +122,12 @@ elseif route:match("^/editor") then
 
 -- Comments list
 elseif route == "/comments" or route == "/comments/" then
-    local ok, comments_data = pcall(require("comments").get_all_comments)
+    local ok, comments_data = pcall(require("comments").list_all)
     render_or_404("admin/comments_list", { comments = comments_data or {} })
 
 -- Talks list
 elseif route == "/talks" or route == "/talks/" then
-    local ok, talks_data = pcall(require("talks").get_all_talks)
+    local ok, talks_data = pcall(require("talks").list)
     render_or_404("admin/talks_list", { talks = talks_data or {} })
 
 -- Talk editor
@@ -121,7 +136,7 @@ elseif route == "/talks/new" or route == "/talk-editor" then
 
 -- Friends list
 elseif route == "/friends" or route == "/friends/" then
-    local ok, friends_data = pcall(require("friends").get_all_friends)
+    local ok, friends_data = pcall(require("friends").list)
     render_or_404("admin/friends_list", { list = friends_data or {} })
 
 -- Friend editor
@@ -136,7 +151,7 @@ elseif route:match("^/friends/editor") then
 
 -- Pages list
 elseif route == "/pages" or route == "/pages/" then
-    local ok, pages_data = pcall(require("db_pages").get_all_pages)
+    local ok, pages_data = pcall(require("db_pages").list)
     render_or_404("admin/pages_list", { pages = pages_data or {} })
 
 -- Page editor
@@ -144,7 +159,7 @@ elseif route:match("^/pages/editor") then
     local slug = ngx.var.arg_slug
     local page = nil
     if slug then
-        local ok, loaded = pcall(require("db_pages").get_page, slug)
+        local ok, loaded = pcall(require("db_pages").get, slug)
         if ok then page = loaded end
     end
     render_or_404("admin/pages_editor", { slug = slug or "about", page = page })
@@ -152,20 +167,22 @@ elseif route:match("^/pages/editor") then
 -- Security
 elseif route == "/security" or route == "/security/" then
     local totp_store = require("totp_store")
+    local totp_module = require("totp")
+    local totp_state = totp_store.read()
     local totp = {
-        enabled = totp_store.is_enabled(),
-        has_pending = false,
+        enabled = totp_state.enabled == true,
+        has_pending = totp_state.pending_secret ~= nil and totp_state.pending_secret ~= cjson.null,
         secret = "",
         provisioning_uri = "",
         user = "",
     }
-    -- If TOTP is enabled, load current state
-    if totp.enabled then
-        local ok, d = pcall(totp_store.get_state)
-        if ok and d then
-            totp.secret = d.secret or ""
-            totp.provisioning_uri = d.provisioning_uri or ""
-        end
+    -- Load the relevant secret based on state
+    if totp.has_pending then
+        totp.secret = totp_state.pending_secret or ""
+        totp.provisioning_uri = totp_module.provisioning_uri(totp.secret, totp.user)
+    elseif totp.enabled then
+        totp.secret = totp_state.secret or ""
+        totp.provisioning_uri = totp_module.provisioning_uri(totp.secret, totp.user)
     end
     local admin_store = require("admin_store")
     local admin_data = admin_store.read()

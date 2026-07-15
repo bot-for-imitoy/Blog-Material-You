@@ -11,13 +11,13 @@ local _M = {}
 -- Parse a DB row into a post object (matches the old file-based format)
 local function row_to_post(row)
     local function parse_json_list(val)
-        if not val or val == "" then return cjson.empty_array end
+        if not val or val == "" then return {} end
         local ok, parsed = pcall(cjson.decode, val)
         if ok and type(parsed) == "table" then
-            if #parsed == 0 then return cjson.empty_array end
+            if #parsed == 0 then return {} end
             return parsed
         end
-        return cjson.empty_array
+        return {}
     end
 
     local post = {
@@ -26,7 +26,7 @@ local function row_to_post(row)
         date = row.date or "1970-01-01",
         tags = parse_json_list(row.tags),
         categories = parse_json_list(row.categories),
-        cover = row.cover or cjson.null,
+        cover = row.cover or "",
         archived = (row.archived and row.archived > 0) and true or false,
         content = row.content or "",
         title_en = row.title_en or "",
@@ -35,15 +35,23 @@ local function row_to_post(row)
         content_en = row.content_en or "",
     }
 
-    -- Parse date fields
-    local y, m, d = row.date:match("^(%d+)%-(%d+)%-(%d+)$")
-    if y then
-        post.year = tonumber(y)
-        post.month = tonumber(m)
-        post.day = tonumber(d)
-        post.date_formatted = row.date
+    -- Parse date fields — handle various formats like "2026-03-12", "'2026-03-12T21:18:07", or ""
+    local date_str = row.date or ""
+    -- Strip leading non-digit characters (e.g., stray single quote)
+    local cleaned = date_str:match("(%d.*)")
+    if cleaned then
+        -- Extract YYYY-MM-DD from possibly longer strings like "2026-03-12T21:18:07"
+        local y, m, d = cleaned:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)")
+        if y then
+            post.year = tonumber(y)
+            post.month = tonumber(m)
+            post.day = tonumber(d)
+            post.date_formatted = y .. "-" .. m .. "-" .. d
+        else
+            post.date_formatted = cleaned
+        end
     else
-        post.date_formatted = row.date
+        post.date_formatted = ""
     end
 
     return post

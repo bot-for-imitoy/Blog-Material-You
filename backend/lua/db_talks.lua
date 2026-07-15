@@ -24,7 +24,7 @@ function _M.list()
     for _, row in ipairs(res) do
         table.insert(talks, row_to_talk(row))
     end
-    if #talks == 0 then return cjson.empty_array end
+    if #talks == 0 then return {} end
     return talks
 end
 

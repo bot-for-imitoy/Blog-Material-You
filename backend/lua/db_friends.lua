@@ -28,7 +28,7 @@ function _M.list()
     for _, row in ipairs(res) do
         table.insert(friends, row_to_friend(row))
     end
-    if #friends == 0 then return cjson.empty_array end
+    if #friends == 0 then return {} end
     return friends
 end
 
