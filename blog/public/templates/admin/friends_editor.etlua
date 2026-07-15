@@ -2,17 +2,17 @@
   local f = friend or {}
   local isNew = friend == nil
 %>
-<div class="page-header"><h1><%= isNew and (Add Friend) or (Edit Friend) %></h1></div>
+<div class="page-header"><h1><%= isNew and "Add Friend" or "Edit Friend" %></h1></div>
 <mdui-card variant="elevated" style="padding:32px;max-width:600px;margin:0 auto">
-  <div class="form-group"><label><%= Title * %></label><input id="f-title" class="form-input" value="<%= _h.h(f.title or "") %>"></div>
-  <div class="form-group"><label><%= URL * %></label><input id="f-url" class="form-input" value="<%= _h.h(f.url or "") %>" placeholder="https://"></div>
+  <div class="form-group"><label><%= "Title *" %></label><input id="f-title" class="form-input" value="<%= _h.h(f.title or "") %>"></div>
+  <div class="form-group"><label><%= "URL *" %></label><input id="f-url" class="form-input" value="<%= _h.h(f.url or "") %>" placeholder="https://"></div>
   <div class="form-group"><label><%= _h._("friend_descr") %></label><input id="f-descr" class="form-input" value="<%= _h.h(f.descr or "") %>"></div>
   <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
   <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
   <div class="form-group"><label>English Title</label><input id="f-title-en" class="form-input" value="<%= _h.h(f.title_en or "") %>"></div>
   <div class="form-group"><label>English Description</label><input id="f-descr-en" class="form-input" value="<%= _h.h(f.descr_en or "") %>"></div>
   <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
-  <div class="form-group"><label><%= "Avatar URL" %></label><input id="f-avatar" class="form-input" value="<%= _h.h(f.avatar or "") %>" placeholder="<%= optional %>"></div>
+  <div class="form-group"><label><%= "Avatar URL" %></label><input id="f-avatar" class="form-input" value="<%= _h.h(f.avatar or "") %>" placeholder="<%= "optional" %>"></div>
   <div class="form-group"><label><%= _h._("friend_sort") %></label><input id="f-sort" class="form-input" type="number" value="<%= f.sort_order or 0 %>"></div>
   <div style="display:flex;gap:8px;margin-top:16px">
     <mdui-button data-action="save-friend" variant="filled"><%= _h._("save") %></mdui-button>

@@ -4,14 +4,14 @@
   local tagsEnStr = post.tags_en and table.concat(post.tags_en, ", ") or ""
   local catsEnStr = post.categories_en and table.concat(post.categories_en, ", ") or ""
 %>
-<div class="page-header"><h1><%= post.slug and (Edit Post) or (New Post) %></h1></div>
+<div class="page-header"><h1><%= post.slug and "Edit Post" or "New Post" %></h1></div>
 <mdui-card variant="elevated" style="padding:32px;margin:0 auto;width:100%;max-width:1200px;box-sizing:border-box">
   <div class="form-group"><label><%= _h._("editor_slug") %></label><input id="ed-slug" value="<%= _h.h(post.slug or "") %>" placeholder="my-post-title"></div>
   <div class="form-group"><label><%= _h._("editor_title") %></label><input id="ed-title" value="<%= _h.h(post.title or "") %>"></div>
   <div class="form-group"><label><%= _h._("editor_date") %></label><input id="ed-date" type="date" value="<%= post.date_formatted or post.date or "" %>"></div>
   <div class="form-group"><label><%= _h._("editor_cover") %></label><input id="ed-cover" value="<%= _h.h(post.cover or "") %>" placeholder="/img/cover.jpg"></div>
-  <div class="form-group"><label><%= Tags (comma separated) %></label><input id="ed-tags" value="<%= _h.h(tagsStr) %>" placeholder="javascript, web, design"></div>
-  <div class="form-group"><label><%= Categories (comma separated) %></label><input id="ed-cats" value="<%= _h.h(catsStr) %>" placeholder="Tech, Design"></div>
+  <div class="form-group"><label><%= "Tags (comma separated)" %></label><input id="ed-tags" value="<%= _h.h(tagsStr) %>" placeholder="javascript, web, design"></div>
+  <div class="form-group"><label><%= "Categories (comma separated)" %></label><input id="ed-cats" value="<%= _h.h(catsStr) %>" placeholder="Tech, Design"></div>
   <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
   <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
   <div class="form-group"><label>English Title</label><input id="ed-title-en" value="<%= _h.h(post.title_en or "") %>" placeholder="English Title"></div>
@@ -27,7 +27,7 @@
     <mdui-button-icon id="tb-code">[ ]</mdui-button-icon>
     <mdui-button-icon id="tb-quote">&quot;</mdui-button-icon>
   </div>
-  <div class="form-group"><label><%= Content (Markdown) %></label><textarea id="ed-content"><%= _h.h(post.content or "") %></textarea></div>
+  <div class="form-group"><label><%= "Content (Markdown)" %></label><textarea id="ed-content"><%= _h.h(post.content or "") %></textarea></div>
   <div style="display:flex;gap:8px;margin-top:16px">
     <mdui-button data-action="save-post" variant="filled"><%= _h._("save") %></mdui-button>
     <mdui-button data-action="cancel-edit" variant="text"><%= _h._("cancel") %></mdui-button>

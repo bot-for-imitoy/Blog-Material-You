@@ -28,6 +28,10 @@ end
 
 local function format_date(date_str)
     if not date_str or date_str == "" then return "" end
+    -- Convert to string if it's a number (e.g. Unix timestamp from DB)
+    if type(date_str) == "number" then
+        date_str = tostring(date_str)
+    end
     -- Strip leading non-digit characters
     local cleaned = date_str:match("(%d.*)")
     if not cleaned then return date_str end
