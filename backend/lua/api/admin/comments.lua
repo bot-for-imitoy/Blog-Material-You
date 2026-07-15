@@ -47,7 +47,7 @@ if ngx.req.get_method() == "GET" then
         return
     end
 
-    ngx.say(cjson.encode(res))
+    ngx.say(cjson.encode({ errno = 0, data = res }))
 
 elseif ngx.req.get_method() == "DELETE" then
     -- Delete a comment by id

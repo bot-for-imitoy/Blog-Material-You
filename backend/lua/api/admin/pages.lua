@@ -23,7 +23,7 @@ if ngx.req.get_method() == "GET" then
             table.insert(result, page)
         end
     end
-    ngx.say(cjson.encode(result))
+    ngx.say(cjson.encode({ errno = 0, data = result }))
 
 elseif ngx.req.get_method() == "PUT" then
     local body, err = utils.read_request_body()

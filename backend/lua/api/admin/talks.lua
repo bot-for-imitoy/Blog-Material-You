@@ -14,7 +14,7 @@ end
 
 if ngx.req.get_method() == "GET" then
     local list = db_talks.list()
-    ngx.say(cjson.encode(list))
+    ngx.say(cjson.encode({ errno = 0, data = list }))
 
 elseif ngx.req.get_method() == "POST" then
     local body, err = utils.read_request_body()
@@ -51,7 +51,7 @@ elseif ngx.req.get_method() == "DELETE" then
         return
     end
     db_talks.delete(data.id)
-    ngx.say(cjson.encode({ errno = 0 }))
+    ngx.say(cjson.encode({ errno = 0, data = { deleted = true } }))
 
 else
     ngx.status = 405

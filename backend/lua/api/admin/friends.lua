@@ -18,7 +18,7 @@ local method = ngx.req.get_method()
 
 if method == "GET" then
     local list = friends.list()
-    ngx.say(cjson.encode(list))
+    ngx.say(cjson.encode({ errno = 0, data = list }))
     return
 end
 
@@ -56,7 +56,7 @@ elseif method == "PUT" then
         return
     end
     local ok2 = friends.update(data.id, data.title, data.descr, data.title_en, data.descr_en, data.avatar, data.url, data.sort_order)
-    ngx.say(cjson.encode({ errno = ok2 and 0 or -1 }))
+    ngx.say(cjson.encode({ errno = ok2 and 0 or -1, data = { updated = ok2 } }))
 
 elseif method == "DELETE" then
     if not data.id then
@@ -65,7 +65,7 @@ elseif method == "DELETE" then
         return
     end
     friends.delete(data.id)
-    ngx.say(cjson.encode({ errno = 0 }))
+    ngx.say(cjson.encode({ errno = 0, data = { deleted = true } }))
 
 else
     ngx.status = 405

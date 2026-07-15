@@ -19,7 +19,7 @@ local POSTS_DIR = require("utils").blog_dir() .. "/posts"
 if ngx.req.get_method() == "GET" then
     -- List all posts with full content
     local all = posts.load_all()
-    ngx.say(cjson.encode(all))
+    ngx.say(cjson.encode({ errno = 0, data = all }))
 
 elseif ngx.req.get_method() == "POST" then
     -- Create a new post
