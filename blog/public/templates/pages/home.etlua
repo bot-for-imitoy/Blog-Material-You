@@ -8,8 +8,8 @@
 </mdui-card>
 <div class="card-container" id="card-container">
 <% for _, post in ipairs(posts or {}) do %>
-  <% local title = _h.get_title(post) %>
-  <% local postContent = _h.get_content(post) %>
+  <% local title = post.title %>
+  <% local postContent = post.content %>
   <% local excerptText = (post.excerpt or postContent or '') %>
   <% local has_cover = post.cover and tostring(post.cover) ~= "null" and tostring(post.cover) ~= "" %>
   <% local excerpt = has_cover and _h.truncate(excerptText, 120) or _h.truncate(excerptText, 200) %>

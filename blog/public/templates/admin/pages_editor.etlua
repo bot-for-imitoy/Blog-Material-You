@@ -1,15 +1,15 @@
-<div class="page-header"><h1><%= _LANG == "zh" and "编辑页面" or "Edit Page" %>: <%= _h.h(slug) %></h1></div>
+<div class="page-header"><h1><%= _h._("admin_edit_page") %>: <%= _h.h(slug) %></h1></div>
 <mdui-card variant="elevated" style="padding:24px">
   <div class="form-group"><label>Slug</label><input id="ed-slug" value="<%= _h.h(slug) %>" disabled></div>
-  <div class="form-group"><label><%= _LANG == "zh" and "标题" or "Title" %></label><input id="ed-title" value="<%= _h.h((page or {}).title or "") %>"></div>
-  <div class="form-group"><label><%= _LANG == "zh" and "正文 (Markdown)" or "Content (Markdown)" %></label><textarea id="ed-content"><%= _h.h((page or {}).content or "") %></textarea></div>
+  <div class="form-group"><label><%= _h._("editor_title") %></label><input id="ed-title" value="<%= _h.h((page or {}).title or "") %>"></div>
+  <div class="form-group"><label><%= Content (Markdown) %></label><textarea id="ed-content"><%= _h.h((page or {}).content or "") %></textarea></div>
   <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
   <h3 style="font-size:16px;font-weight:500;margin-bottom:12px;color:rgb(var(--mdui-color-primary))">🌐 English</h3>
   <div class="form-group"><label>English Title</label><input id="ed-title-en" value="<%= _h.h((page or {}).title_en or "") %>" placeholder="English Title"></div>
   <div class="form-group"><label>English Content</label><textarea id="ed-content-en"><%= _h.h((page or {}).content_en or "") %></textarea></div>
   <hr style="margin:16px 0;border-color:rgb(var(--mdui-color-outline-variant))">
   <div style="display:flex;gap:8px;margin-top:16px">
-    <mdui-button data-action="save-page" variant="filled"><%= _LANG == "zh" and "保存" or "Save" %></mdui-button>
-    <mdui-button data-action="cancel-edit" variant="text"><%= _LANG == "zh" and "取消" or "Cancel" %></mdui-button>
+    <mdui-button data-action="save-page" variant="filled"><%= _h._("save") %></mdui-button>
+    <mdui-button data-action="cancel-edit" variant="text"><%= _h._("cancel") %></mdui-button>
   </div>
 </mdui-card>

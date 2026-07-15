@@ -72,50 +72,15 @@
     // Data store (minimal — only config and auth state on client)
     let blogConfig = null;
 
-    // ===== Multilingual =====
-    const _LANG = (function() {
-      var lang = navigator.language || navigator.userLanguage || '';
-      if (lang.startsWith('zh')) return 'zh';
-      if (lang.startsWith('fr')) return 'fr';
-      if (lang.startsWith('es')) return 'es';
-      if (lang.startsWith('ru')) return 'ru';
-      if (lang.startsWith('ar')) return 'ar';
-      return 'en';
-    })();
-    let _T = {};
-
-    // Minimal YAML parser
-    function loadLocale(lang) {
-      return fetch('/locales.yml?v=' + Date.now())
-        .then(function(r) { return r.text(); })
-        .then(function(text) {
-          var result = {}, currentSection = null;
-          text.split('\n').forEach(function(line) {
-            var section = line.match(/^(\w+):\s*$/);
-            if (section) { currentSection = section[1]; return; }
-            if (currentSection === lang) {
-              var m = line.match(/^\s{2}([\w-]+)\s*:\s*(.*)$/);
-              if (m) {
-                var val = m[2].trim();
-                val = val.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
-                result[m[1]] = val;
-              }
-            }
-          });
-          _T = result;
-        })
-        .catch(function() {});
-    }
-
-    // English fallback
-    const _EN_FALLBACK = {
-      nav_home:'Home', nav_posts:'Posts', nav_tags:'Tags',
-      nav_categories:'Categories', nav_moments:'Moments', nav_about:'About',
-      nav_archives:'Archives', nav_friends:'Friends',
-      status:'Status',
+    // ===== Text helper =====
+    const _ = (key) => {
+      const labels = {
+        nav_home:'Home', nav_posts:'Posts', nav_tags:'Tags',
+        nav_categories:'Categories', nav_moments:'Moments', nav_about:'About',
+        nav_archives:'Archives', nav_friends:'Friends', status:'Status',
+      };
+      return labels[key] || key;
     };
-
-    const _ = (key) => _T[key] || _EN_FALLBACK[key] || key;
 
     // ===== Helpers =====
     function escapeHtml(str) {
@@ -981,13 +946,8 @@
 
     // ===== Initialization =====
     document.addEventListener('DOMContentLoaded', function() {
-      loadLocale(_LANG).then(function() {
-        attachClickHandlers(document);
-        navigate(window.location.pathname, false);
-      }).catch(function() {
-        attachClickHandlers(document);
-        navigate(window.location.pathname, false);
-      });
+      attachClickHandlers(document);
+      navigate(window.location.pathname, false);
 
       window.addEventListener('popstate', function(e) {
         navigate(window.location.pathname, false);

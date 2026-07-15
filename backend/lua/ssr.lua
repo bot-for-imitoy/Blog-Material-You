@@ -65,7 +65,7 @@ function _M.render_post(slug)
         return "Not Found"
     end
 
-    local title = (post.title_en and _LANG == "en") and post.title_en or post.title
+    local title = post.title_en and post.title_en ~= "" and post.title_en or post.title
     local desc = strip_md(post.content or "")
     local display_title = h(title) .. " - " .. site_title
 

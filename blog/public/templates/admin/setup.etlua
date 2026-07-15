@@ -1,12 +1,12 @@
 <div class="login-container">
   <mdui-card variant="elevated" class="login-card">
-    <h1><%= _LANG == "zh" and "初始化管理员" or "Init Admin" %></h1>
-    <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "请设置管理员用户名和密码" or "Set admin username and password" %></p>
-    <mdui-text-field id="su-user" label="<%= _LANG == "zh" and "用户名" or "Username" %>" variant="outlined"></mdui-text-field>
-    <mdui-text-field id="su-pass" label="<%= _LANG == "zh" and "密码" or "Password" %>" variant="outlined" type="password"></mdui-text-field>
-    <mdui-text-field id="su-pass2" label="<%= _LANG == "zh" and "确认密码" or "Confirm Password" %>" variant="outlined" type="password"></mdui-text-field>
+    <h1>Init Admin</h1>
+    <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))">Set admin username and password</p>
+    <mdui-text-field id="su-user" label="Username" variant="outlined"></mdui-text-field>
+    <mdui-text-field id="su-pass" label="Password" variant="outlined" type="password"></mdui-text-field>
+    <mdui-text-field id="su-pass2" label="Confirm Password" variant="outlined" type="password"></mdui-text-field>
     <p id="setup-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin:8px 0;display:none"></p>
     <p id="setup-warning" style="color:rgb(var(--mdui-color-tertiary));font-size:13px;margin:8px 0;display:none"></p>
-    <mdui-button data-action="setup-init" variant="filled" style="width:100%"><%= _LANG == "zh" and "初始化" or "Initialize" %></mdui-button>
+    <mdui-button data-action="setup-init" variant="filled" style="width:100%">Initialize</mdui-button>
   </mdui-card>
 </div>

@@ -1,7 +1,7 @@
 <div class="content" style="padding:32px;max-width:500px;margin:0 auto">
   <style>@import url("/css/header-card.css");</style>
   <mdui-card variant="filled" class="header-card">
-    <div class="header-title">🔐 <%= _LANG == "zh" and "访客认证" or "Guest Auth" %></div>
+    <div class="header-title">🔐 <%= _h._("page_auth") %></div>
     <div class="header-content"><%= _h._("authDesc") %></div>
   </mdui-card>
   <% if authed then %>
@@ -9,21 +9,21 @@
     <div style="font-size:48px;margin-bottom:12px">👤</div>
     <div style="font-size:18px;font-weight:500;margin-bottom:4px"><%= _h.h(authUser) %></div>
     <div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-bottom:16px"><%= _h.h(authEmail) %></div>
-    <div style="font-size:13px;margin-bottom:16px"><%= _LANG == "zh" and "权限: " or "Permissions: " %><%= authPerms and #authPerms > 0 and table.concat(authPerms, ", ") or (_LANG == "zh" and "无" or "None") %></div>
+    <div style="font-size:13px;margin-bottom:16px"><%= Permissions:  %><%= authPerms and #authPerms > 0 and table.concat(authPerms, ", ") or (None) %></div>
     <div style="display:flex;gap:8px;justify-content:center">
-      <mdui-button variant="text" onclick="setAuth(null);navigate('/auth/',true)"><%= _LANG == "zh" and "退出登录" or "Logout" %></mdui-button>
-      <mdui-button variant="text" onclick="navigate('/',true)"><%= _LANG == "zh" and "← 首页" or "← Home" %></mdui-button>
+      <mdui-button variant="text" onclick="setAuth(null);navigate('/auth/',true)"><%= _h._("admin_logout") %></mdui-button>
+      <mdui-button variant="text" onclick="navigate('/',true)"><%= ← Home %></mdui-button>
     </div>
   </mdui-card>
   <% else %>
   <mdui-card variant="elevated" style="padding:24px;margin-top:16px">
     <div class="form-group">
-      <label><%= _LANG == "zh" and "邮箱地址" or "Email Address" %></label>
+      <label><%= _h._("email") %></label>
       <input id="auth-email-input" type="email" placeholder="you@example.com" style="width:100%;padding:10px 12px;border:1px solid rgba(var(--mdui-color-outline),0.4);border-radius:8px;font-size:14px;background:rgb(var(--mdui-color-surface));color:rgb(var(--mdui-color-on-surface))">
     </div>
     <div style="display:flex;gap:8px;margin-top:12px">
-      <mdui-button variant="filled" id="auth-submit-btn" onclick="doAuth()"><%= _LANG == "zh" and "验证" or "Verify" %></mdui-button>
-      <mdui-button variant="text" onclick="navigate('/',true)"><%= _LANG == "zh" and "取消" or "Cancel" %></mdui-button>
+      <mdui-button variant="filled" id="auth-submit-btn" onclick="doAuth()"><%= _h._("submit") %></mdui-button>
+      <mdui-button variant="text" onclick="navigate('/',true)"><%= _h._("cancel") %></mdui-button>
     </div>
     <p id="auth-result" style="margin-top:12px;font-size:14px"></p>
   </mdui-card>

@@ -1,13 +1,13 @@
-<div class="page-header"><h1><%= _LANG == "zh" and "页面管理" or "Pages" %></h1></div>
+<div class="page-header"><h1><%= _h._("admin_pages") %></h1></div>
 <% if pages and #pages > 0 then %>
   <% for _, p in ipairs(pages) do %>
   <mdui-card variant="elevated" style="padding:24px;margin-bottom:16px">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <h2 style="font-size:18px;font-weight:500"><%= _h.h(p.title) %> (<%= p.slug %>)</h2>
-      <mdui-button data-action="edit-page" data-args="<%= p.slug %>" variant="text"><%= _LANG == "zh" and "编辑" or "Edit" %></mdui-button>
+      <mdui-button data-action="edit-page" data-args="<%= p.slug %>" variant="text"><%= _h._("edit") %></mdui-button>
     </div>
   </mdui-card>
   <% end %>
 <% else %>
-  <p><%= _LANG == "zh" and "暂无页面" or "No pages" %></p>
+  <p><%= "No pages" %></p>
 <% end %>
