@@ -12,8 +12,8 @@ end
 
 _M.data = {
     -- Sidebar header
-    title = "Blog Material You",
-    desc = "A simple and elegant theme.",
+    title = "My Blog",
+    desc = "My personal blog.",
 
     -- Avatar
     avatar = "/img/avatar.png",
