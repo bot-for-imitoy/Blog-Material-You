@@ -224,6 +224,8 @@
         else if (currentView === 'security') path = '/security';
         el.innerHTML = await fetchSSR(path);
         bindEventListeners();
+        // Start auto-refresh for security page (TOTP secret/QR code)
+        if (currentView === 'security') startSecurityRefresh(); else stopSecurityRefresh();
       } catch(e) {
         el.innerHTML = '<p style="color:red">加载失败: ' + escapeHtml(e.message) + '</p>';
       }
@@ -254,6 +256,7 @@
           else if (action === 'totp-verify') verifyTotpSetup();
           else if (action === 'totp-cancel') cancelTotpSetup();
           else if (action === 'totp-disable') disableTotp();
+          else if (action === 'totp-regenerate') regenerateTotp();
           else if (action === 'change-password') changePassword();
           else if (action === 'login') doLogin(
             document.getElementById('lf-user')?.value || '',
@@ -492,6 +495,22 @@
       else { toast('操作失败'); }
     }
 
+    async function regenerateTotp() {
+      const res = await api('/totp-setup', { method: 'POST', body: JSON.stringify({ action: 'start' }) });
+      if (res.errno === 0) {
+        // Update the page in-place without full reload
+        var secretEl = document.getElementById('totp-secret');
+        if (secretEl && res.data.secret) secretEl.value = res.data.secret;
+        var qrEl = document.querySelector('[alt="TOTP QR Code"]');
+        if (qrEl && res.data.provisioning_uri) {
+          qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(res.data.provisioning_uri);
+        }
+        toast('密钥已重新生成 ✓');
+      } else {
+        toast('操作失败: ' + (res.errmsg || ''));
+      }
+    }
+
     async function changePassword() {
       var oldPass = document.getElementById('cp-old')?.value;
       var newUser = document.getElementById('cp-user')?.value?.trim();
@@ -538,6 +557,38 @@
         errEl.textContent = '网络错误: ' + e.message;
         errEl.style.display = '';
       }
+    }
+
+    // ===== Security Page Auto-Refresh (TOTP secret / QR code) =====
+    let _securityRefreshTimer = null;
+
+    function stopSecurityRefresh() {
+      if (_securityRefreshTimer) {
+        clearInterval(_securityRefreshTimer);
+        _securityRefreshTimer = null;
+      }
+    }
+
+    function startSecurityRefresh() {
+      stopSecurityRefresh();
+      _securityRefreshTimer = setInterval(async function() {
+        var el = document.getElementById('totp-secret');
+        if (!el) return;  // not on TOTP-enabled page
+        try {
+          var res = await api('/totp-setup', { method: 'GET' });
+          if (res.errno === 0 && res.data) {
+            // Update secret input
+            var secretEl = document.getElementById('totp-secret');
+            if (secretEl && res.data.secret) secretEl.value = res.data.secret;
+            // Update QR code image
+            var qrEl = document.querySelector('[alt="TOTP QR Code"]');
+            if (qrEl && res.data.provisioning_uri) {
+              var newSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(res.data.provisioning_uri);
+              if (qrEl.src !== newSrc) qrEl.src = newSrc;
+            }
+          }
+        } catch(e) { /* silently retry on next interval */ }
+      }, 30000);
     }
 
     // ===== Init =====
