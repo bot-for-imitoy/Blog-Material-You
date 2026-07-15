@@ -27,7 +27,7 @@
 ## 模板文件目录结构
 
 ```
-backend/lua/templates/
+blog/public/templates/
 ├── pages/
 │   ├── home.etlua           # 首页瀑布流
 │   ├── posts_list.etlua     # 文章列表（按年分组）

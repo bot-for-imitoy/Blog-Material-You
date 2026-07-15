@@ -19,7 +19,6 @@ ngx.header["X-SSR"] = "1"
 
 -- Set language from Accept-Language header
 local accept_lang = ngx.var.http_accept_language or "en"
-ngx.ctx._LANG = (accept_lang:find("zh") and "zh") or "en"
 
 -- Ensure data is loaded from DB
 cache.ensure_data_loaded()
@@ -153,7 +152,7 @@ elseif route == "/about" or route == "/about/" then
     local page = db_pages.get("about")
     render_or_404("pages/about", {
         page = page or {},
-        pageTitle = (page and page.title) or (ngx.ctx._LANG == "zh" and "关于" or "About"),
+        pageTitle = (page and page.title) or "About",
         contentHtml = (page and page.content) or "",
     })
 

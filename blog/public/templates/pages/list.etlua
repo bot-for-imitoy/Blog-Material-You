@@ -5,7 +5,7 @@
 </mdui-card>
 <mdui-list class="posts-list">
 <% for _, item in ipairs(items or {}) do %>
-<% local itemTitle = _h.get_title(item) %>
+<% local itemTitle = item.title %>
   <mdui-list-item href="/post/<%= _h.url_encode(item.slug) %>">
     <div class="mdui-list-item-content">
       <div class="mdui-list-item-title"><%= _h.h(itemTitle) %></div>

@@ -1,9 +1,9 @@
 <div class="login-container">
   <mdui-card variant="elevated" class="login-card">
-    <h1><%= _LANG == "zh" and "博客管理后台" or "Blog Admin" %></h1>
-    <mdui-text-field id="lf-user" label="<%= _LANG == "zh" and "用户名" or "Username" %>" variant="outlined"></mdui-text-field>
-    <mdui-text-field id="lf-pass" label="<%= _LANG == "zh" and "密码" or "Password" %>" variant="outlined" type="password"></mdui-text-field>
+    <h1>Blog Admin</h1>
+    <mdui-text-field id="lf-user" label="Username" variant="outlined"></mdui-text-field>
+    <mdui-text-field id="lf-pass" label="Password" variant="outlined" type="password"></mdui-text-field>
     <p id="login-error" style="color:rgb(var(--mdui-color-error));font-size:13px;margin:8px 0;display:none"></p>
-    <mdui-button data-action="login" variant="filled" style="width:100%"><%= _LANG == "zh" and "登录" or "Login" %></mdui-button>
+    <mdui-button data-action="login" variant="filled" style="width:100%">Login</mdui-button>
   </mdui-card>
 </div>

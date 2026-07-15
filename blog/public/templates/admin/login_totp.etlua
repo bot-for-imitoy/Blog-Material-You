@@ -1,11 +1,11 @@
 <div class="login-container">
   <mdui-card variant="elevated" class="login-card">
-    <h1><%= _LANG == "zh" and "博客管理后台" or "Blog Admin" %></h1>
-    <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "请输入身份验证器中的6位动态验证码" or "Enter the 6-digit code from your authenticator app" %></p>
+    <h1>Blog Admin</h1>
+    <p style="text-align:center;margin-bottom:16px;color:rgb(var(--mdui-color-outline))">Enter the 6-digit code from your authenticator app</p>
     <form id="login-form-totp">
-      <mdui-text-field id="lf-totp" label="<%= _LANG == "zh" and "验证码" or "Code" %>" variant="outlined" maxlength="6" pattern="[0-9]*" inputmode="numeric"></mdui-text-field>
-      <mdui-button variant="filled" type="submit" style="width:100%"><%= _LANG == "zh" and "验证" or "Verify" %></mdui-button>
+      <mdui-text-field id="lf-totp" label="Code" variant="outlined" maxlength="6" pattern="[0-9]*" inputmode="numeric"></mdui-text-field>
+      <mdui-button variant="filled" type="submit" style="width:100%">Verify</mdui-button>
     </form>
-    <mdui-button variant="text" onclick="resetLogin()" style="width:100%;margin-top:8px"><%= _LANG == "zh" and "返回上一步" or "Back" %></mdui-button>
+    <mdui-button variant="text" onclick="resetLogin()" style="width:100%;margin-top:8px">Back</mdui-button>
   </mdui-card>
 </div>

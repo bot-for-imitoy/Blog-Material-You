@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="/css/post-content.css">
+<link rel="stylesheet" href="/css/code.css">
 <style></style>
 <mdui-snackbar class="snackbar-network-error"><%= _h._("networkError") %></mdui-snackbar>
 <mdui-snackbar class="snackbar-comment-success"><%= _h._("commentSuccess") %></mdui-snackbar>

@@ -1,6 +1,3 @@
-<%
-  local zh = _LANG == "zh"
-%>
 <style>
   .game-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -74,17 +71,17 @@
   <button class="game-close-btn" onclick="closeEasterEgg()">✕</button>
   <div class="game-container">
     <div class="game-title">2048</div>
-    <div class="game-subtitle"><%= zh and "方向键滑动合并，达到 2048 即获胜！" or "Swipe/Arrow keys to merge tiles, reach 2048 to win!" %></div>
+    <div class="game-subtitle"><%= "Swipe / Arrow keys to merge tiles, reach 2048 to win!" %></div>
     <div class="game-header">
-      <div class="game-score"><%= zh and "得分" or "Score" %>: <span id="game-score">0</span></div>
-      <div class="game-score"><%= zh and "最高" or "Best" %>: <span id="game-best">0</span></div>
+      <div class="game-score"><%= _h._("game_score") %>: <span id="game-score">0</span></div>
+      <div class="game-score"><%= _h._("game_best") %>: <span id="game-best">0</span></div>
     </div>
     <div class="game-grid-wrap">
       <div class="grid-2048" id="grid-2048"></div>
     </div>
     <div class="game-controls">
-      <mdui-button variant="filled" onclick="new2048Game()"><%= zh and "新一局" or "New Game" %></mdui-button>
-      <mdui-button variant="text" onclick="closeEasterEgg()"><%= zh and "返回" or "Back" %></mdui-button>
+      <mdui-button variant="filled" onclick="new2048Game()"><%= _h._("game_new_game") %></mdui-button>
+      <mdui-button variant="text" onclick="closeEasterEgg()"><%= _h._("back") %></mdui-button>
     </div>
     <div class="game-hint">← ↑ → ↓ / WASD</div>
   </div>

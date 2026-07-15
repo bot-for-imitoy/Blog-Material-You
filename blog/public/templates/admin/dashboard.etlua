@@ -1,26 +1,26 @@
-<div class="page-header"><h1><%= _LANG == "zh" and "概览" or "Dashboard" %></h1></div>
+<div class="page-header"><h1><%= _h._("admin_dashboard") %></h1></div>
 <div class="card-grid">
   <div class="stat-card">
     <mdui-card variant="elevated">
       <div class="stat-number"><%= postCount or 0 %></div>
-      <div class="stat-label"><%= _LANG == "zh" and "文章" or "Posts" %></div>
+      <div class="stat-label"><%= _h._("admin_posts") %></div>
     </mdui-card>
   </div>
   <div class="stat-card">
     <mdui-card variant="elevated">
       <div class="stat-number"><%= commentCount or 0 %></div>
-      <div class="stat-label"><%= _LANG == "zh" and "评论" or "Comments" %></div>
+      <div class="stat-label"><%= _h._("admin_comments") %></div>
     </mdui-card>
   </div>
   <div class="stat-card">
     <mdui-card variant="elevated">
       <div class="stat-number"><%= tagCount or 0 %></div>
-      <div class="stat-label"><%= _LANG == "zh" and "标签" or "Tags" %></div>
+      <div class="stat-label"><%= _h._("admin_tag_count") %></div>
     </mdui-card>
   </div>
 </div>
 <mdui-card variant="elevated" style="padding:24px">
-  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= _LANG == "zh" and "最近文章" or "Recent Posts" %></h2>
+  <h2 style="font-size:18px;font-weight:500;margin-bottom:16px"><%= _h._("admin_recent_posts") %></h2>
   <% if recentPosts and #recentPosts > 0 then %>
     <% for i = 1, math.min(5, #recentPosts) do %>
     <% local p = recentPosts[i] %>
@@ -30,11 +30,11 @@
         <span><%= _h.format_date(p.date) %></span>
       </div>
       <div class="post-actions">
-        <mdui-button data-action="edit-post" data-args="<%= p.slug %>" variant="text"><%= _LANG == "zh" and "编辑" or "Edit" %></mdui-button>
+        <mdui-button data-action="edit-post" data-args="<%= p.slug %>" variant="text"><%= _h._("edit") %></mdui-button>
       </div>
     </div>
     <% end %>
   <% else %>
-    <p style="color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "还没有文章" or "No posts yet" %></p>
+    <p style="color:rgb(var(--mdui-color-outline))"><%= _h._("admin_no_posts") %></p>
   <% end %>
 </mdui-card>

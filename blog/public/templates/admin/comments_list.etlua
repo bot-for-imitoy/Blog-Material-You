@@ -1,4 +1,4 @@
-<div class="page-header"><h1><%= _LANG == "zh" and "评论管理" or "Comments" %></h1></div>
+<div class="page-header"><h1>Comments</h1></div>
 <mdui-card variant="elevated" style="padding:24px">
   <% if comments and #comments > 0 then %>
     <% for _, c in ipairs(comments) do %>
@@ -8,10 +8,10 @@
         <span style="color:rgb(var(--mdui-color-outline));font-size:12px"><%= _h.h(c.mail or "") %> | <%= c.url or "" %> | <%= _h.format_date(c.create_time) %></span>
         <div class="comment-text"><%= _h.h(c.comment) %></div>
       </div>
-      <mdui-button data-action="delete-comment" data-args="<%= c.id %>" variant="text" style="color:rgb(var(--mdui-color-error));flex-shrink:0"><%= _LANG == "zh" and "删除" or "Delete" %></mdui-button>
+      <mdui-button data-action="delete-comment" data-args="<%= c.id %>" variant="text" style="color:rgb(var(--mdui-color-error));flex-shrink:0">Delete</mdui-button>
     </div>
     <% end %>
   <% else %>
-    <p style="color:rgb(var(--mdui-color-outline))"><%= _LANG == "zh" and "暂无评论" or "No comments" %></p>
+    <p style="color:rgb(var(--mdui-color-outline))">No comments</p>
   <% end %>
 </mdui-card>

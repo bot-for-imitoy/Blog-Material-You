@@ -7,8 +7,8 @@
 <% if list and #list > 0 then %>
   <% for _, f in ipairs(list) do %>
   <%
-    local ftitle = (f.title_en and _LANG == "en") and f.title_en or f.title
-    local fdescr = (f.descr_en and _LANG == "en") and f.descr_en or f.descr
+    local ftitle = f.title_en and f.title_en or f.title
+    local fdescr = f.descr_en and f.descr_en or f.descr
   %>
   <mdui-card variant="elevated" style="padding:16px;margin-bottom:12px;display:flex;align-items:center;gap:16px">
     <% if f.avatar then %>

@@ -19,7 +19,7 @@
 <h1 class="posts-year"><%= _h.h(year) %><%= _h._("postsYear") %></h1>
 <mdui-list class="posts-list">
   <% for _, post in ipairs(years[year]) do %>
-  <% local listTitle = _h.get_title(post) %>
+  <% local listTitle = post.title %>
   <mdui-list-item href="/post/<%= _h.url_encode(post.slug) %>">
     <div class="mdui-list-item-content">
       <div class="mdui-list-item-title"><%= _h.h(listTitle) %></div>
