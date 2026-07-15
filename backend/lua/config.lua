@@ -59,6 +59,7 @@ _M.data = {
     page_status = "Status",
     page_status_desc = "Service Status",
     page_auth = "Authentication",
+    authDesc = "Authenticate with your email to access additional features.",
 
     -- Post / list related
     no_posts = "No posts yet",
@@ -77,7 +78,20 @@ _M.data = {
     comment_content = "Comment",
     comment_success = "Comment submitted successfully",
     comment_fail = "Failed to submit comment",
+    comment_title = "Comments",
 
+    -- Aliases for template backward compat
+    commentContent = "Comment submitted successfully",
+    commentFail = "Failed to submit comment",
+    commentSuccess = "Comment submitted successfully",
+    commentTitle = "Comments",
+    networkError = "Network error, please check connection",
+    nickName = "Nick Name",
+    noFriends = "No friends yet",
+    postsYear = "",
+    status = "Status",
+    statusDesc = "Service Status",
+    cpr = "© 2025 Blog Material You",
     -- Status page
     server_online = "Online",
     server_offline = "Offline",
