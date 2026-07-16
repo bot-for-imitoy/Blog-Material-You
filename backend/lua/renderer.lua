@@ -142,30 +142,6 @@ function _M.render(template_name, data)
     return result
 end
 
--- Renders a full HTML page by rendering content template first,
--- then wrapping it in the pages/layout template with SEO meta.
--- Returns a complete HTML page string.
-function _M.render_page(content_template, data)
-    data = data or {}
-
-    -- First render the content template to get the body HTML fragment
-    local body_html = _M.render(content_template, data)
-    if not body_html then
-        body_html = _M.render("pages/404", {}) or ""
-    end
-
-    -- Build layout data with SEO meta
-    local layout_data = {
-        body_html = body_html,
-        blog_config = data.blog_config or get_blog_config(),
-        seo_title = data.seo_title,
-        seo_desc = data.seo_desc,
-        canonical = data.canonical,
-    }
-
-    return _M.render("pages/layout", layout_data)
-end
-
 function _M.clear_cache()
     tpl_cache = {}
 end
