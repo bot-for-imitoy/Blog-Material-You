@@ -349,7 +349,9 @@
       if (!slug || !title) { toast('Slug 和标题不能为空'); return; }
 
       var result = await api('/posts');
-      var method = result.data && result.data.some(function(p) { return p.slug === slug; }) ? 'PUT' : 'POST';
+      var list = result.data;
+      if (!Array.isArray(list)) list = [];
+      var method = list.some(function(p) { return p.slug === slug; }) ? 'PUT' : 'POST';
       const res = await api('/posts', {
         method,
         body: JSON.stringify({ slug, title, date, tags, categories, cover, content, title_en: titleEn, tags_en: tagsEn, categories_en: catsEn, content_en: contentEn })

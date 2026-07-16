@@ -1,5 +1,6 @@
--- /api/admin/pages — list and update static pages (about, talks) via MariaDB
+-- /api/admin/pages — list, create, update pages
 local cjson = require("cjson")
+cjson.encode_empty_table_as_array(true)
 local posts = require("posts")
 local db_pages = require("db_pages")
 local admin_auth = require("admin_auth")
@@ -23,6 +24,7 @@ if ngx.req.get_method() == "GET" then
             table.insert(result, page)
         end
     end
+    if #result == 0 then result = cjson.empty_array end
     ngx.say(cjson.encode({ errno = 0, data = result }))
 
 elseif ngx.req.get_method() == "PUT" then

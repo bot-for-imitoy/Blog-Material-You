@@ -4,6 +4,7 @@
 -- PUT    → update { id, title, descr, avatar, url, sort_order }
 -- DELETE → delete { id }
 local cjson = require("cjson")
+cjson.encode_empty_table_as_array(true)
 local friends = require("friends")
 local admin_auth = require("admin_auth")
 local utils = require("utils")
@@ -18,6 +19,7 @@ local method = ngx.req.get_method()
 
 if method == "GET" then
     local list = friends.list()
+    if #list == 0 then list = cjson.empty_array end
     ngx.say(cjson.encode({ errno = 0, data = list }))
     return
 end
