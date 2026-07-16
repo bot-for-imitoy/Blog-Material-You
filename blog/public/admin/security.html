@@ -153,7 +153,7 @@
     // ===== Content Loading =====
     function renderTOTPSection(data) {
       var html = '';
-      if (data.setup_in_progress) {
+      if (data.has_pending) {
         // TOTP setup in progress (needs verification)
         html += '<div class="card">';
         html += '<h2>🔐 设置两步验证</h2>';
@@ -212,7 +212,7 @@
       var el = document.getElementById('main-content');
       try {
         var totpRes = await api('/totp-setup', { method: 'GET' });
-        var totpData = totpRes.errno === 0 ? totpRes.data : { enabled: false, setup_in_progress: false };
+        var totpData = totpRes.errno === 0 ? totpRes.data : { enabled: false, has_pending: false };
 
         var html = '<div class="page-header"><h1>🔐 安全设置</h1></div>';
         html += renderPasswordSection();
