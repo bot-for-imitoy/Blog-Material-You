@@ -4,95 +4,103 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>两步验证 · 博客管理</title>
-  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
-  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
-    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .login-card { width: 400px; padding: 32px; }
-    .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 24px; text-align: center; }
-    .login-card mdui-text-field { width: 100%; margin-bottom: 16px; }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-on-surface)); }
-    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); }
+    body { font-family: 'Google Sans', sans-serif; background: rgb(var(--mdui-color-surface-container)); min-height: 100vh; }
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+    .login-card { width: 400px; background: rgb(var(--mdui-color-surface)); border-radius: 16px; padding: 40px 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 8px; text-align: center; color: rgb(var(--mdui-color-on-surface)); }
+    .login-card p.desc { text-align: center; font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 28px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: rgb(var(--mdui-color-on-surface-variant)); }
+    .form-group input { width: 100%; padding: 12px 14px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 10px; font-size: 16px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); text-align: center; letter-spacing: 8px; transition: border-color 0.2s; }
+    .form-group input:focus { outline: none; border-color: rgb(var(--mdui-color-primary)); box-shadow: 0 0 0 3px rgba(var(--mdui-color-primary-rgb), 0.12); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 12px 24px; border: none; border-radius: 999px; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; transition: box-shadow 0.2s, opacity 0.2s; }
+    .btn-primary { background: rgb(var(--mdui-color-primary)); color: rgb(var(--mdui-color-on-primary)); }
+    .btn-primary:hover { box-shadow: 0 2px 8px rgba(var(--mdui-color-primary-rgb), 0.3); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
     .back-link { text-align: center; margin-top: 16px; }
-    .back-link a { color: rgb(var(--mdui-color-primary)); text-decoration: none; font-size: 14px; }
+    .back-link a { color: rgb(var(--mdui-color-primary)); text-decoration: none; font-size: 14px; font-weight: 500; }
     #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    .toast-el { background: rgb(var(--mdui-color-inverse-surface)); color: rgb(var(--mdui-color-inverse-on-surface)); padding: 12px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: toast-in 0.3s ease; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="login-container">
+    <div class="login-card">
+      <h1>🔐 两步验证</h1>
+      <p class="desc">请输入身份验证器应用中的 6 位验证码</p>
+      <form id="login-form-totp" autocomplete="off">
+        <div class="form-group">
+          <label for="lf-totp">验证码</label>
+          <input type="text" id="lf-totp" name="totp" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+        </div>
+        <button type="submit" class="btn btn-primary" id="totp-btn">验证</button>
+      </form>
+      <div class="back-link"><a href="login.html">← 返回登录</a></div>
+    </div>
+  </div>
+  <div id="toast"></div>
 
   <script>
     const API = '/api/admin';
-    const SSR = '/api/admin/ssr';
+    var tempToken = '';
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function toast(msg) {
-      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
-      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
-      const sb = el.querySelector('mdui-snackbar');
-      if (sb) sb.show = true;
+      var el = document.getElementById('toast');
+      if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+      el.innerHTML = '<div class="toast-el">' + escapeHtml(msg) + '</div>';
+      setTimeout(function() { if (el.firstChild) el.innerHTML = ''; }, 3000);
     }
-
-    async function api(path, opts) {
-      const headers = { 'Content-Type': 'application/json' };
-      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
-      if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
-      return res.json();
-    }
-
-    async function fetchSSR(path) {
-      const res = await fetch(SSR + path);
-      if (!res.ok) return '<p style="color:red">Failed to load: ' + res.status + '</p>';
-      return res.text();
-    }
-
-    var tempToken = null;
 
     async function doTotpLogin(totpCode) {
-      const res = await fetch(API + '/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ step: 2, temp_token: tempToken, totp: totpCode })
-      });
-      const data = await res.json();
-      if (data.errno === 0 && data.data) {
-        toast('登录成功 ✓');
-        window.location.href = 'dashboard.html';
-      } else {
-        toast('验证失败：' + (data.errmsg || '验证码错误'));
-      }
-    }
-
-    function bindEvents() {
-      const form = document.getElementById('login-form-totp');
-      if (form) {
-        form.addEventListener('submit', function(e) {
-          e.preventDefault();
-          const totp = document.getElementById('lf-totp')?.value || '';
-          if (!totp || totp.length !== 6) { toast('请输入6位验证码'); return; }
-          doTotpLogin(totp);
+      var btn = document.getElementById('totp-btn');
+      btn.disabled = true;
+      btn.textContent = '验证中...';
+      try {
+        const res = await fetch(API + '/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ step: 2, temp_token: tempToken, totp: totpCode })
         });
-        const input = document.getElementById('lf-totp');
-        if (input) {
-          input.addEventListener('input', function(e) {
-            if (e.target.value.length === 6) doTotpLogin(e.target.value);
-          });
+        const data = await res.json();
+        if (data.errno === 0 && data.data && data.data.token) {
+          toast('登录成功 ✓');
+          setTimeout(function() {
+            window.location.href = 'dashboard.html?token=' + encodeURIComponent(data.data.token);
+          }, 300);
+        } else {
+          toast('验证失败：' + (data.errmsg || '验证码错误'));
+          btn.disabled = false;
+          btn.textContent = '验证';
         }
+      } catch(e) {
+        toast('网络错误: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '验证';
       }
     }
 
-    document.addEventListener('DOMContentLoaded', async function() {
-      // Get temp_token from URL params
+    document.addEventListener('DOMContentLoaded', function() {
       var params = new URLSearchParams(window.location.search);
       tempToken = params.get('token');
+      if (!tempToken) {
+        window.location.href = 'login.html';
+        return;
+      }
 
-      // Load SSR content
-      var app = document.getElementById('app');
-      app.innerHTML = await fetchSSR('/login-totp');
-      bindEvents();
+      document.getElementById('login-form-totp').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var totp = document.getElementById('lf-totp').value || '';
+        if (!totp || totp.length !== 6) { toast('请输入6位验证码'); return; }
+        doTotpLogin(totp);
+      });
+
+      document.getElementById('lf-totp').addEventListener('input', function(e) {
+        if (e.target.value.length === 6) doTotpLogin(e.target.value);
+      });
     });
   </script>
 </body>

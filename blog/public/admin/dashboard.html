@@ -4,28 +4,33 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>控制台 · 博客管理</title>
-  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
-  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
+    body { font-family: 'Google Sans', sans-serif; background: rgb(var(--mdui-color-surface-container)); min-height: 100vh; color: rgb(var(--mdui-color-on-surface)); }
     .admin-layout { display: flex; min-height: 100vh; }
-    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; }
-    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); }
-    .sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
-    .sidebar nav mdui-list-item { border-radius: 8px; }
-    .sidebar .logout { margin-top: auto; }
-    .sidebar nav a { text-decoration: none; color: inherit; }
+    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); padding: 0 12px; }
+    .sidebar nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .sidebar nav a, .sidebar .logout { display: block; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: rgb(var(--mdui-color-on-surface-variant)); font-size: 14px; font-weight: 500; transition: background 0.15s; }
+    .sidebar nav a:hover, .sidebar .logout:hover { background: rgb(var(--mdui-color-surface-variant)); }
+    .sidebar nav a.active { background: rgb(var(--mdui-color-secondary-container)); color: rgb(var(--mdui-color-on-secondary-container)); }
+    .sidebar .logout { margin-top: auto; color: rgb(var(--mdui-color-error)); }
     .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 100%; }
-    .main mdui-card { margin-bottom: 24px; }
-    .main .form-group textarea { width: 100%; min-height: 400px; }
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-    .page-header h1 { font-size: 28px; font-weight: 400; }
+    .page-header h1 { font-size: 28px; font-weight: 400; color: rgb(var(--mdui-color-on-surface)); }
     .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .stat-card mdui-card { padding: 24px; }
+    .stat-card { background: rgb(var(--mdui-color-surface)); border-radius: 16px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
     .stat-card .stat-number { font-size: 36px; font-weight: 500; color: rgb(var(--mdui-color-primary)); }
     .stat-card .stat-label { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-top: 4px; }
+    .section-title { font-size: 18px; font-weight: 500; margin-bottom: 12px; color: rgb(var(--mdui-color-on-surface)); }
+    .post-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: rgb(var(--mdui-color-surface)); border-radius: 12px; margin-bottom: 4px; }
+    .post-info { flex: 1; }
+    .post-info h3 { font-size: 15px; font-weight: 500; margin-bottom: 2px; }
+    .post-info span { font-size: 13px; color: rgb(var(--mdui-color-outline)); }
+    .empty-state { text-align: center; padding: 48px; color: rgb(var(--mdui-color-outline)); font-size: 14px; }
     #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    .toast-el { background: rgb(var(--mdui-color-inverse-surface)); color: rgb(var(--mdui-color-inverse-on-surface)); padding: 12px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: toast-in 0.3s ease; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -33,51 +38,92 @@
     <div class="sidebar">
       <h2>📝 博客管理</h2>
       <nav>
-        <a href="dashboard.html"><mdui-list-item active rounded>📊 控制台</mdui-list-item></a>
-        <a href="posts.html"><mdui-list-item rounded>📄 文章</mdui-list-item></a>
-        <a href="comments.html"><mdui-list-item rounded>💬 评论</mdui-list-item></a>
-        <a href="talks.html"><mdui-list-item rounded>💭 动态</mdui-list-item></a>
-        <a href="friends.html"><mdui-list-item rounded>🔗 友链</mdui-list-item></a>
-        <a href="pages.html"><mdui-list-item rounded>📑 页面</mdui-list-item></a>
-        <a href="security.html"><mdui-list-item rounded>🔐 安全</mdui-list-item></a>
+        <a href="dashboard.html" class="active">📊 控制台</a>
+        <a href="posts.html">📄 文章</a>
+        <a href="comments.html">💬 评论</a>
+        <a href="talks.html">💭 动态</a>
+        <a href="friends.html">🔗 友链</a>
+        <a href="pages.html">📑 页面</a>
+        <a href="security.html">🔐 安全</a>
       </nav>
-      <a href="login.html" class="logout"><mdui-list-item rounded>🚪 退出</mdui-list-item></a>
+      <a href="login.html" class="logout">🚪 退出</a>
     </div>
     <div class="main" id="main-content">加载中...</div>
   </div>
+  <div id="toast"></div>
 
   <script>
     const API = '/api/admin';
-    const SSR = '/api/admin/ssr';
+    var token = '';
 
-    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function toast(msg) {
-      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
-      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
-      const sb = el.querySelector('mdui-snackbar');
-      if (sb) sb.show = true;
+      var el = document.getElementById('toast');
+      if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+      el.innerHTML = '<div class="toast-el">' + escapeHtml(msg) + '</div>';
+      setTimeout(function() { if (el.firstChild) el.innerHTML = ''; }, 3000);
     }
 
     async function api(path, opts) {
-      const headers = { 'Content-Type': 'application/json' };
-      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
+      var headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token };
+      var res = await fetch(API + path, Object.assign({}, opts, { headers: Object.assign({}, headers, (opts && opts.headers) || {}) }));
       if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
       return res.json();
     }
 
-    async function fetchSSR(path) {
-      const res = await fetch(SSR + path);
-      if (!res.ok) return '<p style="color:red">Failed to load: ' + res.status + '</p>';
-      return res.text();
+    function applyTokenToSidebar() {
+      document.querySelectorAll('.sidebar a').forEach(function(a) {
+        var href = a.getAttribute('href');
+        if (href && href.indexOf('?') !== -1) {
+          if (href.indexOf('token=') === -1) a.setAttribute('href', href + '&token=' + encodeURIComponent(token));
+        } else if (href && href !== '#') {
+          a.setAttribute('href', href + '?token=' + encodeURIComponent(token));
+        }
+      });
     }
 
-    document.addEventListener('DOMContentLoaded', async function() {
+    async function loadContent() {
       var el = document.getElementById('main-content');
       try {
-        el.innerHTML = await fetchSSR('/dashboard');
+        var result = await api('/posts');
+        var posts = Array.isArray(result.data) ? result.data : [];
+        var published = posts.filter(function(p) { return !p.archived; });
+        var totalComments = 0;
+        try { var c = await api('/comments'); totalComments = Array.isArray(c.data) ? c.data.length : 0; } catch(e) {}
+        var totalTalks = 0;
+        try { var t = await api('/talks'); totalTalks = Array.isArray(t.data) ? t.data.length : 0; } catch(e) {}
+
+        var recentPosts = published.slice().sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); }).slice(0, 5);
+
+        var html = '<div class="page-header"><h1>📊 控制台</h1></div>';
+        html += '<div class="card-grid">';
+        html += '<div class="stat-card"><div class="stat-number">' + published.length + '</div><div class="stat-label">已发布文章</div></div>';
+        html += '<div class="stat-card"><div class="stat-number">' + (posts.length - published.length) + '</div><div class="stat-label">归档文章</div></div>';
+        html += '<div class="stat-card"><div class="stat-number">' + totalComments + '</div><div class="stat-label">评论</div></div>';
+        html += '<div class="stat-card"><div class="stat-number">' + totalTalks + '</div><div class="stat-label">动态</div></div>';
+        html += '</div>';
+
+        html += '<div class="section-title">最近文章</div>';
+        if (recentPosts.length === 0) {
+          html += '<div class="post-item">暂无文章</div>';
+        } else {
+          recentPosts.forEach(function(p) {
+            html += '<div class="post-item"><div class="post-info"><h3>' + escapeHtml(p.title || p.slug) + '</h3><span>' + escapeHtml(p.date || '') + (p.tags && p.tags.length ? ' · ' + p.tags.join(', ') : '') + '</span></div></div>';
+          });
+        }
+
+        el.innerHTML = html;
       } catch(e) {
-        el.innerHTML = '<p style="color:red">加载失败: ' + escapeHtml(e.message) + '</p>';
+        el.innerHTML = '<p style="color:rgb(var(--mdui-color-error))">加载失败: ' + escapeHtml(e.message) + '</p>';
       }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var params = new URLSearchParams(window.location.search);
+      token = params.get('token') || '';
+      if (!token) { window.location.href = 'login.html'; return; }
+      applyTokenToSidebar();
+      loadContent();
     });
   </script>
 </body>

@@ -1,6 +1,5 @@
 -- /api/admin/pages — list, create, update pages
 local cjson = require("cjson")
-cjson.encode_empty_table_as_array(true)
 local posts = require("posts")
 local db_pages = require("db_pages")
 local admin_auth = require("admin_auth")

@@ -4,7 +4,6 @@
 -- PUT    → update { id, title, descr, avatar, url, sort_order }
 -- DELETE → delete { id }
 local cjson = require("cjson")
-cjson.encode_empty_table_as_array(true)
 local friends = require("friends")
 local admin_auth = require("admin_auth")
 local utils = require("utils")

@@ -1,6 +1,5 @@
 -- /api/admin/talks — CRUD for talks (MariaDB-backed via db_talks)
 local cjson = require("cjson")
-cjson.encode_empty_table_as_array(true)
 local db_talks = require("db_talks")
 local admin_auth = require("admin_auth")
 local utils = require("utils")

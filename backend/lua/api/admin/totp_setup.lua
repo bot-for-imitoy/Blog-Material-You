@@ -5,7 +5,6 @@
 -- POST { action: "start" }   → generate new secret, store as pending
 -- POST { action: "disable" } → disable 2FA
 local cjson = require("cjson")
-cjson.encode_empty_table_as_array(true)
 local config = require("config")
 local admin_auth = require("admin_auth")
 local totp = require("totp")

@@ -1,6 +1,5 @@
 -- /api/admin/posts — list all posts (with full content), create, update, delete
 local cjson = require("cjson")
-cjson.encode_empty_table_as_array(true)
 local posts = require("posts")
 local db_posts = require("db_posts")
 local admin_auth = require("admin_auth")

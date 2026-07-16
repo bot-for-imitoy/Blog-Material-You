@@ -4,60 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>初始化 · 博客管理</title>
-  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
-  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
-    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .login-card { width: 400px; padding: 32px; }
-    .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 24px; text-align: center; }
-    .login-card mdui-text-field { width: 100%; margin-bottom: 16px; }
-    .form-group { margin-bottom: 16px; }
-    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-on-surface)); }
-    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); }
-    #setup-error { color: rgb(var(--mdui-color-error)); font-size: 14px; margin-bottom: 12px; }
-    #setup-warning { color: rgb(var(--mdui-color-warning)); font-size: 14px; margin-bottom: 12px; }
+    body { font-family: 'Google Sans', sans-serif; background: rgb(var(--mdui-color-surface-container)); min-height: 100vh; }
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 16px; }
+    .login-card { width: 400px; background: rgb(var(--mdui-color-surface)); border-radius: 16px; padding: 40px 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 8px; text-align: center; color: rgb(var(--mdui-color-on-surface)); }
+    .login-card p.desc { text-align: center; font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 28px; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: rgb(var(--mdui-color-on-surface-variant)); }
+    .form-group input { width: 100%; padding: 12px 14px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 10px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); transition: border-color 0.2s; }
+    .form-group input:focus { outline: none; border-color: rgb(var(--mdui-color-primary)); box-shadow: 0 0 0 3px rgba(var(--mdui-color-primary-rgb), 0.12); }
+    .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 12px 24px; border: none; border-radius: 999px; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; transition: box-shadow 0.2s, opacity 0.2s; }
+    .btn-primary { background: rgb(var(--mdui-color-primary)); color: rgb(var(--mdui-color-on-primary)); }
+    .btn-primary:hover { box-shadow: 0 2px 8px rgba(var(--mdui-color-primary-rgb), 0.3); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    #setup-error { color: rgb(var(--mdui-color-error)); font-size: 14px; margin-bottom: 16px; display: none; }
+    #setup-warning { color: rgb(var(--mdui-color-tertiary)); font-size: 14px; margin-bottom: 16px; display: none; }
     #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    .toast-el { background: rgb(var(--mdui-color-inverse-surface)); color: rgb(var(--mdui-color-inverse-on-surface)); padding: 12px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: toast-in 0.3s ease; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
-  <div id="app"></div>
+  <div class="login-container">
+    <div class="login-card">
+      <h1>🚀 初始化博客</h1>
+      <p class="desc">首次使用，请设置管理员账号</p>
+      <div id="setup-error"></div>
+      <div id="setup-warning"></div>
+      <form id="setup-form" autocomplete="off">
+        <div class="form-group">
+          <label for="su-user">用户名</label>
+          <input type="text" id="su-user" name="username" placeholder="设置管理员用户名" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="su-pass">密码</label>
+          <input type="password" id="su-pass" name="password" placeholder="设置密码（至少6位）" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label for="su-pass2">确认密码</label>
+          <input type="password" id="su-pass2" name="password2" placeholder="再次输入密码" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary" id="setup-btn">初始化</button>
+      </form>
+    </div>
+  </div>
+  <div id="toast"></div>
 
   <script>
     const API = '/api/admin';
-    const SSR = '/api/admin/ssr';
 
     function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-    function toast(msg) {
-      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
-      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
-      const sb = el.querySelector('mdui-snackbar');
-      if (sb) sb.show = true;
-    }
-
-    async function api(path, opts) {
-      const headers = { 'Content-Type': 'application/json' };
-      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
-      if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
-      return res.json();
-    }
-
-    async function fetchSSR(path) {
-      const res = await fetch(SSR + path);
-      if (!res.ok) return '<p style="color:red">Failed to load: ' + res.status + '</p>';
-      return res.text();
-    }
 
     async function doSetupInit() {
-      var user = document.getElementById('su-user')?.value?.trim();
-      var pass = document.getElementById('su-pass')?.value;
-      var pass2 = document.getElementById('su-pass2')?.value;
+      var user = document.getElementById('su-user').value.trim();
+      var pass = document.getElementById('su-pass').value;
+      var pass2 = document.getElementById('su-pass2').value;
       var errEl = document.getElementById('setup-error');
+      var btn = document.getElementById('setup-btn');
       if (!user || !pass) { errEl.textContent = '用户名和密码不能为空'; errEl.style.display = ''; return; }
       if (pass.length < 6) { errEl.textContent = '密码长度不少于6位'; errEl.style.display = ''; return; }
       if (pass !== pass2) { errEl.textContent = '两次密码输入不一致'; errEl.style.display = ''; return; }
       errEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = '初始化中...';
       try {
         var res = await fetch(API + '/setup', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -66,41 +77,36 @@
         var d = await res.json();
         if (d.errno === 0) {
           var warnEl = document.getElementById('setup-warning');
-          if (warnEl) { warnEl.style.display = ''; warnEl.textContent = '⚠️ 初始化成功！建议立即修改密码。'; }
+          if (warnEl) { warnEl.style.display = ''; warnEl.textContent = '✅ 初始化成功！即将跳转到登录页...'; }
           setTimeout(function() { window.location.href = 'login.html'; }, 2000);
         } else {
           errEl.textContent = d.errmsg || '初始化失败';
           errEl.style.display = '';
+          btn.disabled = false;
+          btn.textContent = '初始化';
         }
       } catch(e) {
         errEl.textContent = '网络错误: ' + e.message;
         errEl.style.display = '';
+        btn.disabled = false;
+        btn.textContent = '初始化';
       }
-    }
-
-    function bindEvents() {
-      document.querySelectorAll('[data-action]').forEach(function(el) {
-        el.addEventListener('click', function(e) {
-          const target = e.currentTarget;
-          const action = target.dataset.action;
-          if (action === 'setup-init') doSetupInit();
-        });
-      });
     }
 
     document.addEventListener('DOMContentLoaded', async function() {
       // Check if already set up
       try {
-        const d = await fetch(API + '/setup').then(r => r.json());
+        var d = await fetch(API + '/setup').then(function(r) { return r.json(); });
         if (d.errno === 0 && d.data && d.data.setup_done) {
           window.location.href = 'login.html';
           return;
         }
       } catch(e) {}
 
-      var app = document.getElementById('app');
-      app.innerHTML = await fetchSSR('/setup');
-      bindEvents();
+      document.getElementById('setup-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        doSetupInit();
+      });
     });
   </script>
 </body>

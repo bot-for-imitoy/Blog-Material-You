@@ -1,6 +1,5 @@
 -- /api/admin/comments — list all comments, delete
 local cjson = require("cjson")
-cjson.encode_empty_table_as_array(true)
 local admin_auth = require("admin_auth")
 
 ngx.header["Content-Type"] = "application/json"
