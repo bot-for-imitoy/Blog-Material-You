@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>安全 · 博客管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
+  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
+    .admin-layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; }
+    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); }
+    .sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .sidebar nav mdui-list-item { border-radius: 8px; }
+    .sidebar .logout { margin-top: auto; }
+    .sidebar nav a { text-decoration: none; color: inherit; }
+    .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 100%; }
+    .main mdui-card { margin-bottom: 24px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h1 { font-size: 28px; font-weight: 400; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-on-surface)); }
+    .form-group input, .form-group textarea { width: 100%; padding: 10px 12px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); }
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+  </style>
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <h2>📝 博客管理</h2>
+      <nav>
+        <a href="dashboard.html"><mdui-list-item rounded>📊 控制台</mdui-list-item></a>
+        <a href="posts.html"><mdui-list-item rounded>📄 文章</mdui-list-item></a>
+        <a href="comments.html"><mdui-list-item rounded>💬 评论</mdui-list-item></a>
+        <a href="talks.html"><mdui-list-item rounded>💭 动态</mdui-list-item></a>
+        <a href="friends.html"><mdui-list-item rounded>🔗 友链</mdui-list-item></a>
+        <a href="pages.html"><mdui-list-item rounded>📑 页面</mdui-list-item></a>
+        <a href="security.html"><mdui-list-item active rounded>🔐 安全</mdui-list-item></a>
+      </nav>
+      <a href="login.html" class="logout"><mdui-list-item rounded>🚪 退出</mdui-list-item></a>
+    </div>
+    <div class="main" id="main-content">加载中...</div>
+  </div>
+
+  <script>
+    const API = '/api/admin';
+    const SSR = '/api/admin/ssr';
+
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function toast(msg) {
+      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
+      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
+      const sb = el.querySelector('mdui-snackbar');
+      if (sb) sb.show = true;
+    }
+
+    async function api(path, opts) {
+      const headers = { 'Content-Type': 'application/json' };
+      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
+      if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    async function fetchSSR(path) {
+      const res = await fetch(SSR + path);
+      if (!res.ok) return '<p style="color:red">Failed to load: ' + res.status + '</p>';
+      return res.text();
+    }
+
+    // ===== TOTP Security =====
+    let totpState = {};
+
+    async function startTotpSetup() {
+      const res = await api('/totp-setup', { method: 'POST', body: JSON.stringify({ action: 'start' }) });
+      if (res.errno === 0) {
+        totpState = res.data;
+        reloadContent();
+      } else {
+        toast('操作失败: ' + (res.errmsg || ''));
+      }
+    }
+
+    async function verifyTotpSetup() {
+      const code = document.getElementById('totp-verify-code')?.value?.trim();
+      if (!code || code.length !== 6) { toast('请输入6位验证码'); return; }
+      const res = await api('/totp-setup', { method: 'POST', body: JSON.stringify({ action: 'verify', code }) });
+      if (res.errno === 0) { toast('✅ 两步验证已启用'); reloadContent(); }
+      else { toast('验证失败: ' + (res.errmsg || '验证码错误')); }
+    }
+
+    async function cancelTotpSetup() {
+      await api('/totp-setup', { method: 'POST', body: JSON.stringify({ action: 'disable' }) });
+      reloadContent();
+    }
+
+    async function disableTotp() {
+      if (!confirm('确定禁用两步验证？\n\n如果未保存密钥，再次启用时需要重新绑定所有设备。')) return;
+      const res = await api('/totp-setup', { method: 'POST', body: JSON.stringify({ action: 'disable' }) });
+      if (res.errno === 0) { toast('两步验证已禁用'); reloadContent(); }
+      else { toast('操作失败'); }
+    }
+
+    async function regenerateTotp() {
+      const res = await api('/totp-setup', { method: 'POST', body: JSON.stringify({ action: 'start' }) });
+      if (res.errno === 0) {
+        var secretEl = document.getElementById('totp-secret');
+        if (secretEl && res.data.secret) secretEl.value = res.data.secret;
+        var qrEl = document.querySelector('[alt="TOTP QR Code"]');
+        if (qrEl && res.data.provisioning_uri) {
+          qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(res.data.provisioning_uri);
+        }
+        toast('密钥已重新生成 ✓');
+      } else {
+        toast('操作失败: ' + (res.errmsg || ''));
+      }
+    }
+
+    async function changePassword() {
+      var oldPass = document.getElementById('cp-old')?.value;
+      var newUser = document.getElementById('cp-user')?.value?.trim();
+      var newPass = document.getElementById('cp-new')?.value;
+      var newPass2 = document.getElementById('cp-new2')?.value;
+      var errEl = document.getElementById('cp-error');
+      if (!oldPass) { errEl.textContent = '请输入当前密码'; return; }
+      if (!newPass) { errEl.textContent = '请输入新密码'; return; }
+      if (newPass.length < 6) { errEl.textContent = '新密码长度不少于6位'; return; }
+      if (newPass !== newPass2) { errEl.textContent = '两次密码输入不一致'; return; }
+      errEl.textContent = '保存中...';
+      const res = await api('/setup', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'change', old_password: oldPass, new_password: newPass, new_user: newUser })
+      });
+      if (res.errno === 0) { toast('✅ 密码已更改'); reloadContent(); }
+      else { errEl.textContent = res.errmsg || '更改失败'; }
+    }
+
+    // ===== Auto-refresh TOTP secret/QR =====
+    let _securityRefreshTimer = null;
+
+    function stopSecurityRefresh() {
+      if (_securityRefreshTimer) {
+        clearInterval(_securityRefreshTimer);
+        _securityRefreshTimer = null;
+      }
+    }
+
+    function startSecurityRefresh() {
+      stopSecurityRefresh();
+      _securityRefreshTimer = setInterval(async function() {
+        var el = document.getElementById('totp-secret');
+        if (!el) return;
+        try {
+          var res = await api('/totp-setup', { method: 'GET' });
+          if (res.errno === 0 && res.data) {
+            var secretEl = document.getElementById('totp-secret');
+            if (secretEl && res.data.secret) secretEl.value = res.data.secret;
+            var qrEl = document.querySelector('[alt="TOTP QR Code"]');
+            if (qrEl && res.data.provisioning_uri) {
+              var newSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(res.data.provisioning_uri);
+              if (qrEl.src !== newSrc) qrEl.src = newSrc;
+            }
+          }
+        } catch(e) { /* silently retry */ }
+      }, 30000);
+    }
+
+    function reloadContent() {
+      stopSecurityRefresh();
+      var el = document.getElementById('main-content');
+      fetchSSR('/security').then(function(html) { el.innerHTML = html; bindEvents(); });
+    }
+
+    function bindEvents() {
+      document.querySelectorAll('[data-action]').forEach(function(el) {
+        el.addEventListener('click', function(e) {
+          const target = e.currentTarget;
+          const action = target.dataset.action;
+          if (action === 'totp-start') startTotpSetup();
+          else if (action === 'totp-verify') verifyTotpSetup();
+          else if (action === 'totp-cancel') cancelTotpSetup();
+          else if (action === 'totp-disable') disableTotp();
+          else if (action === 'totp-regenerate') regenerateTotp();
+          else if (action === 'change-password') changePassword();
+        });
+      });
+      startSecurityRefresh();
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      var el = document.getElementById('main-content');
+      try {
+        el.innerHTML = await fetchSSR('/security');
+        bindEvents();
+      } catch(e) {
+        el.innerHTML = '<p style="color:red">加载失败: ' + escapeHtml(e.message) + '</p>';
+      }
+    });
+  </script>
+</body>
+</html>

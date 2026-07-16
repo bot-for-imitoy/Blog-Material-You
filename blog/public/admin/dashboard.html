@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>控制台 · 博客管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
+  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
+    .admin-layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; }
+    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); }
+    .sidebar nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+    .sidebar nav mdui-list-item { border-radius: 8px; }
+    .sidebar .logout { margin-top: auto; }
+    .sidebar nav a { text-decoration: none; color: inherit; }
+    .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 100%; }
+    .main mdui-card { margin-bottom: 24px; }
+    .main .form-group textarea { width: 100%; min-height: 400px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .page-header h1 { font-size: 28px; font-weight: 400; }
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card mdui-card { padding: 24px; }
+    .stat-card .stat-number { font-size: 36px; font-weight: 500; color: rgb(var(--mdui-color-primary)); }
+    .stat-card .stat-label { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-top: 4px; }
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+  </style>
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <h2>📝 博客管理</h2>
+      <nav>
+        <a href="dashboard.html"><mdui-list-item active rounded>📊 控制台</mdui-list-item></a>
+        <a href="posts.html"><mdui-list-item rounded>📄 文章</mdui-list-item></a>
+        <a href="comments.html"><mdui-list-item rounded>💬 评论</mdui-list-item></a>
+        <a href="talks.html"><mdui-list-item rounded>💭 动态</mdui-list-item></a>
+        <a href="friends.html"><mdui-list-item rounded>🔗 友链</mdui-list-item></a>
+        <a href="pages.html"><mdui-list-item rounded>📑 页面</mdui-list-item></a>
+        <a href="security.html"><mdui-list-item rounded>🔐 安全</mdui-list-item></a>
+      </nav>
+      <a href="login.html" class="logout"><mdui-list-item rounded>🚪 退出</mdui-list-item></a>
+    </div>
+    <div class="main" id="main-content">加载中...</div>
+  </div>
+
+  <script>
+    const API = '/api/admin';
+    const SSR = '/api/admin/ssr';
+
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function toast(msg) {
+      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
+      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
+      const sb = el.querySelector('mdui-snackbar');
+      if (sb) sb.show = true;
+    }
+
+    async function api(path, opts) {
+      const headers = { 'Content-Type': 'application/json' };
+      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
+      if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    async function fetchSSR(path) {
+      const res = await fetch(SSR + path);
+      if (!res.ok) return '<p style="color:red">Failed to load: ' + res.status + '</p>';
+      return res.text();
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      var el = document.getElementById('main-content');
+      try {
+        el.innerHTML = await fetchSSR('/dashboard');
+      } catch(e) {
+        el.innerHTML = '<p style="color:red">加载失败: ' + escapeHtml(e.message) + '</p>';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>两步验证 · 博客管理</title>
+  <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
+  <script src="https://unpkg.com/mdui@2/mdui.global.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', sans-serif; background: #f5f5f5; min-height: 100vh; }
+    .login-container { display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .login-card { width: 400px; padding: 32px; }
+    .login-card h1 { font-size: 24px; font-weight: 500; margin-bottom: 24px; text-align: center; }
+    .login-card mdui-text-field { width: 100%; margin-bottom: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; color: rgb(var(--mdui-color-on-surface)); }
+    .form-group input { width: 100%; padding: 10px 12px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 8px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); }
+    .back-link { text-align: center; margin-top: 16px; }
+    .back-link a { color: rgb(var(--mdui-color-primary)); text-decoration: none; font-size: 14px; }
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script>
+    const API = '/api/admin';
+    const SSR = '/api/admin/ssr';
+
+    function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function toast(msg) {
+      const el = document.getElementById('toast') || (() => { const e = document.createElement('div'); e.id = 'toast'; document.body.appendChild(e); return e; })();
+      el.innerHTML = '<mdui-snackbar>' + escapeHtml(msg) + '</mdui-snackbar>';
+      const sb = el.querySelector('mdui-snackbar');
+      if (sb) sb.show = true;
+    }
+
+    async function api(path, opts) {
+      const headers = { 'Content-Type': 'application/json' };
+      const res = await fetch(API + path, { ...opts, headers: { ...headers, ...(opts?.headers || {}) }, credentials: 'same-origin' });
+      if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
+      return res.json();
+    }
+
+    async function fetchSSR(path) {
+      const res = await fetch(SSR + path);
+      if (!res.ok) return '<p style="color:red">Failed to load: ' + res.status + '</p>';
+      return res.text();
+    }
+
+    var tempToken = null;
+
+    async function doTotpLogin(totpCode) {
+      const res = await fetch(API + '/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step: 2, temp_token: tempToken, totp: totpCode })
+      });
+      const data = await res.json();
+      if (data.errno === 0 && data.data) {
+        toast('登录成功 ✓');
+        window.location.href = 'dashboard.html';
+      } else {
+        toast('验证失败：' + (data.errmsg || '验证码错误'));
+      }
+    }
+
+    function bindEvents() {
+      const form = document.getElementById('login-form-totp');
+      if (form) {
+        form.addEventListener('submit', function(e) {
+          e.preventDefault();
+          const totp = document.getElementById('lf-totp')?.value || '';
+          if (!totp || totp.length !== 6) { toast('请输入6位验证码'); return; }
+          doTotpLogin(totp);
+        });
+        const input = document.getElementById('lf-totp');
+        if (input) {
+          input.addEventListener('input', function(e) {
+            if (e.target.value.length === 6) doTotpLogin(e.target.value);
+          });
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', async function() {
+      // Get temp_token from URL params
+      var params = new URLSearchParams(window.location.search);
+      tempToken = params.get('token');
+
+      // Load SSR content
+      var app = document.getElementById('app');
+      app.innerHTML = await fetchSSR('/login-totp');
+      bindEvents();
+    });
+  </script>
+</body>
+</html>
