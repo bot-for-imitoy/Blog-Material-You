@@ -6,6 +6,7 @@
 ]]
 local etlua = require("etlua")
 local cjson = require("cjson")
+local utils = require("utils")
 local _M = {}
 
 -- Compiled template cache
@@ -47,10 +48,10 @@ local function format_date(date_str)
     return date_str
 end
 
+-- UTF-8-safe truncation via ngx.re (see utils.truncate) — the previous
+-- string.sub version sliced multi-byte CJK characters in half.
 local function truncate(text, len)
-    if not text then return "" end
-    if #text <= len then return text end
-    return text:sub(1, len) .. "..."
+    return utils.truncate(text, len)
 end
 
 local function url_encode(s)

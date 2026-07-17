@@ -61,7 +61,9 @@ end
 function _M.to_summary(post)
     local excerpt = post.content and post.content:gsub("<[^>]+>", "") or ""
     local excerpt_len = 200
-    if post.cover and post.cover ~= cjson.null then excerpt_len = 120 end
+    -- "" is truthy in Lua — only treat non-empty, non-null covers as real
+    local cover_str = post.cover and tostring(post.cover) or ""
+    if cover_str ~= "" and cover_str ~= "null" then excerpt_len = 120 end
     return {
         slug = post.slug,
         title = post.title,

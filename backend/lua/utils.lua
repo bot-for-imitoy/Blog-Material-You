@@ -139,30 +139,21 @@ function _M.strip_html(str)
     return str:gsub("<[^>]*>", "")
 end
 
--- Truncate text to a given number of UTF-8 characters
+-- Truncate text to a given number of UTF-8 characters (appends "..." when cut).
+-- Uses ngx.re.sub with the "u" flag: "." matches one CODEPOINT, so multi-byte
+-- CJK characters are never sliced in half (string.sub counts bytes, not chars).
 function _M.truncate(str, max_chars)
-    if not str then return "" end
-    local total_bytes = #str
-    local chars = 0
-    local pos = 1
-    while pos <= total_bytes do
-        local byte = string.byte(str, pos)
-        chars = chars + 1
-        if chars > max_chars then
-            return str:sub(1, pos - 1) .. "..."
-        end
-        -- Advance past this UTF-8 character
-        if byte < 128 then
-            pos = pos + 1           -- 1-byte ASCII
-        elseif byte < 224 then
-            pos = pos + 2           -- 2-byte
-        elseif byte < 240 then
-            pos = pos + 3           -- 3-byte (CJK, etc.)
-        else
-            pos = pos + 4           -- 4-byte
-        end
+    if not str or str == "" then return "" end
+    if not max_chars or max_chars <= 0 then return "" end
+    -- Fast path: byte length <= max_chars implies codepoint count fits too
+    if #str <= max_chars then return str end
+    local prefix, _, err = ngx.re.sub(str, "^((?:.){" .. tostring(max_chars) .. "}).*", "$1", "josu")
+    if err or not prefix then
+        ngx.log(ngx.WARN, "utils.truncate: ngx.re.sub failed: ", err)
+        return str
     end
-    return str
+    if prefix == str then return str end  -- had <= max_chars codepoints
+    return prefix .. "..."
 end
 
 -- Trim whitespace
