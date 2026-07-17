@@ -25,6 +25,10 @@
     border-radius: 0px 0px 24px 24px;
 }
 
+.posts-list > mdui-list-item:only-of-type {
+    border-radius: 24px;
+}
+
 .posts-list > mdui-list-item:not(:last-of-type) {
     margin-bottom: 1px;
 }
