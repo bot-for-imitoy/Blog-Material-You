@@ -30,6 +30,12 @@ local route = uri:gsub("^/api/ssr", "")
 -- Normalize: empty should be "/" for root matching
 if route == "" then route = "/" end
 
+-- Page title computed by the backend; the SPA applies it to document.title
+-- during Pjax navigation (URI-encoded: header values must be ASCII-safe)
+local seo = require("seo")
+local seo_data = seo.for_route(route)
+ngx.header["X-SSR-Title"] = ngx.escape_uri(seo_data.title)
+
 -- Helper: render with error handling
 local function render_or_404(template, data)
     local html = renderer.render(template, data)

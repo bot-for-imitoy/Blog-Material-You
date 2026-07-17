@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <html class="mdui-theme-auto">
 <head>
-  <title>Blog Material You</title>
+  <title><%= seo_title %></title>
+  <meta name="description" content="<%= seo_desc %>">
+  <meta property="og:title" content="<%= seo_title %>">
+  <meta property="og:description" content="<%= seo_desc %>">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="<%= canonical %>">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/mdui@2/mdui.css">
@@ -38,7 +43,7 @@
       <mdui-button-icon class="navigation-drawer-button" variant="text">
         <mdui-icon src="/icon/menu.svg"></mdui-icon>
       </mdui-button-icon>
-      <mdui-top-app-bar-title id="app-bar-title">Blog Material You</mdui-top-app-bar-title>
+      <mdui-top-app-bar-title id="app-bar-title"><%= blog_config.title %></mdui-top-app-bar-title>
       <div style="flex-grow: 1"></div>
       <mdui-button-icon>
         <mdui-icon src="/icon/search.svg"></mdui-icon>
@@ -48,19 +53,25 @@
     <mdui-navigation-drawer class="navigation-drawer" close-on-overlay-click open="true">
       <div class="navigation-drawer-container">
       <div class="navigation-drawer-header">
-        <mdui-avatar src="/img/avatar.png" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
-        <div class="navigation-drawer-header-title" id="nav-name">Blog</div>
-        <div class="navigation-drawer-header-subtitle" id="nav-slogan">A simple and elegant theme.</div>
+        <% local avatar = (blog_config.avatar and blog_config.avatar ~= "") and blog_config.avatar or "/img/avatar.png" %>
+        <mdui-avatar src="<%= avatar %>" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
+        <div class="navigation-drawer-header-title" id="nav-name"><%= blog_config.title %></div>
+        <div class="navigation-drawer-header-subtitle" id="nav-slogan"><%= blog_config.desc %></div>
       </div>
       <mdui-list class="navigation-drawer-list" id="sidebar-list">
-        <!-- Sidebar items rendered dynamically from sidebar config -->
+        <% for _, item in ipairs(blog_config.menu or {}) do %>
+        <mdui-list-item rounded href="<%= item.route %>" data-route="<%= item.route %>">
+          <%= item.text %>
+          <mdui-icon src="<%= item.icon %>" slot="icon"></mdui-icon>
+        </mdui-list-item>
+        <% end %>
       </mdui-list>
       </div>
     </mdui-navigation-drawer>
 
     <mdui-layout-main class="layout-main">
       <div class="content-container" id="content-container">
-        <div class="loading-placeholder" id="loading-placeholder">Loading...</div>
+        <div class="loading-placeholder" id="loading-placeholder"><%= _h._("loading") %></div>
       </div>
     </mdui-layout-main>
   </mdui-layout>
@@ -69,18 +80,8 @@
 
   <script>
     // ===== Blog Material You SPA — SSR-Powered =====
-    // Data store (minimal — only config and auth state on client)
-    let blogConfig = null;
-
-    // ===== Text helper =====
-    const _ = (key) => {
-      const labels = {
-        nav_home:'Home', nav_posts:'Posts', nav_tags:'Tags',
-        nav_categories:'Categories', nav_moments:'Moments', nav_about:'About',
-        nav_archives:'Archives', nav_friends:'Friends', status:'Status',
-      };
-      return labels[key] || key;
-    };
+    // Site title, slogan, avatar, sidebar and <title> are all rendered
+    // server-side (Lua/etlua). JS only handles Pjax navigation & widgets.
 
     // ===== Helpers =====
     function escapeHtml(str) {
@@ -111,45 +112,6 @@
       });
     }
 
-    // ===== API Calls =====
-    async function apiFetch(url) {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('API error: ' + res.status);
-      return res.json();
-    }
-
-    // Load config from API and update the static UI elements
-    async function loadConfig() {
-      if (blogConfig) return blogConfig;
-      blogConfig = await apiFetch('/api/config');
-      const titleEl = document.getElementById('app-bar-title');
-      if (titleEl) titleEl.textContent = blogConfig.title || 'Blog';
-      const navName = document.getElementById('nav-name');
-      if (navName) navName.textContent = blogConfig.title || 'Blog';
-      const navSlogan = document.getElementById('nav-slogan');
-      if (navSlogan) navSlogan.textContent = blogConfig.desc || '';
-      const navAvatar = document.getElementById('nav-avatar');
-      if (navAvatar && blogConfig.avatar) navAvatar.src = blogConfig.avatar;
-      document.title = blogConfig.title || 'Blog Material You';
-      renderSidebar();
-      return blogConfig;
-    }
-
-    // Build sidebar from config
-    function renderSidebar() {
-      var list = document.getElementById('sidebar-list');
-      if (!list || !blogConfig || !blogConfig.menu) return;
-      var html = '';
-      blogConfig.menu.forEach(function(item) {
-        var label = item.text;
-        html += '<mdui-list-item rounded href="' + item.route + '" data-route="' + item.route + '">'
-                + label +
-                '<mdui-icon src="' + item.icon + '" slot="icon"></mdui-icon>'
-                + '</mdui-list-item>';
-      });
-      list.innerHTML = html;
-    }
-
     // ===== SSR Fetch =====
     // Core: fetch server-rendered HTML fragment for any route
     async function fetchSSR(path) {
@@ -160,6 +122,11 @@
       // Trailing slashes stripped; the SSR router handles both with/without
       const res = await fetch('/api/ssr' + ssrPath);
       if (!res.ok) return '<div class="loading-placeholder"><h2>Error</h2><p>Failed to load page (' + res.status + ')</p></div>';
+      // Apply the page title computed by the Lua backend (X-SSR-Title header)
+      var ssrTitle = res.headers.get('X-SSR-Title');
+      if (ssrTitle) {
+        try { document.title = decodeURIComponent(ssrTitle); } catch (e) {}
+      }
       return res.text();
     }
 
@@ -181,12 +148,7 @@
       if (layoutMain) layoutMain.scrollTop = 0;
 
       try {
-        await loadConfig();
-
-        // Update document title
-        document.title = blogConfig.title || 'Blog Material You';
-
-        // Fetch SSR-rendered HTML fragment
+        // Fetch SSR-rendered HTML fragment (title comes from X-SSR-Title header)
         var html = await fetchSSR(path);
 
         // Special handling for post pages: render markdown on client
