@@ -152,13 +152,18 @@
       html += '<div class="form-row">';
       html += '<div class="form-group"><label>封面图</label><input type="text" id="ed-cover" value="' + escapeHtml(post ? (post.cover || '') : '') + '" placeholder="https://..."></div>';
       html += '</div>';
+      // cjson encodes empty Lua tables as {} (object, not array) — guard all list fields
+      var tagsVal = (post && Array.isArray(post.tags)) ? post.tags.join(', ') : '';
+      var catsVal = (post && Array.isArray(post.categories)) ? post.categories.join(', ') : '';
+      var tagsEnVal = (post && Array.isArray(post.tags_en)) ? post.tags_en.join(', ') : '';
+      var catsEnVal = (post && Array.isArray(post.categories_en)) ? post.categories_en.join(', ') : '';
       html += '<div class="form-row">';
-      html += '<div class="form-group"><label>标签 (逗号分隔)</label><input type="text" id="ed-tags" value="' + (post && post.tags ? escapeHtml(post.tags.join(', ')) : '') + '" placeholder="tag1, tag2"></div>';
-      html += '<div class="form-group"><label>分类 (逗号分隔)</label><input type="text" id="ed-cats" value="' + (post && post.categories ? escapeHtml(post.categories.join(', ')) : '') + '" placeholder="cat1, cat2"></div>';
+      html += '<div class="form-group"><label>标签 (逗号分隔)</label><input type="text" id="ed-tags" value="' + escapeHtml(tagsVal) + '" placeholder="tag1, tag2"></div>';
+      html += '<div class="form-group"><label>分类 (逗号分隔)</label><input type="text" id="ed-cats" value="' + escapeHtml(catsVal) + '" placeholder="cat1, cat2"></div>';
       html += '</div>';
       html += '<div class="form-row">';
-      html += '<div class="form-group"><label>标签 (EN)</label><input type="text" id="ed-tags-en" value="' + (post && post.tags_en ? escapeHtml(post.tags_en.join(', ')) : '') + '" placeholder="tag1, tag2"></div>';
-      html += '<div class="form-group"><label>分类 (EN)</label><input type="text" id="ed-cats-en" value="' + (post && post.categories_en ? escapeHtml(post.categories_en.join(', ')) : '') + '" placeholder="cat1, cat2"></div>';
+      html += '<div class="form-group"><label>标签 (EN)</label><input type="text" id="ed-tags-en" value="' + escapeHtml(tagsEnVal) + '" placeholder="tag1, tag2"></div>';
+      html += '<div class="form-group"><label>分类 (EN)</label><input type="text" id="ed-cats-en" value="' + escapeHtml(catsEnVal) + '" placeholder="cat1, cat2"></div>';
       html += '</div>';
       html += '</div>';
 

@@ -40,27 +40,44 @@ end
 -- Convenience: query(sql[, params]) → result rows or nil, err
 -- Opens connection, runs query, closes, returns result.
 -- NOTE: resty.mysql on Alpine doesn't support ? placeholders in db:query(),
--- so we manually quote string params instead.
+-- so we substitute them manually. Placeholders are scanned LEFT→RIGHT with
+-- plain string.find and the substituted values are never rescanned —
+-- a previous gsub-based version corrupted queries when a VALUE contained
+-- '?' (e.g. regex "(?:" in post content) or '%' (gsub replacement escapes).
+local function quote_param(val)
+    if val == nil then
+        return "NULL"
+    elseif type(val) == "number" then
+        return tostring(val)
+    elseif type(val) == "boolean" then
+        return val and "1" or "0"
+    else
+        -- ngx.quote_sql_str handles ' " \ NUL \n \r \Z (MySQL-safe)
+        return ngx.quote_sql_str(tostring(val))
+    end
+end
+
 function _M.query(sql, params)
     local db, err = _M.connect()
     if not db then
         return nil, err
     end
-    -- Manual parameter substitution (? → quoted string or literal number)
     if params and #params > 0 then
-        for _, val in ipairs(params) do
-            local escaped
-            if type(val) == "number" then
-                escaped = tostring(val)
-            else
-                local s = tostring(val)
-                -- Escape single quotes and backslashes for MariaDB
-                s = s:gsub("\\", "\\\\")
-                s = s:gsub("'", "\\'")
-                escaped = "'" .. s .. "'"
+        local out = {}
+        local pos = 1
+        local i = 0
+        while true do
+            local q = sql:find("?", pos, true)
+            if not q then
+                out[#out + 1] = sql:sub(pos)
+                break
             end
-            sql = sql:gsub("%?", escaped, 1)
+            i = i + 1
+            out[#out + 1] = sql:sub(pos, q - 1)
+            out[#out + 1] = quote_param(params[i])
+            pos = q + 1
         end
+        sql = table.concat(out)
     end
     local res, err = db:query(sql)
     _M.close(db)

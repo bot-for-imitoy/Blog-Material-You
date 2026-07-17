@@ -92,9 +92,13 @@ elseif ngx.req.get_method() == "POST" then
         categories_en = data.categories_en or {},
         content = data.content or "",
     }
-    local ok, e = pcall(db_posts.create, db_data)
-    if not ok then
-        ngx.log(ngx.ERR, "admin/posts: failed to save post to DB: ", e)
+    local ok, created, cerr = pcall(db_posts.create, db_data)
+    if not ok or not created then
+        local emsg = not ok and tostring(created) or tostring(cerr)
+        ngx.log(ngx.ERR, "admin/posts: failed to save post to DB: ", emsg)
+        ngx.status = 500
+        ngx.say(cjson.encode({ errno = -1, errmsg = "DB save failed: " .. security.safe_error(emsg) }))
+        return
     end
 
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug, title = data.title } }))
@@ -169,9 +173,13 @@ elseif ngx.req.get_method() == "PUT" then
         categories_en = data.categories_en or {},
         content = data.content or "",
     }
-    local ok, e = pcall(db_posts.update, db_data)
-    if not ok then
-        ngx.log(ngx.ERR, "admin/posts: failed to update post in DB: ", e)
+    local ok, updated, uerr = pcall(db_posts.update, db_data)
+    if not ok or not updated then
+        local emsg = not ok and tostring(updated) or tostring(uerr)
+        ngx.log(ngx.ERR, "admin/posts: failed to update post in DB: ", emsg)
+        ngx.status = 500
+        ngx.say(cjson.encode({ errno = -1, errmsg = "DB update failed: " .. security.safe_error(emsg) }))
+        return
     end
 
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug } }))
@@ -195,9 +203,13 @@ elseif ngx.req.get_method() == "DELETE" then
     end
 
     -- Also delete from DB
-    local ok2, e = pcall(db_posts.delete, slug)
-    if not ok2 then
-        ngx.log(ngx.ERR, "admin/posts: failed to delete post from DB: ", e)
+    local ok2, deleted, derr = pcall(db_posts.delete, slug)
+    if not ok2 or not deleted then
+        local emsg = not ok2 and tostring(deleted) or tostring(derr)
+        ngx.log(ngx.ERR, "admin/posts: failed to delete post from DB: ", emsg)
+        ngx.status = 500
+        ngx.say(cjson.encode({ errno = -1, errmsg = "DB delete failed: " .. security.safe_error(emsg) }))
+        return
     end
 
     ngx.say(cjson.encode({ errno = 0, data = { slug = slug } }))
