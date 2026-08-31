@@ -8,6 +8,12 @@ services:
     environment:
       - BMY_BLOG_DIR=/app/blog
       - BMY_DB_SOCKET=/app/data/mysql/mysql.sock
+      # 指定新的数据库时，取消注释并设置：
+      # - BMY_DB_NAME=blogyou
+      # - BMY_DB_USER=blogyou
+      # - BMY_DB_PASS=your-password
+      # - BMY_DB_HOST=db.example.com
+      # - BMY_DB_PORT=3306
     volumes:
       # Persist MariaDB data
       - blog_data:/app/data/mysql

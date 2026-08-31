@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据备份 · 博客管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', sans-serif; background: rgb(var(--mdui-color-surface-container)); min-height: 100vh; color: rgb(var(--mdui-color-on-surface)); }
+    .admin-layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); padding: 0 12px; }
+    .sidebar nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .sidebar nav a, .sidebar .logout { display: block; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: rgb(var(--mdui-color-on-surface-variant)); font-size: 14px; font-weight: 500; transition: background 0.15s; }
+    .sidebar nav a:hover, .sidebar .logout:hover { background: rgb(var(--mdui-color-surface-variant)); }
+    .sidebar nav a.active { background: rgb(var(--mdui-color-secondary-container)); color: rgb(var(--mdui-color-on-secondary-container)); }
+    .sidebar .logout { margin-top: auto; color: rgb(var(--mdui-color-error)); }
+    .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 100%; }
+    .page-header h1 { font-size: 28px; font-weight: 400; color: rgb(var(--mdui-color-on-surface)); margin-bottom: 24px; }
+    .card { background: rgb(var(--mdui-color-surface)); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 18px; font-weight: 500; margin-bottom: 12px; color: rgb(var(--mdui-color-on-surface)); }
+    .card p.desc { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 16px; line-height: 1.6; }
+    .card p.warn { font-size: 13px; color: rgb(var(--mdui-color-error)); margin-bottom: 16px; line-height: 1.6; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; border: none; border-radius: 999px; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; transition: box-shadow 0.2s, opacity 0.2s; }
+    .btn-primary { background: rgb(var(--mdui-color-primary)); color: rgb(var(--mdui-color-on-primary)); }
+    .btn-primary:hover { box-shadow: 0 2px 8px rgba(var(--mdui-color-primary-rgb), 0.3); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-outline { background: transparent; border: 1px solid rgb(var(--mdui-color-outline)); color: rgb(var(--mdui-color-on-surface-variant)); }
+    .btn-outline:hover { background: rgb(var(--mdui-color-surface-variant)); }
+    .file-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .file-name { font-size: 13px; color: rgb(var(--mdui-color-outline)); }
+    .result-box { margin-top: 16px; padding: 14px; background: rgb(var(--mdui-color-surface-variant)); border-radius: 10px; font-size: 13px; line-height: 1.7; font-family: 'Fira Code', 'Monaco', monospace; white-space: pre-wrap; word-break: break-all; display: none; }
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    .toast-el { background: rgb(var(--mdui-color-inverse-surface)); color: rgb(var(--mdui-color-inverse-on-surface)); padding: 12px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: toast-in 0.3s ease; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <h2>📝 博客管理</h2>
+      <nav>
+        <a href="dashboard.html">📊 控制台</a>
+        <a href="posts.html">📄 文章</a>
+        <a href="comments.html">💬 评论</a>
+        <a href="talks.html">💭 动态</a>
+        <a href="friends.html">🔗 友链</a>
+        <a href="pages.html">📑 页面</a>
+        <a href="security.html">🔐 安全</a>
+        <a href="backup.html" class="active">💾 数据备份</a>
+      </nav>
+      <a href="login.html" class="logout">🚪 退出</a>
+    </div>
+    <div class="main" id="main-content">加载中...</div>
+  </div>
+  <div id="toast"></div>
+
+  <script>
+    const API = '/api/admin';
+    var token = '';
+
+    function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function toast(msg) {
+      var el = document.getElementById('toast');
+      if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+      el.innerHTML = '<div class="toast-el">' + escapeHtml(msg) + '</div>';
+      setTimeout(function() { if (el.firstChild) el.innerHTML = ''; }, 4000);
+    }
+
+    function applyTokenToSidebar() {
+      document.querySelectorAll('.sidebar a').forEach(function(a) {
+        var href = a.getAttribute('href');
+        if (href && href.indexOf('?') !== -1) {
+          if (href.indexOf('token=') === -1) a.setAttribute('href', href + '&token=' + encodeURIComponent(token));
+        } else if (href && href !== '#') {
+          a.setAttribute('href', href + '?token=' + encodeURIComponent(token));
+        }
+      });
+    }
+
+    // ===== 一键导出 =====
+    async function doExport() {
+      var btn = document.getElementById('export-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 导出中...';
+      try {
+        var res = await fetch(API + '/export', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
+        if (!res.ok) {
+          var j = null;
+          try { j = await res.json(); } catch(e) {}
+          throw new Error((j && j.errmsg) || ('导出失败 (HTTP ' + res.status + ')'));
+        }
+        var blob = await res.blob();
+        var disposition = res.headers.get('Content-Disposition') || '';
+        var match = disposition.match(/filename="?([^";]+)"?/);
+        var filename = match ? match[1] : ('blog-backup-' + Date.now() + '.json');
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('✅ 已导出备份文件: ' + filename);
+      } catch(e) {
+        toast('❌ ' + escapeHtml(e.message));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⬇️ 一键导出数据';
+      }
+    }
+
+    // ===== 一键导入 =====
+    var selectedFile = null;
+
+    function onFileSelected(input) {
+      selectedFile = input.files && input.files[0] ? input.files[0] : null;
+      var label = document.getElementById('file-name');
+      var box = document.getElementById('result-box');
+      if (label) label.textContent = selectedFile ? ('已选择: ' + selectedFile.name + ' (' + selectedFile.size + ' 字节)') : '';
+      if (box) box.style.display = 'none';
+    }
+
+    async function doImport() {
+      if (!selectedFile) { toast('⚠️ 请先选择备份文件'); return; }
+      if (!confirm('⚠️ 导入将【清空并替换】当前全部数据（文章、评论、动态、友链、页面、配置等）。\n\n确定要继续吗？')) return;
+
+      var btn = document.getElementById('import-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 导入中...';
+      try {
+        var text = await selectedFile.text();
+        var res = await fetch(API + '/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: text
+        });
+        if (res.status === 401) { window.location.href = 'login.html'; throw new Error('Unauthorized'); }
+        var j = await res.json();
+        if (j.errno !== 0) throw new Error(j.errmsg || '导入失败');
+
+        var lines = ['✅ 导入成功，各表数据量:'];
+        var s = j.data.summary || {};
+        Object.keys(s).forEach(function(k) { lines.push('  ' + k + ': ' + s[k]); });
+        var box = document.getElementById('result-box');
+        if (box) { box.textContent = lines.join('\n'); box.style.display = 'block'; }
+        toast('✅ 导入成功');
+      } catch(e) {
+        toast('❌ ' + escapeHtml(e.message));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⬆️ 一键导入数据';
+      }
+    }
+
+    // ===== 页面渲染 =====
+    function loadContent() {
+      var el = document.getElementById('main-content');
+      var html = '<div class="page-header"><h1>💾 数据备份</h1></div>';
+
+      html += '<div class="card">';
+      html += '<h2>⬇️ 一键导出数据</h2>';
+      html += '<p class="desc">将数据库中的全部数据（文章、页面、评论、动态、友链、配置、日历等）导出为单个 JSON 文件。可在更换数据库前备份数据，或用于日常归档。</p>';
+      html += '<button class="btn btn-primary" id="export-btn" onclick="doExport()">⬇️ 一键导出数据</button>';
+      html += '</div>';
+
+      html += '<div class="card">';
+      html += '<h2>⬆️ 一键导入数据</h2>';
+      html += '<p class="desc">选择此前导出的备份文件，一键恢复全部数据。</p>';
+      html += '<p class="warn">⚠️ 导入会先清空当前数据库中的所有数据再写入备份内容，操作不可撤销，请确认备份文件无误。</p>';
+      html += '<div class="file-row">';
+      html += '<input type="file" id="import-file" accept=".json,application/json" style="display:none" onchange="onFileSelected(this)">';
+      html += '<button class="btn btn-outline" onclick="document.getElementById(\'import-file\').click()">📂 选择备份文件</button>';
+      html += '<span class="file-name" id="file-name"></span>';
+      html += '</div>';
+      html += '<div style="margin-top:16px;">';
+      html += '<button class="btn btn-primary" id="import-btn" onclick="doImport()">⬆️ 一键导入数据</button>';
+      html += '</div>';
+      html += '<div class="result-box" id="result-box"></div>';
+      html += '</div>';
+
+      el.innerHTML = html;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var params = new URLSearchParams(window.location.search);
+      token = params.get('token') || '';
+      if (!token) { window.location.href = 'login.html'; return; }
+      applyTokenToSidebar();
+      loadContent();
+    });
+  </script>
+</body>
+</html>
