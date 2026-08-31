@@ -4,13 +4,9 @@
 ]]
 local cjson = require("cjson")
 local mysql = require("resty.mysql")
+local db_config = require("db_config")
 
 local _M = {}
-
-local DB_SOCKET = require("utils").db_socket()
-local DB_NAME   = "blogyou"
-local DB_USER   = "blogyou"
-local DB_PASS   = "blog-db-pass-2025"
 
 -- Escape string for SQL (single quotes + backslashes)
 local function esc(s)
@@ -28,12 +24,7 @@ local function connect()
         return nil, "failed to create mysql instance: " .. (err or "unknown")
     end
     db:set_timeout(3000)
-    local ok, err = db:connect({
-        path     = DB_SOCKET,
-        database = DB_NAME,
-        user     = DB_USER,
-        password = DB_PASS,
-    })
+    local ok, err = db:connect(db_config.connect_params())
     if not ok then
         return nil, "failed to connect to MariaDB: " .. (err or "unknown")
     end
