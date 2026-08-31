@@ -87,6 +87,24 @@ if ! $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
     exit 1
 fi
 
+# ===== Upgrade MariaDB data directory if needed =====
+# The volume may hold a datadir initialized by an older MariaDB (e.g. 10.11
+# from the previous alpine:3.20 image). Compare the version recorded in the
+# datadir against the running server and run mariadb-upgrade when they differ.
+# MariaDB writes mysql_upgrade_info (<=10.11) or mariadb_upgrade_info (>=11.4).
+MARKER=$(ls "$DB_DIR"/mysql_upgrade_info "$DB_DIR"/mariadb_upgrade_info 2>/dev/null | head -1)
+if [ -n "$MARKER" ]; then
+    OLD_VER=$(head -n1 "$MARKER" 2>/dev/null)
+    CUR_VER=$($MYSQL_CMD -N -e "SELECT VERSION()" 2>/dev/null)
+    if [ -n "$OLD_VER" ] && [ "$OLD_VER" != "$CUR_VER" ]; then
+        echo "MariaDB datadir was created by $OLD_VER, server is $CUR_VER — running mariadb-upgrade..."
+        mariadb-upgrade --socket="$DB_SOCKET" --force 2>&1 | tail -5
+        echo "MariaDB upgrade finished"
+    else
+        echo "MariaDB datadir version matches server ($CUR_VER), no upgrade needed"
+    fi
+fi
+
 # ===== Initialize database if needed =====
 MYSQL_CMD="mariadb --socket=$DB_SOCKET"
 DB_EXISTS=$($MYSQL_CMD -e "SHOW DATABASES LIKE 'blogyou'" 2>/dev/null | grep blogyou || true)
