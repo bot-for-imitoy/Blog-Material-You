@@ -10,17 +10,14 @@ if not user then
     return
 end
 
-local DB_SOCKET = require("utils").db_socket()
-local DB_NAME = "blogyou"
-local DB_USER = "blogyou"
-local DB_PASS = "blog-db-pass-2025"
+local db_config = require("db_config")
 
 local function connect()
     local mysql = require("resty.mysql")
     local db, err = mysql:new()
     if not db then return nil, err end
     db:set_timeout(3000)
-    local ok, err = db:connect({ path = DB_SOCKET, database = DB_NAME, user = DB_USER, password = DB_PASS })
+    local ok, err = db:connect(db_config.connect_params())
     if not ok then return nil, err end
     return db
 end

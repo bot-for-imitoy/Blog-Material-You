@@ -66,14 +66,56 @@ Then visit http://localhost:30999/ for the blog and http://localhost:31000/ for 
 - **Bearer Token Auth**: Password-based authentication.
 - **Admin API**: Full CRUD for posts, comments, talks, and pages.
 - **Admin Comments**: Full comment moderation from admin panel.
+- **One-Click Backup/Restore**: Export the entire database to a single JSON file and restore it — useful before switching to a new database.
+
+## Database Configuration
+
+Database connection is centralized in `backend/lua/db_config.lua` and configurable via environment variables, so you can point the blog at a new database without code changes:
+
+| Env var          | Default                                    | Description                          |
+|------------------|--------------------------------------------|--------------------------------------|
+| `BMY_DB_SOCKET`  | `$BMY_BLOG_DIR/data/mysql/mysql.sock`      | Unix socket path (used when no host) |
+| `BMY_DB_HOST`    | *(empty)*                                  | TCP host; when set, uses TCP         |
+| `BMY_DB_PORT`    | `3306`                                     | TCP port                             |
+| `BMY_DB_NAME`    | `blogyou`                                  | Database name                        |
+| `BMY_DB_USER`    | `blogyou`                                  | Database user                        |
+| `BMY_DB_PASS`    | `blog-db-pass-2025`                        | Database password                    |
+
+Example — connect to a new remote database:
+
+```bash
+BMY_DB_HOST=db.example.com BMY_DB_PORT=3306 \
+BMY_DB_NAME=myblog BMY_DB_USER=blog BMY_DB_PASS=s3cret \
+bash backend/start.sh
+```
+
+> nginx only exposes env vars declared with the `env` directive in `backend/conf/nginx.conf`; restart the service after changing them. Before switching databases, export the old data from the admin panel's **💾 Data Backup** page, then import it after connecting the new database.
+
+## One-Click Export / Import
+
+The admin panel has a **💾 Data Backup** page (`http://localhost:31000/backup.html`):
+
+- **One-Click Export**: downloads all database data (posts, pages, comments, talks, friends, config, calendar events, etc.) as a single JSON file.
+- **One-Click Import**: picks a previously exported backup file, clears and restores all data (with a confirmation dialog).
+
+Raw API (requires admin Bearer token):
+
+```bash
+# Export (download JSON backup)
+curl -H "Authorization: Bearer <token>" http://localhost:31000/api/admin/export -o backup.json
+
+# Import (restore backup)
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+     --data-binary @backup.json http://localhost:31000/api/admin/import
+```
 
 ## Tech Stack
 
 | Layer       | Technology                              | License       |
 |-------------|-----------------------------------------|---------------|
-| Base Image  | Alpine Linux 3.20                       | GPL-2.0       |
-| Web Server  | OpenResty 1.25 (nginx + LuaJIT)         | BSD 2-Clause  |
-| Database    | MariaDB 10.11 (via Unix socket)         | GPL-2.0       |
+| Base Image  | Alpine Linux 3.23                       | GPL-2.0       |
+| Web Server  | OpenResty 1.27 (nginx + LuaJIT)         | BSD 2-Clause  |
+| Database    | MariaDB 11.4 (via Unix socket)          | GPL-2.0       |
 | Lua Modules | lua-resty-mysql, lua-resty-aes, lua-cjson | BSD / MIT   |
 | Frontend UI | MDUI 2 (Material Design 3 Web Components) | MIT         |
 | Markdown    | marked 15.0.0                           | MIT           |

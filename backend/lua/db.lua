@@ -1,15 +1,11 @@
 --[[
   db.lua — Shared MariaDB connection module.
   All database access goes through this module for consistent connection handling.
-  Uses resty.mysql via Unix socket to the Docker-local MariaDB.
+  Connection settings come from db_config.lua (env-configurable: socket or TCP).
 ]]
 local mysql = require("resty.mysql")
+local db_config = require("db_config")
 local _M = {}
-
-local DB_SOCKET = require("utils").db_socket()
-local DB_NAME   = "blogyou"
-local DB_USER   = "blogyou"
-local DB_PASS   = "blog-db-pass-2025"
 
 -- Open a connection (for single-query use — prefer query() helper)
 function _M.connect()
@@ -18,12 +14,7 @@ function _M.connect()
         return nil, "failed to create mysql instance: " .. (err or "unknown")
     end
     db:set_timeout(3000)
-    local ok, err = db:connect({
-        path     = DB_SOCKET,
-        database = DB_NAME,
-        user     = DB_USER,
-        password = DB_PASS,
-    })
+    local ok, err = db:connect(db_config.connect_params())
     if not ok then
         return nil, "failed to connect to MariaDB: " .. (err or "unknown")
     end

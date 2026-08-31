@@ -1,17 +1,24 @@
 # Blog Material You — Docker image
 # Single container: OpenResty + MariaDB
 
-FROM alpine:3.20
+# alpine:3.23 (supported until 2027-11) — 3.20 is EOL and its package repos
+# are frozen/being phased out, which broke the build.
+FROM alpine:3.23
 
 LABEL description="Blog Material You — standalone blog system (OpenResty + MariaDB)"
 LABEL maintainer="Hermes-bot"
 
-# Install dependencies
-RUN apk add --no-cache --repository=http://dl-cdn.alpinelinux.org/alpine/v3.20/community/ \
+# Install dependencies.
+# NOTE: no explicit --repository flag — the base image already enables the
+# main and community repos over HTTPS in /etc/apk/repositories. The previous
+# hard-coded http://dl-cdn... URL was redundant, insecure, and a build
+# failure point on networks that block/redirect plain HTTP.
+RUN apk add --no-cache \
     openresty \
     mariadb \
     mariadb-client \
     mariadb-common \
+    mariadb-server-utils \
     tzdata \
     curl
 

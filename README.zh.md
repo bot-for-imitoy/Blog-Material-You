@@ -196,6 +196,47 @@ curl http://localhost:30999/api/health
 # → {"status":"ok","server":"openresty","version":"blog-material-you"}
 ```
 
+### 指定新的数据库
+
+数据库连接参数通过环境变量配置（默认连接本地 MariaDB Socket），支持切换到任意新的数据库（如另一台 MySQL/MariaDB 服务器）：
+
+| 环境变量 | 默认值 | 说明 |
+|---------|--------|------|
+| `BMY_DB_SOCKET` | `$BMY_BLOG_DIR/data/mysql/mysql.sock` | Unix Socket 路径（未设置 `BMY_DB_HOST` 时使用） |
+| `BMY_DB_HOST` | *(空)* | TCP 主机；设置后改用 TCP 连接 |
+| `BMY_DB_PORT` | `3306` | TCP 端口 |
+| `BMY_DB_NAME` | `blogyou` | 数据库名 |
+| `BMY_DB_USER` | `blogyou` | 数据库用户 |
+| `BMY_DB_PASS` | `blog-db-pass-2025` | 数据库密码 |
+
+示例 — 连接到新的远程数据库：
+
+```bash
+BMY_DB_HOST=db.example.com BMY_DB_PORT=3306 \
+BMY_DB_NAME=myblog BMY_DB_USER=blog BMY_DB_PASS=s3cret \
+bash backend/start.sh
+```
+
+> 注意：nginx 仅读取白名单内的环境变量（见 `backend/conf/nginx.conf` 中的 `env` 指令），修改后需重启服务。切换数据库前，请先用管理后台的「数据备份」功能导出旧库数据，再在接入新库后一键导入。
+
+### 一键导入 / 一键导出数据
+
+管理后台新增「💾 数据备份」页面（`http://localhost:31000/backup.html`）：
+
+- **一键导出**：将数据库全部数据（文章、页面、评论、动态、友链、配置、日历等）导出为单个 JSON 文件下载。
+- **一键导入**：选择此前导出的备份文件，清空并恢复全部数据（导入前会二次确认）。
+
+对应 API（需管理员 Bearer Token）：
+
+```bash
+# 导出（下载 JSON 备份文件）
+curl -H "Authorization: Bearer <token>" http://localhost:31000/api/admin/export -o backup.json
+
+# 导入（恢复备份）
+curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/json" \
+     --data-binary @backup.json http://localhost:31000/api/admin/import
+```
+
 ## 访问
 
 | 服务       | 地址                           | 凭据                |
