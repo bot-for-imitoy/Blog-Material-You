@@ -1,4 +1,4 @@
--- /api/admin/imghost — SFTP image hosting management
+-- /api/admin/imghost — Image hosting management (SFTP / S3·MinIO)
 -- GET    /api/admin/imghost        → get config
 -- PUT    /api/admin/imghost        → update config
 -- POST   /api/admin/imghost/test   → test connection
@@ -18,18 +18,22 @@ end
 local method = ngx.req.get_method()
 local uri = ngx.var.uri
 
+-- Mask secret values before sending to the client
+local function mask_config(cfg)
+    local safe = {}
+    for k, v in pairs(cfg) do
+        safe[k] = v
+    end
+    if safe.secret_key and safe.secret_key ~= "" then
+        safe.secret_key = "********"
+    end
+    return safe
+end
+
 -- ===== GET: load config =====
 if method == "GET" then
     local cfg = imghost.load_config()
-    -- Mask sensitive data
-    local safe_cfg = {}
-    for k, v in pairs(cfg) do
-        safe_cfg[k] = v
-    end
-    if safe_cfg.ssh_key_path and safe_cfg.ssh_key_path ~= "" then
-        safe_cfg.ssh_key_path = safe_cfg.ssh_key_path
-    end
-    ngx.say(cjson.encode({ errno = 0, data = safe_cfg }))
+    ngx.say(cjson.encode({ errno = 0, data = mask_config(cfg) }))
     return
 end
 
@@ -50,17 +54,36 @@ if method == "PUT" then
         return
     end
 
+    -- Load existing config so masked secrets can be preserved
+    local current = imghost.load_config()
+
     -- Build config from request
     local cfg = {
         enabled = data.enabled == true,
+        provider = (data.provider == "s3" or data.provider == "sftp") and data.provider or "sftp",
+        -- SFTP
         host = data.host or "",
         port = tonumber(data.port) or 22,
         username = data.username or "",
         ssh_key_path = data.ssh_key_path or "",
         remote_dir = data.remote_dir or "",
+        -- S3
+        endpoint = data.endpoint or "",
+        bucket = data.bucket or "",
+        access_key = data.access_key or "",
+        secret_key = data.secret_key or "",
+        region = data.region or "",
+        prefix = data.prefix or "",
+        insecure = data.insecure == true,
+        -- Common
         public_url_base = data.public_url_base or "",
-        filename_template = data.filename_template or "{yy}-{mm}-{dd}.{file_extension}"
+        filename_template = data.filename_template or "{yy}-{mm}-{dd}.{file_extension}",
     }
+
+    -- Keep existing secret when the client sent the masked placeholder
+    if cfg.secret_key == "" or cfg.secret_key == "********" then
+        cfg.secret_key = current.secret_key or ""
+    end
 
     local ok, err = imghost.save_config(cfg)
     if not ok then
@@ -138,7 +161,7 @@ if method == "POST" then
         f:write(decoded)
         f:close()
 
-        -- Upload via SCP
+        -- Upload via the configured provider (SFTP or S3)
         local url, err = imghost.upload(temp_path, filename)
         -- Clean up temp file
         os.remove(temp_path)

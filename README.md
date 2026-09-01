@@ -67,6 +67,7 @@ Then visit http://localhost:30999/ for the blog and http://localhost:31000/ for 
 - **Admin API**: Full CRUD for posts, comments, talks, and pages.
 - **Admin Comments**: Full comment moderation from admin panel.
 - **One-Click Backup/Restore**: Export the entire database to a single JSON file and restore it — useful before switching to a new database.
+- **Image Hosting (SFTP / S3)**: Store images on a remote SFTP server or any S3-compatible object store (MinIO, AWS S3). Distributed deployment support: external MariaDB via `BMY_DB_HOST`, S3 image hosting via env vars.
 
 ## Database Configuration
 
@@ -90,6 +91,63 @@ bash backend/start.sh
 ```
 
 > nginx only exposes env vars declared with the `env` directive in `backend/conf/nginx.conf`; restart the service after changing them. Before switching databases, export the old data from the admin panel's **💾 Data Backup** page, then import it after connecting the new database.
+
+### Docker + external database
+
+When `BMY_DB_HOST` is set in `docker-compose.yml`, the container **does not start the embedded MariaDB** — it connects to your external server and automatically initializes/migrates the schema on boot (tables are created with `CREATE TABLE IF NOT EXISTS`, so restarts are safe). Create the database and user on the external server first:
+
+```sql
+CREATE DATABASE blogyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'blogyou'@'%' IDENTIFIED BY 'your-password';
+GRANT ALL PRIVILEGES ON blogyou.* TO 'blogyou'@'%';
+FLUSH PRIVILEGES;
+```
+
+## Image Hosting (S3 / SFTP)
+
+The blog can upload images (post covers, comment avatars) to a remote image host. Two providers are supported:
+
+| Provider | Description |
+|----------|-------------|
+| `sftp` (default) | Upload via `scp` to a remote SFTP server |
+| `s3` | Upload to any S3-compatible object store (MinIO, AWS S3) via the bundled MinIO Client (`mc`) |
+
+### Configure in the admin panel
+
+Open **🖼️ 图床** in the admin sidebar (`http://localhost:31000/imagehost.html`), pick a provider, fill in the credentials and hit **保存配置**, then **测试连接**.
+
+### Configure via environment variables (recommended for distributed deployment)
+
+No admin login needed — set these in `docker-compose.yml` / `.env`:
+
+| Env var | Description |
+|---------|-------------|
+| `BMY_IMGHOST_PROVIDER` | `sftp` or `s3` (setting this enables image hosting) |
+| `BMY_S3_ENDPOINT` | S3 endpoint, e.g. `http://minio:9000` |
+| `BMY_S3_BUCKET` | Bucket name |
+| `BMY_S3_ACCESS_KEY` | Access key |
+| `BMY_S3_SECRET_KEY` | Secret key |
+| `BMY_S3_REGION` | Region (AWS; optional for MinIO) |
+| `BMY_S3_PREFIX` | Optional key prefix inside the bucket |
+| `BMY_S3_PUBLIC_URL_BASE` | Optional public URL base (CDN/custom domain) |
+| `BMY_S3_INSECURE` | `1` to skip TLS verification (self-signed certs) |
+
+Env vars override the admin-panel config. When `provider = s3`, uploaded images are served from `$BMY_S3_PUBLIC_URL_BASE` (or `$BMY_S3_ENDPOINT/$BMY_S3_BUCKET`). Comment avatars are also stored on S3 when S3 image hosting is enabled, so every blog instance serves the same files.
+
+> For images to be publicly accessible, the bucket needs public read policy, e.g. `mc anonymous set download myminio/blog-images` (or equivalent bucket policy in your S3 provider).
+>
+> The frontend CSP (`img-src`) allows `'self'` and `data:` by default — if your images are served from a custom CDN/domain, add it to `img-src` in `docker/nginx-docker.conf` / `backend/conf/nginx.conf`, e.g. `img-src 'self' data: https://cdn.example.com;`.
+
+## Distributed Deployment
+
+The blog supports running multiple stateless instances behind a load balancer: all blog data lives in an external MariaDB and all uploaded images live in S3/MinIO. See `docker-compose.distributed.yml` for a complete example (blog + MinIO, pointing at an external DB):
+
+```bash
+export BMY_DB_PASS=your-db-password
+docker compose -f docker-compose.distributed.yml up -d
+```
+
+To scale horizontally, run more `blog` containers with the same `BMY_DB_*` / `BMY_S3_*` env vars and load-balance ports 30999/31000. Posts/pages are stored in the database (imported from `blog/posts/*.md` on first boot); mount the same content or manage everything from the admin panel.
 
 ## One-Click Export / Import
 

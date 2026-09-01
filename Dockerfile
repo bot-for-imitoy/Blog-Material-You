@@ -1,11 +1,11 @@
 # Blog Material You — Docker image
-# Single container: OpenResty + MariaDB
+# OpenResty + embedded MariaDB (optional: point at an external DB via BMY_DB_HOST)
 
 # alpine:3.23 (supported until 2027-11) — 3.20 is EOL and its package repos
 # are frozen/being phased out, which broke the build.
 FROM alpine:3.23
 
-LABEL description="Blog Material You — standalone blog system (OpenResty + MariaDB)"
+LABEL description="Blog Material You — standalone blog system (OpenResty + MariaDB, S3/MinIO image hosting)"
 LABEL maintainer="Hermes-bot"
 
 # Install dependencies.
@@ -22,6 +22,14 @@ RUN apk add --no-cache \
     tzdata \
     curl
 
+# Install MinIO Client (mc) — used by the imghost module for S3 uploads
+# (MinIO, AWS S3 and any S3-compatible object store).
+ARG MC_VERSION=RELEASE.2025-08-13T08-35-41Z
+RUN curl -fsSL -o /usr/local/bin/mc \
+        "https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MC_VERSION}" && \
+    chmod +x /usr/local/bin/mc && \
+    mc --version
+
 # Create project directories
 WORKDIR /app
 
@@ -36,6 +44,11 @@ RUN mkdir -p \
     backend/tmp/fastcgi \
     backend/tmp/uwsgi \
     backend/tmp/scgi
+
+# Avatar upload directory — nginx worker must be able to write here
+RUN mkdir -p blog/public/avatars && \
+    chown :nginx blog/public/avatars && \
+    chmod 775 blog/public/avatars
 
 # Initialize MariaDB system tables (data dir can be overridden by volume)
 RUN mkdir -p /app/data/mysql && \

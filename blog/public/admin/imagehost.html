@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>图床设置 · 博客管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Google Sans', sans-serif; background: rgb(var(--mdui-color-surface-container)); min-height: 100vh; color: rgb(var(--mdui-color-on-surface)); }
+    .admin-layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: rgb(var(--mdui-color-surface)); border-right: 1px solid rgb(var(--mdui-color-outline-variant)); padding: 16px; display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar h2 { font-size: 20px; font-weight: 500; margin-bottom: 24px; color: rgb(var(--mdui-color-primary)); padding: 0 12px; }
+    .sidebar nav { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+    .sidebar nav a, .sidebar .logout { display: block; padding: 10px 12px; border-radius: 10px; text-decoration: none; color: rgb(var(--mdui-color-on-surface-variant)); font-size: 14px; font-weight: 500; transition: background 0.15s; }
+    .sidebar nav a:hover, .sidebar .logout:hover { background: rgb(var(--mdui-color-surface-variant)); }
+    .sidebar nav a.active { background: rgb(var(--mdui-color-secondary-container)); color: rgb(var(--mdui-color-on-secondary-container)); }
+    .sidebar .logout { margin-top: auto; color: rgb(var(--mdui-color-error)); }
+    .main { flex: 1; padding: 32px; overflow-y: auto; max-width: 100%; }
+    .page-header h1 { font-size: 28px; font-weight: 400; color: rgb(var(--mdui-color-on-surface)); margin-bottom: 8px; }
+    .page-header p { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 24px; line-height: 1.6; }
+    .card { background: rgb(var(--mdui-color-surface)); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+    .card h2 { font-size: 18px; font-weight: 500; margin-bottom: 12px; color: rgb(var(--mdui-color-on-surface)); }
+    .card p.desc { font-size: 14px; color: rgb(var(--mdui-color-outline)); margin-bottom: 16px; line-height: 1.6; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: rgb(var(--mdui-color-on-surface-variant)); }
+    .form-group input, .form-group select { width: 100%; padding: 10px 12px; border: 1px solid rgb(var(--mdui-color-outline)); border-radius: 10px; font-size: 14px; font-family: inherit; background: rgb(var(--mdui-color-surface)); color: rgb(var(--mdui-color-on-surface)); transition: border-color 0.2s; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: rgb(var(--mdui-color-primary)); box-shadow: 0 0 0 3px rgba(var(--mdui-color-primary-rgb), 0.12); }
+    .form-row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+    .form-row .form-group { flex: 1; min-width: 150px; }
+    .form-actions { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; border: none; border-radius: 999px; font-size: 14px; font-weight: 500; font-family: inherit; cursor: pointer; transition: box-shadow 0.2s, opacity 0.2s; }
+    .btn-primary { background: rgb(var(--mdui-color-primary)); color: rgb(var(--mdui-color-on-primary)); }
+    .btn-primary:hover { box-shadow: 0 2px 8px rgba(var(--mdui-color-primary-rgb), 0.3); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-outline { background: transparent; border: 1px solid rgb(var(--mdui-color-outline)); color: rgb(var(--mdui-color-on-surface-variant)); }
+    .btn-outline:hover { background: rgb(var(--mdui-color-surface-variant)); }
+    .switch-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+    .switch-row input[type="checkbox"] { width: 18px; height: 18px; accent-color: rgb(var(--mdui-color-primary)); cursor: pointer; }
+    .switch-row label { font-size: 15px; font-weight: 500; cursor: pointer; }
+    .result-box { margin-top: 16px; padding: 14px; background: rgb(var(--mdui-color-surface-variant)); border-radius: 10px; font-size: 13px; line-height: 1.7; font-family: 'Fira Code', 'Monaco', monospace; white-space: pre-wrap; word-break: break-all; display: none; }
+    .file-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    .file-name { font-size: 13px; color: rgb(var(--mdui-color-outline)); }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 500; }
+    .status-enabled { background: rgb(var(--mdui-color-tertiary-container)); color: rgb(var(--mdui-color-on-tertiary-container)); }
+    .status-disabled { background: rgb(var(--mdui-color-surface-variant)); color: rgb(var(--mdui-color-on-surface-variant)); }
+    .env-note { font-size: 13px; color: rgb(var(--mdui-color-outline)); background: rgb(var(--mdui-color-surface-variant)); border-radius: 10px; padding: 12px 14px; margin-top: 8px; line-height: 1.7; }
+    #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; }
+    .toast-el { background: rgb(var(--mdui-color-inverse-surface)); color: rgb(var(--mdui-color-inverse-on-surface)); padding: 12px 20px; border-radius: 8px; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: toast-in 0.3s ease; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <h2>📝 博客管理</h2>
+      <nav>
+        <a href="dashboard.html">📊 控制台</a>
+        <a href="posts.html">📄 文章</a>
+        <a href="comments.html">💬 评论</a>
+        <a href="talks.html">💭 动态</a>
+        <a href="friends.html">🔗 友链</a>
+        <a href="pages.html">📑 页面</a>
+        <a href="security.html">🔐 安全</a>
+        <a href="imagehost.html" class="active">🖼️ 图床</a>
+        <a href="backup.html">💾 数据备份</a>
+      </nav>
+      <a href="login.html" class="logout">🚪 退出</a>
+    </div>
+    <div class="main">
+      <div class="page-header">
+        <h1>🖼️ 图床设置</h1>
+        <p>将图片存储到远程 SFTP 服务器或 S3 兼容对象存储（MinIO / AWS S3）。分布式部署时推荐 S3：图片与博客实例解耦，多实例共享同一存储。</p>
+      </div>
+
+      <div class="card">
+        <h2>启用状态</h2>
+        <div class="switch-row">
+          <input type="checkbox" id="enabled">
+          <label for="enabled">启用图床</label>
+          <span id="status-badge" class="status-badge status-disabled">未启用</span>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>存储提供方</label>
+            <select id="provider">
+              <option value="s3">S3 / MinIO（对象存储）</option>
+              <option value="sftp">SFTP（旧版）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>文件名模板</label>
+            <input id="filename_template" placeholder="{yy}-{mm}-{dd}.{file_extension}">
+          </div>
+        </div>
+        <p class="desc" style="margin-top:8px;">模板变量：{yy} 年份 {mm} 月份 {dd} 日期 {file_extension} 扩展名 {original} 原始文件名</p>
+      </div>
+
+      <div class="card" id="s3-card">
+        <h2>S3 / MinIO 配置</h2>
+        <p class="desc">适用于 MinIO、AWS S3 及任意 S3 兼容对象存储。上传通过镜像内置的 MinIO Client (mc) 完成。</p>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label>Endpoint 服务地址</label>
+            <input id="s3_endpoint" placeholder="http://minio:9000 或 https://s3.amazonaws.com">
+          </div>
+          <div class="form-group">
+            <label>Bucket 存储桶</label>
+            <input id="s3_bucket" placeholder="blog-images">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Access Key 访问密钥</label>
+            <input id="s3_access_key" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>Secret Key 秘密密钥</label>
+            <input id="s3_secret_key" type="password" autocomplete="off" placeholder="留空或填 ******** 表示保持不变">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Region 区域（可选）</label>
+            <input id="s3_region" placeholder="us-east-1">
+          </div>
+          <div class="form-group">
+            <label>Prefix 桶内前缀（可选）</label>
+            <input id="s3_prefix" placeholder="blog">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>公开访问 URL 基址（可选，默认 $ENDPOINT/$BUCKET）</label>
+          <input id="s3_public_url_base" placeholder="https://cdn.example.com/blog">
+        </div>
+        <div class="switch-row">
+          <input type="checkbox" id="s3_insecure">
+          <label for="s3_insecure">跳过 TLS 证书校验（自签名证书时勾选）</label>
+        </div>
+        <div class="env-note">💡 分布式部署时可用环境变量直接配置（无需登录后台）：<code>BMY_IMGHOST_PROVIDER=s3</code>、<code>BMY_S3_ENDPOINT</code>、<code>BMY_S3_BUCKET</code>、<code>BMY_S3_ACCESS_KEY</code>、<code>BMY_S3_SECRET_KEY</code> 等，环境变量优先于此处保存的配置。</div>
+      </div>
+
+      <div class="card" id="sftp-card" style="display:none;">
+        <h2>SFTP 配置</h2>
+        <p class="desc">通过 scp 上传到远程 SFTP 服务器（旧版图床方式）。</p>
+        <div class="form-row">
+          <div class="form-group" style="flex:2;">
+            <label>主机地址</label>
+            <input id="sftp_host" placeholder="example.com">
+          </div>
+          <div class="form-group">
+            <label>端口</label>
+            <input id="sftp_port" type="number" value="22">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>用户名</label>
+          <input id="sftp_username">
+        </div>
+        <div class="form-group">
+          <label>SSH 密钥路径</label>
+          <input id="sftp_ssh_key_path" placeholder="/app/keys/id_rsa">
+        </div>
+        <div class="form-group">
+          <label>远程目录</label>
+          <input id="sftp_remote_dir" placeholder="/var/www/images">
+        </div>
+        <div class="form-group">
+          <label>公开 URL 基址</label>
+          <input id="sftp_public_url_base" placeholder="https://images.example.com">
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button class="btn btn-primary" id="save-btn">💾 保存配置</button>
+        <button class="btn btn-outline" id="test-btn">🔌 测试连接</button>
+      </div>
+      <div class="result-box" id="result-box"></div>
+
+      <div class="card" style="margin-top:16px;">
+        <h2>测试上传</h2>
+        <p class="desc">选择一张图片上传到图床，验证配置是否正确。</p>
+        <div class="file-row">
+          <input type="file" id="upload-file" accept="image/*">
+          <span class="file-name" id="upload-name"></span>
+          <button class="btn btn-primary" id="upload-btn">⬆️ 上传</button>
+        </div>
+        <div class="result-box" id="upload-result"></div>
+      </div>
+    </div>
+  </div>
+  <div id="toast"></div>
+
+  <script>
+    const API = '/api/admin';
+    var token = '';
+
+    function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function toast(msg) {
+      var el = document.getElementById('toast');
+      if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+      el.innerHTML = '<div class="toast-el">' + escapeHtml(msg) + '</div>';
+      setTimeout(function() { if (el.firstChild) el.innerHTML = ''; }, 4000);
+    }
+    function applyTokenToSidebar() {
+      document.querySelectorAll('.sidebar a').forEach(function(a) {
+        var href = a.getAttribute('href');
+        if (href && href.indexOf('?') !== -1) {
+          if (href.indexOf('token=') === -1) a.setAttribute('href', href + '&token=' + encodeURIComponent(token));
+        } else if (href && href !== '#') {
+          a.setAttribute('href', href + '?token=' + encodeURIComponent(token));
+        }
+      });
+    }
+
+    var $ = function(id) { return document.getElementById(id); };
+
+    // ===== Provider switching =====
+    function applyProviderUI() {
+      var isS3 = $('provider').value === 's3';
+      $('s3-card').style.display = isS3 ? '' : 'none';
+      $('sftp-card').style.display = isS3 ? 'none' : '';
+    }
+    $('provider').addEventListener('change', applyProviderUI);
+
+    // ===== Load config =====
+    async function loadConfig() {
+      try {
+        var res = await fetch(API + '/imghost', { headers: { 'Authorization': 'Bearer ' + token } });
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        var j = await res.json();
+        if (j.errno !== 0) throw new Error(j.errmsg || '加载失败');
+        var c = j.data || {};
+        $('enabled').checked = !!c.enabled;
+        $('provider').value = (c.provider === 'sftp') ? 'sftp' : 's3';
+        $('filename_template').value = c.filename_template || '{yy}-{mm}-{dd}.{file_extension}';
+        $('s3_endpoint').value = c.endpoint || '';
+        $('s3_bucket').value = c.bucket || '';
+        $('s3_access_key').value = c.access_key || '';
+        $('s3_secret_key').value = c.secret_key || '';
+        $('s3_region').value = c.region || '';
+        $('s3_prefix').value = c.prefix || '';
+        $('s3_public_url_base').value = c.public_url_base || '';
+        $('s3_insecure').checked = !!c.insecure;
+        $('sftp_host').value = c.host || '';
+        $('sftp_port').value = c.port || 22;
+        $('sftp_username').value = c.username || '';
+        $('sftp_ssh_key_path').value = c.ssh_key_path || '';
+        $('sftp_remote_dir').value = c.remote_dir || '';
+        $('sftp_public_url_base').value = c.public_url_base || '';
+        updateStatus();
+        applyProviderUI();
+      } catch(e) {
+        toast('❌ 加载配置失败: ' + escapeHtml(e.message));
+      }
+    }
+
+    function updateStatus() {
+      var badge = $('status-badge');
+      var on = $('enabled').checked;
+      badge.textContent = on ? '已启用' : '未启用';
+      badge.className = 'status-badge ' + (on ? 'status-enabled' : 'status-disabled');
+    }
+    $('enabled').addEventListener('change', updateStatus);
+
+    // ===== Save =====
+    async function saveConfig() {
+      var payload = {
+        enabled: $('enabled').checked,
+        provider: $('provider').value,
+        filename_template: $('filename_template').value,
+        // SFTP
+        host: $('sftp_host').value.trim(),
+        port: parseInt($('sftp_port').value, 10) || 22,
+        username: $('sftp_username').value.trim(),
+        ssh_key_path: $('sftp_ssh_key_path').value.trim(),
+        remote_dir: $('sftp_remote_dir').value.trim(),
+        // S3
+        endpoint: $('s3_endpoint').value.trim(),
+        bucket: $('s3_bucket').value.trim(),
+        access_key: $('s3_access_key').value.trim(),
+        secret_key: $('s3_secret_key').value.trim(),
+        region: $('s3_region').value.trim(),
+        prefix: $('s3_prefix').value.trim(),
+        public_url_base: ($('provider').value === 's3' ? $('s3_public_url_base').value : $('sftp_public_url_base').value).trim(),
+        insecure: $('s3_insecure').checked
+      };
+      var btn = $('save-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 保存中...';
+      try {
+        var res = await fetch(API + '/imghost', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify(payload)
+        });
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        var j = await res.json();
+        if (j.errno !== 0) { toast('❌ ' + escapeHtml(j.errmsg || '保存失败')); return; }
+        toast('✅ 配置已保存');
+        loadConfig();
+      } catch(e) {
+        toast('❌ ' + escapeHtml(e.message));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 保存配置';
+      }
+    }
+
+    // ===== Test connection =====
+    async function testConnection() {
+      var btn = $('test-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 测试中...';
+      var box = $('result-box');
+      box.style.display = 'block';
+      box.textContent = '正在测试连接...';
+      try {
+        var res = await fetch(API + '/imghost', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ action: 'test' })
+        });
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        var j = await res.json();
+        if (j.errno !== 0) { box.textContent = '❌ ' + (j.errmsg || '连接失败'); return; }
+        box.textContent = '✅ ' + (j.data && j.data.message || '连接成功');
+      } catch(e) {
+        box.textContent = '❌ ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🔌 测试连接';
+      }
+    }
+
+    // ===== Test upload =====
+    var selectedFile = null;
+    $('upload-file').addEventListener('change', function() {
+      selectedFile = this.files[0] || null;
+      $('upload-name').textContent = selectedFile ? selectedFile.name : '';
+    });
+
+    async function doUpload() {
+      if (!selectedFile) { toast('❌ 请先选择图片'); return; }
+      var btn = $('upload-btn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 上传中...';
+      var box = $('upload-result');
+      box.style.display = 'block';
+      box.textContent = '正在上传...';
+      try {
+        var reader = new FileReader();
+        var dataUrl = await new Promise(function(resolve, reject) {
+          reader.onload = function() { resolve(reader.result); };
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedFile);
+        });
+        var res = await fetch(API + '/imghost', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ action: 'upload', image: dataUrl, filename: selectedFile.name })
+        });
+        if (res.status === 401) { window.location.href = 'login.html'; return; }
+        var j = await res.json();
+        if (j.errno !== 0) { box.textContent = '❌ ' + (j.errmsg || '上传失败'); return; }
+        var url = j.data && j.data.url || '';
+        box.innerHTML = '✅ 上传成功：<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener">' + escapeHtml(url) + '</a>';
+      } catch(e) {
+        box.textContent = '❌ ' + e.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⬆️ 上传';
+      }
+    }
+
+    $('save-btn').addEventListener('click', saveConfig);
+    $('test-btn').addEventListener('click', testConnection);
+    $('upload-btn').addEventListener('click', doUpload);
+
+    // ===== Init =====
+    var params = new URLSearchParams(window.location.search);
+    token = params.get('token') || '';
+    if (!token) { window.location.href = 'login.html'; return; }
+    applyTokenToSidebar();
+    loadConfig();
+  </script>
+</body>
+</html>

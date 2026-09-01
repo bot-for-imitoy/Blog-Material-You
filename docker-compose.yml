@@ -8,14 +8,29 @@ services:
     environment:
       - BMY_BLOG_DIR=/app/blog
       - BMY_DB_SOCKET=/app/data/mysql/mysql.sock
-      # 指定新的数据库时，取消注释并设置：
+      # ===== External MariaDB (distributed deployment) =====
+      # Uncomment to use an external database instead of the embedded one.
+      # When BMY_DB_HOST is set, the embedded MariaDB is NOT started and the
+      # schema is initialized/migrated on the external server automatically.
       # - BMY_DB_NAME=blogyou
       # - BMY_DB_USER=blogyou
       # - BMY_DB_PASS=your-password
       # - BMY_DB_HOST=db.example.com
       # - BMY_DB_PORT=3306
+      # ===== S3 image hosting (MinIO / S3-compatible) =====
+      # Uncomment to enable image hosting via S3. The four required vars below
+      # (endpoint/bucket/access/secret) auto-enable the S3 provider.
+      # - BMY_IMGHOST_PROVIDER=s3
+      # - BMY_S3_ENDPOINT=http://minio:9000
+      # - BMY_S3_BUCKET=blog-images
+      # - BMY_S3_ACCESS_KEY=minioadmin
+      # - BMY_S3_SECRET_KEY=minioadmin
+      # - BMY_S3_REGION=us-east-1
+      # - BMY_S3_PREFIX=blog
+      # - BMY_S3_PUBLIC_URL_BASE=https://cdn.example.com/blog
+      # - BMY_S3_INSECURE=0
     volumes:
-      # Persist MariaDB data
+      # Persist embedded MariaDB data (only used when BMY_DB_HOST is unset)
       - blog_data:/app/data/mysql
       # Persist admin credentials and runtime data
       - blog_data_etc:/app/blog/data
