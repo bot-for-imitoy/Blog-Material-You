@@ -219,6 +219,63 @@ bash backend/start.sh
 
 > 注意：nginx 仅读取白名单内的环境变量（见 `backend/conf/nginx.conf` 中的 `env` 指令），修改后需重启服务。切换数据库前，请先用管理后台的「数据备份」功能导出旧库数据，再在接入新库后一键导入。
 
+### Docker + 外部数据库
+
+在 `docker-compose.yml` 中设置 `BMY_DB_HOST` 后，容器**不再启动内置 MariaDB**，而是连接外部数据库，并在启动时自动初始化/迁移表结构（全部为 `CREATE TABLE IF NOT EXISTS`，重启安全）。请先在外部服务器上创建数据库与用户：
+
+```sql
+CREATE DATABASE blogyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'blogyou'@'%' IDENTIFIED BY 'your-password';
+GRANT ALL PRIVILEGES ON blogyou.* TO 'blogyou'@'%';
+FLUSH PRIVILEGES;
+```
+
+## S3 / SFTP 图床
+
+博客支持将图片（文章封面、评论头像）上传到远程图床，两种存储提供方：
+
+| 提供方 | 说明 |
+|--------|------|
+| `sftp`（默认） | 通过 `scp` 上传到远程 SFTP 服务器 |
+| `s3` | 上传到任意 S3 兼容对象存储（MinIO、AWS S3 等），使用镜像内置的 MinIO Client（`mc`） |
+
+### 在管理后台配置
+
+打开管理后台侧边栏的 **🖼️ 图床**（`http://localhost:31000/imagehost.html`），选择提供方、填写凭据后点 **保存配置**，再点 **测试连接**。
+
+### 通过环境变量配置（分布式部署推荐）
+
+无需登录后台，直接在 `docker-compose.yml` / `.env` 中设置：
+
+| 环境变量 | 说明 |
+|---------|------|
+| `BMY_IMGHOST_PROVIDER` | `sftp` 或 `s3`（设置后即启用图床） |
+| `BMY_S3_ENDPOINT` | S3 服务地址，如 `http://minio:9000` |
+| `BMY_S3_BUCKET` | 存储桶名称 |
+| `BMY_S3_ACCESS_KEY` | 访问密钥 |
+| `BMY_S3_SECRET_KEY` | 秘密密钥 |
+| `BMY_S3_REGION` | 区域（AWS 需要，MinIO 通常可省略） |
+| `BMY_S3_PREFIX` | 桶内对象前缀（可选） |
+| `BMY_S3_PUBLIC_URL_BASE` | 图片公开访问 URL 基址（CDN / 自定义域名，可选） |
+| `BMY_S3_INSECURE` | 设为 `1` 跳过 TLS 证书校验（自签名证书） |
+
+环境变量优先于后台保存的配置。使用 `s3` 提供方时，上传的图片通过 `$BMY_S3_PUBLIC_URL_BASE`（或 `$BMY_S3_ENDPOINT/$BMY_S3_BUCKET`）访问；启用 S3 图床后，评论头像也会存储到 S3，保证多实例共享同一份文件。
+
+> 若要公开访问图片，需为存储桶设置公共读策略，例如 `mc anonymous set download myminio/blog-images`（或在您的 S3 服务商控制台配置等效策略）。
+>
+> 前端 CSP（`img-src`）默认仅允许 `'self'` 与 `data:` —— 若图片托管在自定义 CDN/域名，请在 `docker/nginx-docker.conf` / `backend/conf/nginx.conf` 的 `img-src` 中加入该域名，例如 `img-src 'self' data: https://cdn.example.com;`。
+
+## 分布式部署
+
+博客支持多个无状态实例部署在负载均衡之后：所有数据存放于外部 MariaDB，所有图片存放于 S3/MinIO。完整示例见 `docker-compose.distributed.yml`（博客 + MinIO，连接外部数据库）：
+
+```bash
+export BMY_DB_PASS=your-db-password
+docker compose -f docker-compose.distributed.yml up -d
+```
+
+水平扩容时，使用相同的 `BMY_DB_*` / `BMY_S3_*` 环境变量再启动多个 `blog` 容器，并将 30999/31000 端口放入负载均衡即可。文章/页面数据存放在数据库中（首次启动时从 `blog/posts/*.md` 导入），多实例可挂载同一份内容，或统一在后台管理。
+
 ### 一键导入 / 一键导出数据
 
 管理后台新增「💾 数据备份」页面（`http://localhost:31000/backup.html`）：
@@ -268,6 +325,7 @@ curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/js
 - **评论**：查看与删除评论
 - **动态**：发布与管理
 - **页面**：编辑 About 和 Talks 页面（支持双语内容）
+- **图床**：SFTP / S3（MinIO）图片托管配置与测试
 - **安全**：当前为仅密码认证
 
 ### 编写双语文章

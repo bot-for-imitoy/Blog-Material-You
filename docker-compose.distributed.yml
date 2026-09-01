@@ -1,0 +1,70 @@
+# Blog Material You — Distributed deployment example
+#
+# Blog container pointing at an EXTERNAL MariaDB and a MinIO (S3) object store.
+# The blog no longer embeds a database: DB and images are shared services, so
+# multiple blog instances can run behind a load balancer.
+#
+# Usage:
+#   export BMY_DB_PASS=change-me           # external DB password
+#   docker compose -f docker-compose.distributed.yml up -d
+#
+# Before first start, create the database and user on your MariaDB server:
+#   CREATE DATABASE blogyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+#   CREATE USER 'blogyou'@'%' IDENTIFIED BY 'change-me';
+#   GRANT ALL PRIVILEGES ON blogyou.* TO 'blogyou'@'%';
+#   FLUSH PRIVILEGES;
+# The blog container initializes/migrates the schema automatically on boot.
+#
+# For a remote MinIO server, remove the local `minio` service below and point
+# BMY_S3_ENDPOINT at it (e.g. http://minio.example.com:9000).
+
+services:
+  blog:
+    build: .
+    container_name: blog-material-you-dist
+    ports:
+      - "30999:30999"
+      - "31000:31000"
+    environment:
+      - BMY_BLOG_DIR=/app/blog
+      # ---- External MariaDB ----
+      - BMY_DB_HOST=${BMY_DB_HOST:-db.example.com}
+      - BMY_DB_PORT=${BMY_DB_PORT:-3306}
+      - BMY_DB_NAME=${BMY_DB_NAME:-blogyou}
+      - BMY_DB_USER=${BMY_DB_USER:-blogyou}
+      - BMY_DB_PASS=${BMY_DB_PASS:?set BMY_DB_PASS to your external DB password}
+      # ---- S3 image hosting (MinIO) ----
+      - BMY_IMGHOST_PROVIDER=s3
+      - BMY_S3_ENDPOINT=${BMY_S3_ENDPOINT:-http://minio:9000}
+      - BMY_S3_BUCKET=${BMY_S3_BUCKET:-blog-images}
+      - BMY_S3_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
+      - BMY_S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
+      - BMY_S3_REGION=${BMY_S3_REGION:-us-east-1}
+      # Public base URL for uploaded images. Defaults to the MinIO endpoint.
+      - BMY_S3_PUBLIC_URL_BASE=${BMY_S3_PUBLIC_URL_BASE:-http://localhost:9000/blog-images}
+    volumes:
+      # No embedded DB volume in distributed mode; only content for editing.
+      - ./blog/posts:/app/blog/posts
+      - ./blog/pages:/app/blog/pages
+      - ./blog/friends:/app/blog/friends
+      - ./blog/talks:/app/blog/talks
+    depends_on:
+      - minio
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: bmy-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web console
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+volumes:
+  minio_data:

@@ -64,12 +64,18 @@ else
     return
 end
 
--- Expect base64-encoded image data from the frontend
--- Handle data URI: "data:image/png;base64,..."
-local comma_idx = raw_data:find(",")
+-- Accept either a raw base64 / data-URI body (legacy) or a JSON payload
+-- {"image": "data:image/png;base64,..."} — both are used by clients.
 local b64_data = raw_data
+local ok_json, parsed = pcall(cjson.decode, raw_data)
+if ok_json and type(parsed) == "table" and parsed.image then
+    b64_data = parsed.image
+end
+
+-- Handle data URI: "data:image/png;base64,..."
+local comma_idx = b64_data:find(",")
 if comma_idx then
-    b64_data = raw_data:sub(comma_idx + 1)
+    b64_data = b64_data:sub(comma_idx + 1)
 end
 
 -- Decode
@@ -122,6 +128,21 @@ if not out_f then
 end
 out_f:close()
 
+-- In distributed deployments, store avatars on S3 (MinIO) when image hosting
+-- is enabled with the S3 provider, so every instance serves the same files.
+-- Falls back to the local file when S3 is not configured or upload fails.
 local url = "/avatars/" .. out_name
+local imghost_ok, imghost_mod = pcall(require, "imghost")
+if imghost_ok then
+    local cfg = imghost_mod.load_config()
+    if cfg.enabled and cfg.provider == "s3" then
+        local s3_url, up_err = imghost_mod.upload_key(out_path, "avatars/" .. out_name)
+        if s3_url then
+            url = s3_url
+        else
+            ngx.log(ngx.WARN, "avatar: S3 upload failed, using local file: ", up_err)
+        end
+    end
+end
 
 ngx.say(cjson.encode({ errno = 0, data = { url = url } }))

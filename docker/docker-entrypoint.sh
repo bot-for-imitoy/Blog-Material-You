@@ -1,6 +1,7 @@
 #!/bin/sh
 # Blog Material You — Docker entrypoint
-# Starts MariaDB and OpenResty, keeps container running.
+# Starts MariaDB (unless an external DB is configured via BMY_DB_HOST) and
+# OpenResty, keeps container running.
 
 set -e
 
@@ -12,6 +13,32 @@ fi
 
 DB_DIR=/app/data/mysql
 DB_SOCKET=$DB_DIR/mysql.sock
+DB_NAME=${BMY_DB_NAME:-blogyou}
+
+# ===== External database detection =====
+# When BMY_DB_HOST is set, no embedded MariaDB is started and all schema
+# init / migration work targets the external server (distributed deployment).
+EXTERNAL_DB=0
+if [ -n "$BMY_DB_HOST" ]; then
+    EXTERNAL_DB=1
+    echo "Using EXTERNAL MariaDB at $BMY_DB_HOST:${BMY_DB_PORT:-3306} (database: $DB_NAME)"
+else
+    # Embedded DB: make the socket path known to the migration script and the
+    # nginx workers (defaults to the container datadir when not provided).
+    export BMY_DB_SOCKET="${BMY_DB_SOCKET:-$DB_SOCKET}"
+fi
+
+# Build the mariadb client command prefix.
+# Embedded DB: unix socket, root, no password.
+# External DB: TCP with configured user; password goes through MYSQL_PWD so it
+# never shows up in `ps` output.
+if [ "$EXTERNAL_DB" = "1" ]; then
+    MYSQL_CMD="mariadb -h $BMY_DB_HOST -P ${BMY_DB_PORT:-3306} -u ${BMY_DB_USER:-blogyou}"
+    export MYSQL_PWD="${BMY_DB_PASS:-}"
+else
+    unset MYSQL_PWD 2>/dev/null || true
+    MYSQL_CMD="mariadb --socket=$DB_SOCKET"
+fi
 
 # Detect correct nginx binary
 if [ -x /usr/sbin/nginx ]; then
@@ -26,6 +53,10 @@ if [ -x /usr/sbin/nginx ]; then
     # Posts and pages bind mounts: make group-writable for nginx worker
     chmod -R g+w "$BMY_BLOG_DIR"/posts "$BMY_BLOG_DIR"/pages "$BMY_BLOG_DIR"/talks "$BMY_BLOG_DIR"/friends 2>/dev/null || true
     chown -R :nginx "$BMY_BLOG_DIR"/posts "$BMY_BLOG_DIR"/pages "$BMY_BLOG_DIR"/talks "$BMY_BLOG_DIR"/friends 2>/dev/null || true
+    # Avatar upload directory (may be absent if public/ is bind-mounted)
+    mkdir -p "$BMY_BLOG_DIR"/public/avatars 2>/dev/null || true
+    chmod -R g+w "$BMY_BLOG_DIR"/public/avatars 2>/dev/null || true
+    chown -R :nginx "$BMY_BLOG_DIR"/public/avatars 2>/dev/null || true
 elif [ -x /opt/openresty/bin/openresty ]; then
     NGINX_BIN=/opt/openresty/bin/openresty
     NGINX_CONF=/app/backend/conf/nginx.conf
@@ -50,66 +81,74 @@ if [ -z "$BMY_BLOG_DIR" ]; then
 fi
 echo "Blog content: $BMY_BLOG_DIR"
 
-# ===== Start MariaDB =====
-echo "Starting MariaDB..."
+# ===== Start embedded MariaDB (skipped for external DB) =====
+if [ "$EXTERNAL_DB" = "1" ]; then
+    echo "External DB configured — skipping embedded MariaDB startup"
+else
+    echo "Starting MariaDB..."
 
-# Remove stale socket from previous run (volume persists it, fools readiness check)
-rm -f "$DB_SOCKET"
+    # Remove stale socket from previous run (volume persists it, fools readiness check)
+    rm -f "$DB_SOCKET"
 
-mariadbd \
-    --datadir="$DB_DIR" \
-    --socket="$DB_SOCKET" \
-    --port=3308 \
-    --skip-networking \
-    --user=mysql \
-    --pid-file=/tmp/mariadb.pid &
-MARIADB_PID=$!
+    mariadbd \
+        --datadir="$DB_DIR" \
+        --socket="$DB_SOCKET" \
+        --port=3308 \
+        --skip-networking \
+        --user=mysql \
+        --pid-file=/tmp/mariadb.pid &
+    MARIADB_PID=$!
 
-# Wait for MariaDB to actually accept connections (not just create socket file)
-MYSQL_CMD="mariadb --socket=$DB_SOCKET"
-for i in $(seq 1 30); do
-    if $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
-        echo "MariaDB ready (PID: $MARIADB_PID)"
-        # Make socket accessible by nginx worker (group-readable)
-        chmod 755 "$DB_DIR" 2>/dev/null || true
-        chmod 666 "$DB_SOCKET" 2>/dev/null || true
-        break
+    # Wait for MariaDB to actually accept connections (not just create socket file)
+    for i in $(seq 1 30); do
+        if $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
+            echo "MariaDB ready (PID: $MARIADB_PID)"
+            # Make socket accessible by nginx worker (group-readable)
+            chmod 755 "$DB_DIR" 2>/dev/null || true
+            chmod 666 "$DB_SOCKET" 2>/dev/null || true
+            break
+        fi
+        sleep 1
+    done
+
+    if ! $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
+        echo "ERROR: MariaDB failed to start within 30 seconds"
+        # Dump error log for debugging
+        if [ -f "$DB_DIR/$(hostname).err" ]; then
+            tail -30 "$DB_DIR/$(hostname).err"
+        fi
+        exit 1
     fi
-    sleep 1
-done
 
-if ! $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
-    echo "ERROR: MariaDB failed to start within 30 seconds"
-    # Dump error log for debugging
-    if [ -f "$DB_DIR/$(hostname).err" ]; then
-        tail -30 "$DB_DIR/$(hostname).err"
+    # ===== Upgrade MariaDB data directory if needed =====
+    # The volume may hold a datadir initialized by an older MariaDB (e.g. 10.11
+    # from the previous alpine:3.20 image). Compare the version recorded in the
+    # datadir against the running server and run mariadb-upgrade when they differ.
+    # MariaDB writes mysql_upgrade_info (<=10.11) or mariadb_upgrade_info (>=11.4).
+    MARKER=$(ls "$DB_DIR"/mysql_upgrade_info "$DB_DIR"/mariadb_upgrade_info 2>/dev/null | head -1)
+    if [ -n "$MARKER" ]; then
+        OLD_VER=$(head -n1 "$MARKER" 2>/dev/null)
+        CUR_VER=$($MYSQL_CMD -N -e "SELECT VERSION()" 2>/dev/null)
+        if [ -n "$OLD_VER" ] && [ "$OLD_VER" != "$CUR_VER" ]; then
+            echo "MariaDB datadir was created by $OLD_VER, server is $CUR_VER — running mariadb-upgrade..."
+            mariadb-upgrade --socket="$DB_SOCKET" --force 2>&1 | tail -5
+            echo "MariaDB upgrade finished"
+        else
+            echo "MariaDB datadir version matches server ($CUR_VER), no upgrade needed"
+        fi
     fi
-    exit 1
 fi
 
-# ===== Upgrade MariaDB data directory if needed =====
-# The volume may hold a datadir initialized by an older MariaDB (e.g. 10.11
-# from the previous alpine:3.20 image). Compare the version recorded in the
-# datadir against the running server and run mariadb-upgrade when they differ.
-# MariaDB writes mysql_upgrade_info (<=10.11) or mariadb_upgrade_info (>=11.4).
-MARKER=$(ls "$DB_DIR"/mysql_upgrade_info "$DB_DIR"/mariadb_upgrade_info 2>/dev/null | head -1)
-if [ -n "$MARKER" ]; then
-    OLD_VER=$(head -n1 "$MARKER" 2>/dev/null)
-    CUR_VER=$($MYSQL_CMD -N -e "SELECT VERSION()" 2>/dev/null)
-    if [ -n "$OLD_VER" ] && [ "$OLD_VER" != "$CUR_VER" ]; then
-        echo "MariaDB datadir was created by $OLD_VER, server is $CUR_VER — running mariadb-upgrade..."
-        mariadb-upgrade --socket="$DB_SOCKET" --force 2>&1 | tail -5
-        echo "MariaDB upgrade finished"
-    else
-        echo "MariaDB datadir version matches server ($CUR_VER), no upgrade needed"
-    fi
-fi
+# ===== Initialize database schema if needed =====
+DB_EXISTS=$($MYSQL_CMD -e "SHOW DATABASES LIKE '$DB_NAME'" 2>/dev/null | grep "$DB_NAME" || true)
 
-# ===== Initialize database if needed =====
-MYSQL_CMD="mariadb --socket=$DB_SOCKET"
-DB_EXISTS=$($MYSQL_CMD -e "SHOW DATABASES LIKE 'blogyou'" 2>/dev/null | grep blogyou || true)
-
-if [ -z "$DB_EXISTS" ]; then
+if [ "$EXTERNAL_DB" = "1" ]; then
+    echo "Applying schema to external database '$DB_NAME'..."
+    # The external DB user may lack CREATE DATABASE rights — tolerate failure,
+    # the DDL below is idempotent (CREATE TABLE IF NOT EXISTS).
+    $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true
+    echo "Database exists check done"
+elif [ -z "$DB_EXISTS" ]; then
     echo "Initializing database schema..."
     $MYSQL_CMD < /app/docker/db_init.sql
     # Fresh start: clear any leftover admin credentials
@@ -117,82 +156,109 @@ if [ -z "$DB_EXISTS" ]; then
     echo "Database initialized"
 else
     echo "Database already exists, applying any pending schema migrations..."
-    # Run only the DDL portion (CREATE TABLE IF NOT EXISTS — safe to re-run)
-    $MYSQL_CMD blogyou -e "
-        CREATE TABLE IF NOT EXISTS config (
-            \`key\` VARCHAR(100) PRIMARY KEY,
-            \`value\` TEXT NOT NULL,
-            updated_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        CREATE TABLE IF NOT EXISTS emails (
-            email VARCHAR(255) PRIMARY KEY,
-            permissions TEXT NOT NULL DEFAULT '[]',
-            created_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        CREATE TABLE IF NOT EXISTS pending_registrations (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            email VARCHAR(255) NOT NULL,
-            \`name\` VARCHAR(100) NOT NULL DEFAULT '',
-            created_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        CREATE TABLE IF NOT EXISTS calendar_events (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(255) NOT NULL DEFAULT '',
-            \`date\` VARCHAR(20) NOT NULL,
-            description TEXT,
-            color VARCHAR(20) DEFAULT '',
-            created_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        CREATE TABLE IF NOT EXISTS page_content (
-            slug VARCHAR(100) PRIMARY KEY,
-            content_en TEXT,
-            updated_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        -- Avatar column for comments (migration)
-        ALTER TABLE comments ADD COLUMN IF NOT EXISTS avatar VARCHAR(500) NOT NULL DEFAULT '' AFTER url;
-        -- New tables for file-to-DB migration
-        CREATE TABLE IF NOT EXISTS posts (
-            slug VARCHAR(200) PRIMARY KEY,
-            title TEXT NOT NULL,
-            content LONGTEXT NOT NULL DEFAULT '',
-            \`date\` VARCHAR(20) NOT NULL DEFAULT '',
-            tags TEXT NOT NULL DEFAULT '[]',
-            categories TEXT NOT NULL DEFAULT '[]',
-            cover TEXT,
-            archived INT UNSIGNED NOT NULL DEFAULT 0,
-            title_en TEXT,
-            content_en LONGTEXT,
-            tags_en TEXT NOT NULL DEFAULT '[]',
-            categories_en TEXT NOT NULL DEFAULT '[]',
-            created_at INT UNSIGNED NOT NULL,
-            updated_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        CREATE TABLE IF NOT EXISTS pages (
-            slug VARCHAR(100) PRIMARY KEY,
-            title TEXT NOT NULL,
-            content LONGTEXT NOT NULL DEFAULT '',
-            title_en TEXT,
-            content_en LONGTEXT,
-            updated_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-        CREATE TABLE IF NOT EXISTS friends (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            title VARCHAR(200) NOT NULL,
-            descr TEXT,
-            title_en VARCHAR(200),
-            descr_en TEXT,
-            avatar VARCHAR(500) DEFAULT '',
-            url VARCHAR(500) NOT NULL DEFAULT '#',
-            sort_order INT DEFAULT 0,
-            created_at INT UNSIGNED NOT NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-    "
-    echo "Schema migration done"
 fi
 
-# Ensure nginx worker can access MySQL socket (directory gets 700 on fresh volume)
-chmod 755 "$DB_DIR" 2>/dev/null || true
-chown -R mysql:mysql "$DB_DIR" 2>/dev/null || true
+# Apply pending schema migrations (idempotent — safe to re-run on every boot;
+# also the only schema path for external databases).
+$MYSQL_CMD "$DB_NAME" -e "
+    CREATE TABLE IF NOT EXISTS comments (
+        id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        nick VARCHAR(100) NOT NULL,
+        mail VARCHAR(255) NOT NULL,
+        \`comment\` TEXT NOT NULL,
+        link VARCHAR(500) NOT NULL DEFAULT '',
+        ua TEXT NOT NULL DEFAULT '',
+        pid BIGINT UNSIGNED DEFAULT NULL,
+        rid BIGINT UNSIGNED DEFAULT NULL,
+        at VARCHAR(100) DEFAULT NULL,
+        url VARCHAR(500) NOT NULL,
+        create_time INT UNSIGNED NOT NULL,
+        avatar VARCHAR(500) NOT NULL DEFAULT '',
+        INDEX idx_url (url(191)),
+        INDEX idx_create_time (create_time)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS talks (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        content TEXT NOT NULL,
+        create_time INT UNSIGNED NOT NULL,
+        INDEX idx_time (create_time)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS config (
+        \`key\` VARCHAR(100) PRIMARY KEY,
+        \`value\` TEXT NOT NULL,
+        updated_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS emails (
+        email VARCHAR(255) PRIMARY KEY,
+        permissions TEXT NOT NULL DEFAULT '[]',
+        created_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS pending_registrations (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL,
+        \`name\` VARCHAR(100) NOT NULL DEFAULT '',
+        created_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS calendar_events (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL DEFAULT '',
+        \`date\` VARCHAR(20) NOT NULL,
+        description TEXT,
+        color VARCHAR(20) DEFAULT '',
+        created_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS page_content (
+        slug VARCHAR(100) PRIMARY KEY,
+        content_en TEXT,
+        updated_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    -- Avatar column for comments (migration)
+    ALTER TABLE comments ADD COLUMN IF NOT EXISTS avatar VARCHAR(500) NOT NULL DEFAULT '' AFTER url;
+    -- New tables for file-to-DB migration
+    CREATE TABLE IF NOT EXISTS posts (
+        slug VARCHAR(200) PRIMARY KEY,
+        title TEXT NOT NULL,
+        content LONGTEXT NOT NULL DEFAULT '',
+        \`date\` VARCHAR(20) NOT NULL DEFAULT '',
+        tags TEXT NOT NULL DEFAULT '[]',
+        categories TEXT NOT NULL DEFAULT '[]',
+        cover TEXT,
+        archived INT UNSIGNED NOT NULL DEFAULT 0,
+        title_en TEXT,
+        content_en LONGTEXT,
+        tags_en TEXT NOT NULL DEFAULT '[]',
+        categories_en TEXT NOT NULL DEFAULT '[]',
+        created_at INT UNSIGNED NOT NULL,
+        updated_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS pages (
+        slug VARCHAR(100) PRIMARY KEY,
+        title TEXT NOT NULL,
+        content LONGTEXT NOT NULL DEFAULT '',
+        title_en TEXT,
+        content_en LONGTEXT,
+        updated_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    CREATE TABLE IF NOT EXISTS friends (
+        id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        descr TEXT,
+        title_en VARCHAR(200),
+        descr_en TEXT,
+        avatar VARCHAR(500) DEFAULT '',
+        url VARCHAR(500) NOT NULL DEFAULT '#',
+        sort_order INT DEFAULT 0,
+        created_at INT UNSIGNED NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+"
+echo "Schema migration done"
+
+# Embedded-DB only: ensure nginx worker can access the MySQL socket
+# (directory gets 700 on fresh volume)
+if [ "$EXTERNAL_DB" != "1" ]; then
+    chmod 755 "$DB_DIR" 2>/dev/null || true
+    chown -R mysql:mysql "$DB_DIR" 2>/dev/null || true
+fi
 
 # ===== Run JSON→DB migration (if not yet done) =====
 echo "Running JSON→DB migration if needed..."
@@ -202,11 +268,30 @@ package.cpath = package.cpath .. ";/usr/lib/nginx/lualib/?.so"
 local cjson = require("cjson")
 -- BMY_BLOG_DIR placeholder — replaced at runtime:
 local blog_dir = os.getenv("BMY_BLOG_DIR") or "/app/blog"
-local DB_SOCKET = os.getenv("BMY_DB_SOCKET") or blog_dir .. "/data/mysql/mysql.sock"
 local DATA_DIR  = blog_dir .. "/data"
 
+-- Build the mariadb client command for the configured database (embedded
+-- socket or external TCP). Password is passed via MYSQL_PWD so it never
+-- appears in `ps`.
+local function mysql_cmd()
+    local host = os.getenv("BMY_DB_HOST")
+    local name = os.getenv("BMY_DB_NAME") or "blogyou"
+    if host and host ~= "" then
+        local port = os.getenv("BMY_DB_PORT") or "3306"
+        local user = os.getenv("BMY_DB_USER") or "blogyou"
+        local pass = os.getenv("BMY_DB_PASS") or ""
+        local pass_q = pass:gsub("'", "'\\''")
+        return "MYSQL_PWD='" .. pass_q .. "' mariadb -h" .. host .. " -P" .. port .. " -u" .. user .. " " .. name
+    end
+    local sock = os.getenv("BMY_DB_SOCKET")
+    if not sock or sock == "" then
+        sock = blog_dir .. "/data/mysql/mysql.sock"
+    end
+    return "mariadb --socket=" .. sock .. " " .. name
+end
+
 local function run(sql)
-    local f = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N 2>/dev/null", "w")
+    local f = io.popen(mysql_cmd() .. " -N 2>/dev/null", "w")
     if f then f:write(sql); f:close() end
 end
 
@@ -218,7 +303,7 @@ local function readfile(path)
 end
 
 -- Check if already done
-local h = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT 1 FROM config WHERE `key`='_migration_done_v2'\" 2>/dev/null")
+local h = io.popen(mysql_cmd() .. " -N -e \"SELECT 1 FROM config WHERE `key`='_migration_done_v2'\" 2>/dev/null")
 local already = h and h:read("*a") or ""
 if h then h:close() end
 if already:match("1") then io.stderr:write("[migrate] Already done\n"); return end
@@ -340,7 +425,7 @@ local function parse_md_file(filepath)
 end
 
 -- Check if posts table already has data
-local count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM posts\" 2>/dev/null")
+local count_check = io.popen(mysql_cmd() .. " -N -e \"SELECT COUNT(*) FROM posts\" 2>/dev/null")
 local post_count = count_check and count_check:read("*a") or "0"
 if count_check then count_check:close() end
 
@@ -386,7 +471,7 @@ if tonumber(post_count) == 0 then
 end
 
 -- Check if pages table already has data
-count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM pages\" 2>/dev/null")
+count_check = io.popen(mysql_cmd() .. " -N -e \"SELECT COUNT(*) FROM pages\" 2>/dev/null")
 local page_count = count_check and count_check:read("*a") or "0"
 if count_check then count_check:close() end
 
@@ -429,7 +514,7 @@ if tonumber(page_count) == 0 then
 end
 
 -- Check if friends table already has data
-count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM friends\" 2>/dev/null")
+count_check = io.popen(mysql_cmd() .. " -N -e \"SELECT COUNT(*) FROM friends\" 2>/dev/null")
 local friend_count = count_check and count_check:read("*a") or "0"
 if count_check then count_check:close() end
 
@@ -461,7 +546,7 @@ if tonumber(friend_count) == 0 then
 end
 
 -- Check if talks table already has data
-count_check = io.popen("mariadb --socket=" .. DB_SOCKET .. " blogyou -N -e \"SELECT COUNT(*) FROM talks\" 2>/dev/null")
+count_check = io.popen(mysql_cmd() .. " -N -e \"SELECT COUNT(*) FROM talks\" 2>/dev/null")
 local talk_count = count_check and count_check:read("*a") or "0"
 if count_check then count_check:close() end
 
