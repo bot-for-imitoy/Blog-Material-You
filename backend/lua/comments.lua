@@ -1,10 +1,11 @@
 --[[
   comments.lua — Comment CRUD module using MariaDB.
   Uses manual escaping (resty.mysql on Alpine doesn't support ? placeholders).
+  Connections go through db.connect(), which transparently uses the mariadb
+  CLI when the database is reached over TLS / mutual TLS (BMY_DB_URL).
 ]]
 local cjson = require("cjson")
-local mysql = require("resty.mysql")
-local db_config = require("db_config")
+local dbmod = require("db")
 
 local _M = {}
 
@@ -17,24 +18,15 @@ local function esc(s)
     return "'" .. str .. "'"
 end
 
--- Open a MariaDB connection
+-- Open a MariaDB connection (routes through the CLI shim for TLS/mTLS)
 local function connect()
-    local db, err = mysql:new()
-    if not db then
-        return nil, "failed to create mysql instance: " .. (err or "unknown")
-    end
-    db:set_timeout(3000)
-    local ok, err = db:connect(db_config.connect_params())
-    if not ok then
-        return nil, "failed to connect to MariaDB: " .. (err or "unknown")
-    end
-    return db
+    return dbmod.connect()
 end
 
 -- Close connection
 local function close(db)
     if db then
-        db:set_keepalive(10000, 50)
+        dbmod.close(db)
     end
 end
 

@@ -17,6 +17,9 @@ services:
       # - BMY_DB_PASS=your-password
       # - BMY_DB_HOST=db.example.com
       # - BMY_DB_PORT=3306
+      # Prefer a connection URL for TLS / mutual TLS (takes precedence):
+      # - BMY_DB_URL=mariadb://blogyou:your-password@db.example.com:3306/blogyou?ssl_ca=/certs/ca.pem&ssl_cert=/certs/client.crt&ssl_key=/certs/client.key
+      # - ./certs:/certs:ro
       # ===== S3 image hosting (MinIO / S3-compatible) =====
       # Uncomment to enable image hosting via S3. The four required vars below
       # (endpoint/bucket/access/secret) auto-enable the S3 provider.
@@ -29,6 +32,10 @@ services:
       # - BMY_S3_PREFIX=blog
       # - BMY_S3_PUBLIC_URL_BASE=https://cdn.example.com/blog
       # - BMY_S3_INSECURE=0
+      # S3 TLS / mutual TLS (paths inside the container; mount certs):
+      # - BMY_S3_SSL_CA=/certs/ca.pem
+      # - BMY_S3_SSL_CERT=/certs/client.crt
+      # - BMY_S3_SSL_KEY=/certs/client.key
     volumes:
       # Persist embedded MariaDB data (only used when BMY_DB_HOST is unset)
       - blog_data:/app/data/mysql

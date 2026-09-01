@@ -75,6 +75,7 @@ Database connection is centralized in `backend/lua/db_config.lua` and configurab
 
 | Env var          | Default                                    | Description                          |
 |------------------|--------------------------------------------|--------------------------------------|
+| `BMY_DB_URL`     | *(empty)*                                  | Connection URL (`mariadb://` / `mysql://`), supports SSL — takes precedence |
 | `BMY_DB_SOCKET`  | `$BMY_BLOG_DIR/data/mysql/mysql.sock`      | Unix socket path (used when no host) |
 | `BMY_DB_HOST`    | *(empty)*                                  | TCP host; when set, uses TCP         |
 | `BMY_DB_PORT`    | `3306`                                     | TCP port                             |
@@ -82,11 +83,36 @@ Database connection is centralized in `backend/lua/db_config.lua` and configurab
 | `BMY_DB_USER`    | `blogyou`                                  | Database user                        |
 | `BMY_DB_PASS`    | `blog-db-pass-2025`                        | Database password                    |
 
+### Connection URL form (recommended for remote / TLS databases)
+
+Use a `mariadb://` (or `mysql://`) URL — SSL certificates are passed as query params, making mutual TLS (mTLS) easy to configure:
+
+```
+mariadb://USER:PASSWORD@HOST:PORT/DATABASE?ssl_ca=/certs/ca.pem&ssl_cert=/certs/client.crt&ssl_key=/certs/client.key&ssl_verify=1&ssl_server_name=db.example.com
+```
+
+| Query param       | Description                                        |
+|-------------------|----------------------------------------------------|
+| `ssl_ca`          | CA bundle used to verify the server certificate    |
+| `ssl_cert`        | Client certificate (mutual TLS)                    |
+| `ssl_key`         | Client private key (mutual TLS)                    |
+| `ssl_verify`      | `0`/`1` — verify the server cert (default `1`)     |
+| `ssl_server_name` | TLS SNI / hostname to verify against               |
+
+When `ssl_cert` + `ssl_key` are set, the blog authenticates to MariaDB with a client certificate (two-way TLS). Individual `BMY_DB_*` variables act as fallbacks for anything missing from the URL.
+
 Example — connect to a new remote database:
 
 ```bash
 BMY_DB_HOST=db.example.com BMY_DB_PORT=3306 \
 BMY_DB_NAME=myblog BMY_DB_USER=blog BMY_DB_PASS=s3cret \
+bash backend/start.sh
+```
+
+Or with a URL + mutual TLS:
+
+```bash
+BMY_DB_URL='mariadb://blog:s3cret@db.example.com:3306/myblog?ssl_ca=/certs/ca.pem&ssl_cert=/certs/client.crt&ssl_key=/certs/client.key' \
 bash backend/start.sh
 ```
 
@@ -110,7 +136,7 @@ The blog can upload images (post covers, comment avatars) to a remote image host
 | Provider | Description |
 |----------|-------------|
 | `sftp` (default) | Upload via `scp` to a remote SFTP server |
-| `s3` | Upload to any S3-compatible object store (MinIO, AWS S3) via the bundled MinIO Client (`mc`) |
+| `s3` | Upload to any S3-compatible object store (MinIO, AWS S3) via a bundled boto3 helper — supports TLS with custom CA and **mutual TLS (client certificates)** |
 
 ### Configure in the admin panel
 
@@ -131,8 +157,27 @@ No admin login needed — set these in `docker-compose.yml` / `.env`:
 | `BMY_S3_PREFIX` | Optional key prefix inside the bucket |
 | `BMY_S3_PUBLIC_URL_BASE` | Optional public URL base (CDN/custom domain) |
 | `BMY_S3_INSECURE` | `1` to skip TLS verification (self-signed certs) |
+| `BMY_S3_SSL_CA` | Path (in-container) to the CA bundle verifying the S3 server |
+| `BMY_S3_SSL_CERT` | Path to the client certificate (**mutual TLS**) |
+| `BMY_S3_SSL_KEY` | Path to the client private key (**mutual TLS**) |
 
 Env vars override the admin-panel config. When `provider = s3`, uploaded images are served from `$BMY_S3_PUBLIC_URL_BASE` (or `$BMY_S3_ENDPOINT/$BMY_S3_BUCKET`). Comment avatars are also stored on S3 when S3 image hosting is enabled, so every blog instance serves the same files.
+
+### S3 mutual TLS (mTLS)
+
+Set `BMY_S3_SSL_CERT` + `BMY_S3_SSL_KEY` (client certificate and key) to authenticate to the object store with two-way TLS; add `BMY_S3_SSL_CA` to verify the server certificate against a private CA. Mount the certificate files into the container, e.g.:
+
+```yaml
+volumes:
+  - ./certs:/certs:ro
+environment:
+  - BMY_S3_ENDPOINT=https://minio.example.com:9000
+  - BMY_S3_SSL_CA=/certs/ca.pem
+  - BMY_S3_SSL_CERT=/certs/client.crt
+  - BMY_S3_SSL_KEY=/certs/client.key
+```
+
+The same options are available in the admin panel (🖼️ 图床 → S3 配置 → TLS / 双向认证).
 
 > For images to be publicly accessible, the bucket needs public read policy, e.g. `mc anonymous set download myminio/blog-images` (or equivalent bucket policy in your S3 provider).
 >
@@ -173,8 +218,9 @@ curl -X POST -H "Authorization: Bearer <token>" -H "Content-Type: application/js
 |-------------|-----------------------------------------|---------------|
 | Base Image  | Alpine Linux 3.23                       | GPL-2.0       |
 | Web Server  | OpenResty 1.27 (nginx + LuaJIT)         | BSD 2-Clause  |
-| Database    | MariaDB 11.4 (via Unix socket)          | GPL-2.0       |
+| Database    | MariaDB 11.4 (Unix socket, or external via `mariadb://` URL with TLS/mTLS) | GPL-2.0 |
 | Lua Modules | lua-resty-mysql, lua-resty-aes, lua-cjson | BSD / MIT   |
+| S3 Client   | Python 3 + boto3 (TLS, custom CA, mutual TLS) | Apache 2.0 |
 | Frontend UI | MDUI 2 (Material Design 3 Web Components) | MIT         |
 | Markdown    | marked 15.0.0                           | MIT           |
 | Math Render | KaTeX 0.16.11                           | MIT           |
