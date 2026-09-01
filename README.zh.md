@@ -202,6 +202,7 @@ curl http://localhost:30999/api/health
 
 | 环境变量 | 默认值 | 说明 |
 |---------|--------|------|
+| `BMY_DB_URL` | *(空)* | 连接串（`mariadb://` / `mysql://`），支持 SSL，优先级最高 |
 | `BMY_DB_SOCKET` | `$BMY_BLOG_DIR/data/mysql/mysql.sock` | Unix Socket 路径（未设置 `BMY_DB_HOST` 时使用） |
 | `BMY_DB_HOST` | *(空)* | TCP 主机；设置后改用 TCP 连接 |
 | `BMY_DB_PORT` | `3306` | TCP 端口 |
@@ -209,11 +210,36 @@ curl http://localhost:30999/api/health
 | `BMY_DB_USER` | `blogyou` | 数据库用户 |
 | `BMY_DB_PASS` | `blog-db-pass-2025` | 数据库密码 |
 
+#### 连接串形式（推荐，支持 SSL / 双向 TLS）
+
+使用 `mariadb://`（或 `mysql://`）连接串，SSL 证书直接作为查询参数填入，配置双向 TLS（mTLS）非常方便：
+
+```
+mariadb://用户:密码@主机:端口/数据库?ssl_ca=/certs/ca.pem&ssl_cert=/certs/client.crt&ssl_key=/certs/client.key&ssl_verify=1&ssl_server_name=db.example.com
+```
+
+| 查询参数 | 说明 |
+|---------|------|
+| `ssl_ca` | 校验服务端证书的 CA 包 |
+| `ssl_cert` | 客户端证书（双向 TLS） |
+| `ssl_key` | 客户端私钥（双向 TLS） |
+| `ssl_verify` | `0`/`1` 是否校验服务端证书（默认 `1`） |
+| `ssl_server_name` | TLS SNI / 校验主机名 |
+
+设置 `ssl_cert` + `ssl_key` 后，博客将以客户端证书认证 MariaDB（双向 TLS）。单项的 `BMY_DB_*` 变量作为连接串缺失字段的回退。
+
 示例 — 连接到新的远程数据库：
 
 ```bash
 BMY_DB_HOST=db.example.com BMY_DB_PORT=3306 \
 BMY_DB_NAME=myblog BMY_DB_USER=blog BMY_DB_PASS=s3cret \
+bash backend/start.sh
+```
+
+或使用连接串 + 双向 TLS：
+
+```bash
+BMY_DB_URL='mariadb://blog:s3cret@db.example.com:3306/myblog?ssl_ca=/certs/ca.pem&ssl_cert=/certs/client.crt&ssl_key=/certs/client.key' \
 bash backend/start.sh
 ```
 
@@ -237,7 +263,7 @@ FLUSH PRIVILEGES;
 | 提供方 | 说明 |
 |--------|------|
 | `sftp`（默认） | 通过 `scp` 上传到远程 SFTP 服务器 |
-| `s3` | 上传到任意 S3 兼容对象存储（MinIO、AWS S3 等），使用镜像内置的 MinIO Client（`mc`） |
+| `s3` | 上传到任意 S3 兼容对象存储（MinIO、AWS S3 等），使用内置 boto3 助手，支持自定义 CA 与**双向 TLS（客户端证书）** |
 
 ### 在管理后台配置
 
@@ -258,8 +284,27 @@ FLUSH PRIVILEGES;
 | `BMY_S3_PREFIX` | 桶内对象前缀（可选） |
 | `BMY_S3_PUBLIC_URL_BASE` | 图片公开访问 URL 基址（CDN / 自定义域名，可选） |
 | `BMY_S3_INSECURE` | 设为 `1` 跳过 TLS 证书校验（自签名证书） |
+| `BMY_S3_SSL_CA` | CA 证书路径（容器内路径，校验服务端证书） |
+| `BMY_S3_SSL_CERT` | 客户端证书路径（**双向 TLS**） |
+| `BMY_S3_SSL_KEY` | 客户端私钥路径（**双向 TLS**） |
 
 环境变量优先于后台保存的配置。使用 `s3` 提供方时，上传的图片通过 `$BMY_S3_PUBLIC_URL_BASE`（或 `$BMY_S3_ENDPOINT/$BMY_S3_BUCKET`）访问；启用 S3 图床后，评论头像也会存储到 S3，保证多实例共享同一份文件。
+
+#### S3 双向 TLS（mTLS）
+
+设置 `BMY_S3_SSL_CERT` + `BMY_S3_SSL_KEY`（客户端证书与私钥）即可对对象存储进行双向 TLS 认证；设置 `BMY_S3_SSL_CA` 可用私有 CA 校验服务端证书。证书文件需挂载到容器内：
+
+```yaml
+volumes:
+  - ./certs:/certs:ro
+environment:
+  - BMY_S3_ENDPOINT=https://minio.example.com:9000
+  - BMY_S3_SSL_CA=/certs/ca.pem
+  - BMY_S3_SSL_CERT=/certs/client.crt
+  - BMY_S3_SSL_KEY=/certs/client.key
+```
+
+后台管理页（🖼️ 图床 → S3 配置 → TLS / 双向认证）也提供相同的配置项。
 
 > 若要公开访问图片，需为存储桶设置公共读策略，例如 `mc anonymous set download myminio/blog-images`（或在您的 S3 服务商控制台配置等效策略）。
 >

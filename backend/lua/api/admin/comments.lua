@@ -10,20 +10,15 @@ if not user then
     return
 end
 
-local db_config = require("db_config")
+local dbmod = require("db")
 
+-- Routes through the CLI shim when the DB uses TLS / mutual TLS
 local function connect()
-    local mysql = require("resty.mysql")
-    local db, err = mysql:new()
-    if not db then return nil, err end
-    db:set_timeout(3000)
-    local ok, err = db:connect(db_config.connect_params())
-    if not ok then return nil, err end
-    return db
+    return dbmod.connect()
 end
 
 local function close(db)
-    if db then db:set_keepalive(10000, 50) end
+    if db then dbmod.close(db) end
 end
 
 if ngx.req.get_method() == "GET" then

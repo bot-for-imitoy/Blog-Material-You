@@ -75,6 +75,9 @@ if method == "PUT" then
         region = data.region or "",
         prefix = data.prefix or "",
         insecure = data.insecure == true,
+        ssl_ca = data.ssl_ca or "",
+        ssl_cert = data.ssl_cert or "",
+        ssl_key = data.ssl_key or "",
         -- Common
         public_url_base = data.public_url_base or "",
         filename_template = data.filename_template or "{yy}-{mm}-{dd}.{file_extension}",

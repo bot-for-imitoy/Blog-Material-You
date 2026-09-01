@@ -132,11 +132,27 @@
           <label>公开访问 URL 基址（可选，默认 $ENDPOINT/$BUCKET）</label>
           <input id="s3_public_url_base" placeholder="https://cdn.example.com/blog">
         </div>
+        <h2 style="font-size:16px;margin:20px 0 12px;">TLS / 双向认证（mTLS，可选）</h2>
+        <p class="desc">填写容器内的证书文件路径。客户端证书与私钥需同时提供；CA 用于校验服务端证书。自签名/私有 CA 建议同时设置 CA，否则需勾选跳过校验。</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>CA 证书路径</label>
+            <input id="s3_ssl_ca" placeholder="/certs/ca.pem">
+          </div>
+          <div class="form-group">
+            <label>客户端证书路径（双向 TLS）</label>
+            <input id="s3_ssl_cert" placeholder="/certs/client.crt">
+          </div>
+          <div class="form-group">
+            <label>客户端私钥路径（双向 TLS）</label>
+            <input id="s3_ssl_key" placeholder="/certs/client.key">
+          </div>
+        </div>
         <div class="switch-row">
           <input type="checkbox" id="s3_insecure">
           <label for="s3_insecure">跳过 TLS 证书校验（自签名证书时勾选）</label>
         </div>
-        <div class="env-note">💡 分布式部署时可用环境变量直接配置（无需登录后台）：<code>BMY_IMGHOST_PROVIDER=s3</code>、<code>BMY_S3_ENDPOINT</code>、<code>BMY_S3_BUCKET</code>、<code>BMY_S3_ACCESS_KEY</code>、<code>BMY_S3_SECRET_KEY</code> 等，环境变量优先于此处保存的配置。</div>
+        <div class="env-note">💡 分布式部署时可用环境变量直接配置（无需登录后台）：<code>BMY_IMGHOST_PROVIDER=s3</code>、<code>BMY_S3_ENDPOINT</code>、<code>BMY_S3_BUCKET</code>、<code>BMY_S3_ACCESS_KEY</code>、<code>BMY_S3_SECRET_KEY</code>、<code>BMY_S3_SSL_CA</code>、<code>BMY_S3_SSL_CERT</code>、<code>BMY_S3_SSL_KEY</code> 等，环境变量优先于此处保存的配置。证书文件需挂载到容器内（如 <code>/certs</code>）。</div>
       </div>
 
       <div class="card" id="sftp-card" style="display:none;">
@@ -242,6 +258,9 @@
         $('s3_prefix').value = c.prefix || '';
         $('s3_public_url_base').value = c.public_url_base || '';
         $('s3_insecure').checked = !!c.insecure;
+        $('s3_ssl_ca').value = c.ssl_ca || '';
+        $('s3_ssl_cert').value = c.ssl_cert || '';
+        $('s3_ssl_key').value = c.ssl_key || '';
         $('sftp_host').value = c.host || '';
         $('sftp_port').value = c.port || 22;
         $('sftp_username').value = c.username || '';
@@ -283,7 +302,10 @@
         region: $('s3_region').value.trim(),
         prefix: $('s3_prefix').value.trim(),
         public_url_base: ($('provider').value === 's3' ? $('s3_public_url_base').value : $('sftp_public_url_base').value).trim(),
-        insecure: $('s3_insecure').checked
+        insecure: $('s3_insecure').checked,
+        ssl_ca: $('s3_ssl_ca').value.trim(),
+        ssl_cert: $('s3_ssl_cert').value.trim(),
+        ssl_key: $('s3_ssl_key').value.trim()
       };
       var btn = $('save-btn');
       btn.disabled = true;

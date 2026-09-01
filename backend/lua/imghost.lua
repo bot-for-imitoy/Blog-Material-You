@@ -45,6 +45,10 @@ local DEFAULT_CONFIG = {
     region = "",
     prefix = "",
     insecure = false,
+    -- S3 TLS / mutual TLS (paths inside the container)
+    ssl_ca = "",        -- CA bundle to verify the S3 server
+    ssl_cert = "",      -- client certificate (mutual TLS)
+    ssl_key = "",       -- client private key (mutual TLS)
     -- Common
     public_url_base = "",
     filename_template = "{yy}-{mm}-{dd}.{file_extension}",
@@ -83,6 +87,9 @@ local function apply_env_overrides(cfg)
         region = "BMY_S3_REGION",
         prefix = "BMY_S3_PREFIX",
         public_url_base = "BMY_S3_PUBLIC_URL_BASE",
+        ssl_ca = "BMY_S3_SSL_CA",
+        ssl_cert = "BMY_S3_SSL_CERT",
+        ssl_key = "BMY_S3_SSL_KEY",
     }
     for k, envk in pairs(s3_map) do
         local v = env(envk, "")
@@ -138,6 +145,12 @@ function _M.save_config(cfg)
             end
             if not cfg.secret_key or cfg.secret_key == "" then
                 return nil, "S3 Secret Key 不能为空"
+            end
+            -- Mutual TLS: client cert and key must be provided together
+            local has_cert = cfg.ssl_cert and cfg.ssl_cert ~= ""
+            local has_key = cfg.ssl_key and cfg.ssl_key ~= ""
+            if has_cert ~= has_key then
+                return nil, "S3 客户端证书与私钥需同时提供（双向 TLS）"
             end
         else
             if not cfg.host or cfg.host == "" then
@@ -242,93 +255,120 @@ local function run_cmd(cmd)
     return output, nil, (ok and 0) or (code or 1)
 end
 
--- ===================== S3 provider (mc CLI) =====================
+-- ===================== S3 provider (python3 + boto3 helper) =====================
 
-local MC_CONFIG_DIR = "/tmp/bmy-mc"
+local AWS_DIR = "/tmp/bmy-aws"
 
--- Resolve the mc binary: prefer the Docker image location, fall back to PATH
--- (nginx workers only inherit env vars declared with `env` in nginx.conf).
-local function mc_bin()
-    local f = io.open("/usr/local/bin/mc", "r")
+-- Resolve the python interpreter: prefer /usr/bin/python3, fall back to PATH
+local function python_bin()
+    local f = io.open("/usr/bin/python3", "r")
     if f then
         f:close()
-        return "/usr/local/bin/mc"
+        return "/usr/bin/python3"
     end
-    return "mc"
+    return "python3"
 end
 
--- Ensure the mc alias config file exists with the current credentials.
--- The config file is written from Lua so the secret never appears in argv.
--- Returns the alias name or nil, err.
-local function s3_ensure_alias(cfg)
-    local alias_name = "bmy"
-    -- os.execute returns 0 (LuaJIT/5.1) or true (5.2+); nil/false means failure
-    local ok_dir = os.execute("mkdir -p " .. MC_CONFIG_DIR .. " 2>/dev/null")
+-- Resolve the S3 helper script path (backend/s3.py in the install prefix)
+local function s3_helper_bin()
+    local prefix = ngx.config.prefix()
+    if prefix and prefix ~= "" then
+        local f = io.open(prefix .. "s3.py", "r")
+        if f then
+            f:close()
+            return prefix .. "s3.py"
+        end
+    end
+    local f = io.open("/app/backend/s3.py", "r")
+    if f then
+        f:close()
+        return "/app/backend/s3.py"
+    end
+    return "s3.py"
+end
+
+-- Quote a value for a single-quoted shell argument
+local function shq(v)
+    return "'" .. tostring(v):gsub("'", "'\\''") .. "'"
+end
+
+-- Ensure the AWS credentials file exists. Written from Lua so secrets never
+-- appear on the command line. TLS options (CA bundle, client certificate)
+-- are passed as plain paths via CLI args — the key material stays in files.
+-- Returns the credentials dir or nil, err.
+local function s3_ensure_aws_files(cfg)
+    local ok_dir = os.execute("mkdir -p " .. AWS_DIR .. " 2>/dev/null")
     if ok_dir == false or ok_dir == nil then
-        return nil, "无法创建 mc 配置目录"
+        return nil, "无法创建 AWS 配置目录"
     end
 
-    local endpoint = cfg.endpoint
-    -- Auto-prepend scheme when missing
-    if not endpoint:match("^https?://") then
-        endpoint = "https://" .. endpoint
-    end
-    -- Trim trailing slash
-    endpoint = endpoint:gsub("/+$", "")
-
-    local alias_entry = {
-        url = endpoint,
-        accessKey = cfg.access_key,
-        secretKey = cfg.secret_key,
-        api = "s3v4",
-        path = "auto",
-    }
-    local config = {
-        version = "10",
-        aliases = {
-            [alias_name] = alias_entry,
-        },
-    }
-
-    local json = cjson.encode(config)
-    local path = MC_CONFIG_DIR .. "/config.json"
-    local f, err = io.open(path, "w")
+    local creds = "[default]\n" ..
+        "aws_access_key_id = " .. (cfg.access_key or "") .. "\n" ..
+        "aws_secret_access_key = " .. (cfg.secret_key or "") .. "\n"
+    local f, err = io.open(AWS_DIR .. "/credentials", "w")
     if not f then
-        return nil, "无法写入 mc 配置: " .. (err or "")
+        return nil, "无法写入 AWS 凭据: " .. (err or "")
     end
-    f:write(json)
+    f:write(creds)
     f:close()
-    os.execute("chmod 600 " .. path .. " 2>/dev/null")
+    os.execute("chmod 600 " .. AWS_DIR .. "/credentials 2>/dev/null")
+    return AWS_DIR
+end
 
-    return alias_name
+-- Build and run the S3 helper command; returns stdout or nil, err
+local function s3_run(cfg, args)
+    local dir, err = s3_ensure_aws_files(cfg)
+    if not dir then
+        return nil, err
+    end
+
+    local parts = {
+        "AWS_SHARED_CREDENTIALS_FILE=" .. dir .. "/credentials",
+        "AWS_DEFAULT_REGION=" .. (cfg.region ~= "" and cfg.region or "us-east-1"),
+        python_bin(), s3_helper_bin(),
+        "--endpoint", cfg.endpoint,
+        "--bucket", cfg.bucket,
+    }
+    if cfg.ssl_ca and cfg.ssl_ca ~= "" then
+        table.insert(parts, "--ca")
+        table.insert(parts, cfg.ssl_ca)
+    end
+    if cfg.ssl_cert and cfg.ssl_cert ~= "" then
+        table.insert(parts, "--client-cert")
+        table.insert(parts, cfg.ssl_cert)
+    end
+    if cfg.insecure then
+        table.insert(parts, "--insecure")
+    end
+    for _, a in ipairs(args) do
+        table.insert(parts, a)
+    end
+    -- Quote all values; leave env assignments and absolute paths unquoted.
+    local quoted = {}
+    for _, p in ipairs(parts) do
+        if p:match("^[%w_]+=") or p:match("^/") then
+            quoted[#quoted + 1] = p
+        else
+            quoted[#quoted + 1] = shq(p)
+        end
+    end
+    local cmd = table.concat(quoted, " ")
+    local output, _, code = run_cmd(cmd)
+    if code ~= 0 then
+        return nil, (output or ""):gsub("\n", " ")
+    end
+    return output
 end
 
 -- Upload a file to S3; returns the public URL or nil, err
 local function s3_upload(cfg, temp_path, key)
-    local alias_name, err = s3_ensure_alias(cfg)
-    if not alias_name then
-        return nil, err
-    end
-
     -- Normalize key: no leading slash
     key = key:gsub("^/+", "")
 
-    local insecure_arg = ""
-    if cfg.insecure then
-        insecure_arg = " --insecure"
-    end
-
-    local target = alias_name .. "/" .. cfg.bucket .. "/" .. key
-    local cmd = string.format(
-        "%s --config-dir %s%s cp --quiet '%s' '%s'",
-        mc_bin(), MC_CONFIG_DIR, insecure_arg,
-        temp_path:gsub("'", "'\\''"),
-        target:gsub("'", "'\\''")
-    )
-    local output, _, code = run_cmd(cmd)
-    if code ~= 0 then
-        ngx.log(ngx.ERR, "imghost: mc cp failed: ", output)
-        return nil, "S3 上传失败: " .. ((output or ""):gsub("\n", " ") or "未知错误")
+    local output, err = s3_run(cfg, { "cp", "--file", temp_path, "--key", key })
+    if not output then
+        ngx.log(ngx.ERR, "imghost: S3 upload failed: ", err)
+        return nil, "S3 上传失败: " .. (err or "未知错误")
     end
 
     -- Build public URL
@@ -411,25 +451,12 @@ end
 function _M.test_connection()
     local cfg = _M.load_config()
     if cfg.provider == "s3" then
-        local alias_name, err = s3_ensure_alias(cfg)
-        if not alias_name then
-            return nil, err
-        end
         if not cfg.bucket or cfg.bucket == "" then
             return nil, "未配置 Bucket"
         end
-        local insecure_arg = ""
-        if cfg.insecure then
-            insecure_arg = " --insecure"
-        end
-        local cmd = string.format(
-            "%s --config-dir %s%s ls --quiet '%s' 2>&1",
-            mc_bin(), MC_CONFIG_DIR, insecure_arg,
-            (alias_name .. "/" .. cfg.bucket):gsub("'", "'\\''")
-        )
-        local output, _, code = run_cmd(cmd)
-        if code ~= 0 then
-            return nil, "S3 连接测试失败: " .. ((output or ""):gsub("\n", " ") or "未知错误")
+        local output, err = s3_run(cfg, { "ls" })
+        if not output then
+            return nil, "S3 连接测试失败: " .. (err or "未知错误")
         end
         return "S3 连接成功: " .. (cfg.endpoint or "") .. "/" .. cfg.bucket
     end

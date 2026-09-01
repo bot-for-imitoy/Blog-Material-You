@@ -22,13 +22,10 @@ RUN apk add --no-cache \
     tzdata \
     curl
 
-# Install MinIO Client (mc) — used by the imghost module for S3 uploads
-# (MinIO, AWS S3 and any S3-compatible object store).
-ARG MC_VERSION=RELEASE.2025-08-13T08-35-41Z
-RUN curl -fsSL -o /usr/local/bin/mc \
-        "https://dl.min.io/client/mc/release/linux-amd64/archive/mc.${MC_VERSION}" && \
-    chmod +x /usr/local/bin/mc && \
-    mc --version
+# Python + boto3 — used by the imghost module for S3 uploads (MinIO, AWS S3
+# and any S3-compatible store). Supports TLS with custom CA and mutual TLS
+# (client certificates), which the MinIO Client (mc) cannot do.
+RUN apk add --no-cache python3 py3-boto3
 
 # Create project directories
 WORKDIR /app
@@ -49,6 +46,9 @@ RUN mkdir -p \
 RUN mkdir -p blog/public/avatars && \
     chown :nginx blog/public/avatars && \
     chmod 775 blog/public/avatars
+
+# S3 helper script must be readable/executable
+RUN chmod 755 /app/backend/s3.py
 
 # Initialize MariaDB system tables (data dir can be overridden by volume)
 RUN mkdir -p /app/data/mysql && \

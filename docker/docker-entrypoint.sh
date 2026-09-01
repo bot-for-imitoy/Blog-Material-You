@@ -15,6 +15,43 @@ DB_DIR=/app/data/mysql
 DB_SOCKET=$DB_DIR/mysql.sock
 DB_NAME=${BMY_DB_NAME:-blogyou}
 
+# ===== Parse BMY_DB_URL (mariadb://user:pass@host:port/db?ssl_ca=...&ssl_cert=...&ssl_key=...) =====
+# When set, expands it into the individual BMY_DB_* variables (plus
+# BMY_DB_SSL_CA / BMY_DB_SSL_CERT / BMY_DB_SSL_KEY / BMY_DB_SSL_VERIFY) so the
+# rest of this script and the migration script can use the CLI tools with TLS.
+if [ -n "$BMY_DB_URL" ]; then
+    cat > /tmp/parse_db_url.lua << 'URLPARSE_SCRIPT'
+package.path = "/app/backend/lua/?.lua;/app/backend/lua/lib/?.lua;" .. package.path
+local urlparse = require("urlparse")
+local d, err = urlparse.parse_db_url(os.getenv("BMY_DB_URL") or "")
+if not d then
+    io.stderr:write("ERROR: invalid BMY_DB_URL: " .. tostring(err) .. "\n")
+    os.exit(1)
+end
+local function emit(key, val)
+    if val ~= nil and tostring(val) ~= "" then
+        print("export " .. key .. "='" .. tostring(val):gsub("'", "'\\''") .. "'")
+    end
+end
+emit("BMY_DB_HOST", d.host or "")
+emit("BMY_DB_PORT", d.port and tostring(d.port) or "")
+emit("BMY_DB_USER", d.user or "")
+emit("BMY_DB_PASS", d.password or "")
+emit("BMY_DB_NAME", d.database or "")
+local ssl = d.ssl or {}
+emit("BMY_DB_SSL_CA", ssl.ca or "")
+emit("BMY_DB_SSL_CERT", ssl.cert or "")
+emit("BMY_DB_SSL_KEY", ssl.key or "")
+emit("BMY_DB_SSL_VERIFY", ssl.verify and "1" or "0")
+URLPARSE_SCRIPT
+    eval "$(luajit /tmp/parse_db_url.lua)" || { echo "ERROR: failed to parse BMY_DB_URL"; exit 1; }
+    rm -f /tmp/parse_db_url.lua
+    export BMY_DB_HOST BMY_DB_PORT BMY_DB_USER BMY_DB_PASS BMY_DB_NAME
+    export BMY_DB_SSL_CA BMY_DB_SSL_CERT BMY_DB_SSL_KEY BMY_DB_SSL_VERIFY
+    DB_NAME=${BMY_DB_NAME:-blogyou}
+    echo "BMY_DB_URL set — database: $DB_NAME, host: ${BMY_DB_HOST:-(embedded socket)}"
+fi
+
 # ===== External database detection =====
 # When BMY_DB_HOST is set, no embedded MariaDB is started and all schema
 # init / migration work targets the external server (distributed deployment).
@@ -33,7 +70,14 @@ fi
 # External DB: TCP with configured user; password goes through MYSQL_PWD so it
 # never shows up in `ps` output.
 if [ "$EXTERNAL_DB" = "1" ]; then
-    MYSQL_CMD="mariadb -h $BMY_DB_HOST -P ${BMY_DB_PORT:-3306} -u ${BMY_DB_USER:-blogyou}"
+    # TLS / mutual-TLS flags for the CLI tools (used for schema + migration)
+    SSL_ARGS=""
+    [ -n "$BMY_DB_SSL_CA" ] && SSL_ARGS="$SSL_ARGS --ssl-ca=$BMY_DB_SSL_CA"
+    [ -n "$BMY_DB_SSL_CERT" ] && SSL_ARGS="$SSL_ARGS --ssl-cert=$BMY_DB_SSL_CERT"
+    [ -n "$BMY_DB_SSL_KEY" ] && SSL_ARGS="$SSL_ARGS --ssl-key=$BMY_DB_SSL_KEY"
+    [ "$BMY_DB_SSL_VERIFY" = "0" ] && SSL_ARGS="$SSL_ARGS --ssl-verify-server-cert=OFF"
+    export BMY_DB_SSL_FLAGS="$SSL_ARGS"
+    MYSQL_CMD="mariadb $SSL_ARGS --default-character-set=utf8mb4 -h $BMY_DB_HOST -P ${BMY_DB_PORT:-3306} -u ${BMY_DB_USER:-blogyou}"
     export MYSQL_PWD="${BMY_DB_PASS:-}"
 else
     unset MYSQL_PWD 2>/dev/null || true
@@ -272,22 +316,24 @@ local DATA_DIR  = blog_dir .. "/data"
 
 -- Build the mariadb client command for the configured database (embedded
 -- socket or external TCP). Password is passed via MYSQL_PWD so it never
--- appears in `ps`.
+-- appears in `ps`. TLS/mTLS flags come from BMY_DB_SSL_FLAGS (exported by
+-- the entrypoint after parsing BMY_DB_URL).
 local function mysql_cmd()
     local host = os.getenv("BMY_DB_HOST")
     local name = os.getenv("BMY_DB_NAME") or "blogyou"
+    local ssl_flags = os.getenv("BMY_DB_SSL_FLAGS") or ""
     if host and host ~= "" then
         local port = os.getenv("BMY_DB_PORT") or "3306"
         local user = os.getenv("BMY_DB_USER") or "blogyou"
         local pass = os.getenv("BMY_DB_PASS") or ""
         local pass_q = pass:gsub("'", "'\\''")
-        return "MYSQL_PWD='" .. pass_q .. "' mariadb -h" .. host .. " -P" .. port .. " -u" .. user .. " " .. name
+        return "MYSQL_PWD='" .. pass_q .. "' mariadb " .. ssl_flags .. " --default-character-set=utf8mb4 -h" .. host .. " -P" .. port .. " -u" .. user .. " " .. name
     end
     local sock = os.getenv("BMY_DB_SOCKET")
     if not sock or sock == "" then
         sock = blog_dir .. "/data/mysql/mysql.sock"
     end
-    return "mariadb --socket=" .. sock .. " " .. name
+    return "mariadb --socket=" .. sock .. " --default-character-set=utf8mb4 " .. name
 end
 
 local function run(sql)
@@ -302,8 +348,9 @@ local function readfile(path)
     return c
 end
 
--- Check if already done
-local h = io.popen(mysql_cmd() .. " -N -e \"SELECT 1 FROM config WHERE `key`='_migration_done_v2'\" 2>/dev/null")
+-- Check if already done (single-quote the -e argument so the backticks
+-- around `key` are NOT interpreted as shell command substitution)
+local h = io.popen(mysql_cmd() .. " -N -e 'SELECT 1 FROM config WHERE `key`=\"_migration_done_v2\"' 2>/dev/null")
 local already = h and h:read("*a") or ""
 if h then h:close() end
 if already:match("1") then io.stderr:write("[migrate] Already done\n"); return end
@@ -416,7 +463,9 @@ local function parse_md_file(filepath)
     local c = readfile(filepath)
     if not c then return nil end
     if c:sub(1, 3) ~= "---" then return nil end
-    local _, end_pos = c:find("---", 5, true)
+    -- find() returns START, END; we want the START of the closing marker so
+    -- that sub(end_pos + 4) lands right after "---\n\n" (or "---\n").
+    local end_pos = c:find("---", 5, true)
     if not end_pos then return nil end
     local frontmatter = c:sub(5, end_pos - 2)
     local body = c:sub(end_pos + 4)

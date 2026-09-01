@@ -15,8 +15,15 @@
 #   FLUSH PRIVILEGES;
 # The blog container initializes/migrates the schema automatically on boot.
 #
+# For TLS / mutual TLS, prefer the connection-URL form instead of the single
+# variables below (URL takes precedence):
+#   BMY_DB_URL='mariadb://blogyou:change-me@db.example.com:3306/blogyou?ssl_ca=/certs/ca.pem&ssl_cert=/certs/client.crt&ssl_key=/certs/client.key'
+# and mount the certificates, e.g.  - ./certs:/certs:ro
+#
 # For a remote MinIO server, remove the local `minio` service below and point
-# BMY_S3_ENDPOINT at it (e.g. http://minio.example.com:9000).
+# BMY_S3_ENDPOINT at it (e.g. http://minio.example.com:9000). For S3 mutual
+# TLS add: BMY_S3_SSL_CA=/certs/ca.pem, BMY_S3_SSL_CERT=/certs/client.crt,
+# BMY_S3_SSL_KEY=/certs/client.key (+ mount ./certs:/certs:ro).
 
 services:
   blog:
@@ -48,6 +55,8 @@ services:
       - ./blog/pages:/app/blog/pages
       - ./blog/friends:/app/blog/friends
       - ./blog/talks:/app/blog/talks
+      # Uncomment to mount TLS certificates (DB mTLS and/or S3 mTLS):
+      # - ./certs:/certs:ro
     depends_on:
       - minio
     restart: unless-stopped
