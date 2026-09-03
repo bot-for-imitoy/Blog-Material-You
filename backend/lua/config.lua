@@ -12,11 +12,11 @@ end
 
 _M.data = {
     -- Sidebar header
-    title = "My Blog",
-    desc = "My personal blog.",
+    title = "imitoy's Blog",
+    desc = "No blog desc.",
 
     -- Avatar
-    avatar = "/img/avatar.png",
+    avatar = "/img/avatar.jpg",
 
     -- Footer copyright
     copyright = "© 2025 Blog Material You",
@@ -195,7 +195,7 @@ _M.data = {
     admin_permissions_none = "None",
 
     -- Blog info
-    github = "https://github.com/",
+    github = "https://github.com/imitoy/Blog",
 
     -- Admin credentials loaded from encrypted store at runtime.
     admin_user = "",

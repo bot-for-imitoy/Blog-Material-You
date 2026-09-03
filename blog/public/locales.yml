@@ -13,11 +13,11 @@ zh:
   status: 状态
   archives: 归档
   allPosts: 文章
-  allPostsDesc: 博客的全部文章
+  allPostsDesc: 全部文章
   allTags: 标签
-  allTagsDesc: 博客的全部标签
+  allTagsDesc: 全部标签
   allCats: 分类
-  allCatsDesc: 博客的全部分类
+  allCatsDesc: 全部分类
   allArchives: 归档
   allArchivesDesc: 已归档的旧文章
   loading: 加载中...
@@ -58,11 +58,11 @@ zh:
   page_friends: 友链
   page_friends_desc: 我的朋友们
   page_posts: 文章
-  page_posts_desc: 博客的全部文章
+  page_posts_desc: 全部文章
   page_tags: 标签
-  page_tags_desc: 博客的全部标签
+  page_tags_desc: 全部标签
   page_categories: 分类
-  page_categories_desc: 博客的全部分类
+  page_categories_desc: 全部分类
   page_moments: 动态
   page_moments_desc: 博客的点滴记录
   page_archives: 归档
