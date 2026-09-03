@@ -40,6 +40,14 @@ docker compose build
 docker compose up -d
 ```
 
+> **Before starting**: the Docker image no longer bundles a database server.
+> `docker-compose.yml` connects to the MariaDB/MySQL running on the Docker
+> host via a `mariadb://` connection URL
+> (`BMY_DB_URL=mariadb://blogyou:blog-db-pass-2025@host.docker.internal:3306/blogyou`) —
+> create that database/user first (see
+> [Docker + external database](#docker--external-database)) or edit `BMY_DB_URL`
+> to point at your own server.
+
 Then visit http://localhost:30999/ for the blog and http://localhost:31000/ for the admin panel.
 
 ## Access
@@ -120,7 +128,7 @@ bash backend/start.sh
 
 ### Docker + external database
 
-When `BMY_DB_HOST` is set in `docker-compose.yml`, the container **does not start the embedded MariaDB** — it connects to your external server and automatically initializes/migrates the schema on boot (tables are created with `CREATE TABLE IF NOT EXISTS`, so restarts are safe). Create the database and user on the external server first:
+The Docker image **does not embed a MariaDB server** — the container always connects to an external database and automatically initializes/migrates the schema on boot (tables are created with `CREATE TABLE IF NOT EXISTS`, so restarts are safe). By default `docker-compose.yml` points at the database on the Docker host via a `mariadb://` connection URL (`BMY_DB_URL=mariadb://blogyou:blog-db-pass-2025@host.docker.internal:3306/blogyou`); edit it (or set `BMY_DB_HOST`) to use another server. Create the database and user on the server first:
 
 ```sql
 CREATE DATABASE blogyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
