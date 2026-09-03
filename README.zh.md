@@ -247,7 +247,7 @@ bash backend/start.sh
 
 ### Docker + 外部数据库
 
-在 `docker-compose.yml` 中设置 `BMY_DB_HOST` 后，容器**不再启动内置 MariaDB**，而是连接外部数据库，并在启动时自动初始化/迁移表结构（全部为 `CREATE TABLE IF NOT EXISTS`，重启安全）。请先在外部服务器上创建数据库与用户：
+Docker 镜像**不再内置 MariaDB 服务端**，容器始终连接外部数据库（如宿主机上的 MariaDB/MySQL），并在启动时自动初始化/迁移表结构（全部为 `CREATE TABLE IF NOT EXISTS`，重启安全）。`docker-compose.yml` 默认通过 `mariadb://` 连接串指向宿主机数据库（`BMY_DB_URL=mariadb://blogyou:blog-db-pass-2025@host.docker.internal:3306/blogyou`），可自行修改该 URL（或改用 `BMY_DB_HOST`）。请先在数据库服务器上创建数据库与用户：
 
 ```sql
 CREATE DATABASE blogyou CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

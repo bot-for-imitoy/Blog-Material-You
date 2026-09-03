@@ -1,11 +1,13 @@
 # Blog Material You — Docker image
-# OpenResty + embedded MariaDB (optional: point at an external DB via BMY_DB_HOST)
+# OpenResty only: the image does NOT bundle a database server — connect to an
+# external MariaDB/MySQL (e.g. the one on the Docker host) via BMY_DB_URL or
+# BMY_DB_HOST. mariadb-client is kept for automatic schema init/migration.
 
 # alpine:3.23 (supported until 2027-11) — 3.20 is EOL and its package repos
 # are frozen/being phased out, which broke the build.
 FROM alpine:3.23
 
-LABEL description="Blog Material You — standalone blog system (OpenResty + MariaDB, S3/MinIO image hosting)"
+LABEL description="Blog Material You — standalone blog system (OpenResty + external MariaDB, S3/MinIO image hosting)"
 LABEL maintainer="Hermes-bot"
 
 # Install dependencies.
@@ -13,12 +15,13 @@ LABEL maintainer="Hermes-bot"
 # main and community repos over HTTPS in /etc/apk/repositories. The previous
 # hard-coded http://dl-cdn... URL was redundant, insecure, and a build
 # failure point on networks that block/redirect plain HTTP.
+# NOTE: only the MariaDB CLIENT is installed (used by the entrypoint and the
+# Lua db module to initialize/migrate the schema on the external database).
+# The MariaDB server is intentionally NOT included — the container always
+# connects to a database provided by the host.
 RUN apk add --no-cache \
     openresty \
-    mariadb \
     mariadb-client \
-    mariadb-common \
-    mariadb-server-utils \
     tzdata \
     curl
 
@@ -50,16 +53,8 @@ RUN mkdir -p blog/public/avatars && \
 # S3 helper script must be readable/executable
 RUN chmod 755 /app/backend/s3.py
 
-# Initialize MariaDB system tables (data dir can be overridden by volume)
-RUN mkdir -p /app/data/mysql && \
-    mariadb-install-db --datadir=/app/data/mysql --user=root --skip-test-db 2>/dev/null && \
-    echo "MariaDB system tables initialized"
-
 # Make entrypoint executable
 RUN chmod +x /app/docker/docker-entrypoint.sh
-
-# Fix MariaDB data dir ownership for mysql user
-RUN chown -R mysql:mysql /app/data/mysql
 
 # Make all Lua files readable by nginx worker
 RUN find /app/backend/lua -name '*.lua' -exec chmod 644 {} \;

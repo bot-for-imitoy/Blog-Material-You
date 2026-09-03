@@ -1,7 +1,8 @@
 #!/bin/sh
 # Blog Material You — Docker entrypoint
-# Starts MariaDB (unless an external DB is configured via BMY_DB_HOST) and
-# OpenResty, keeps container running.
+# Connects to an external MariaDB/MySQL (via BMY_DB_URL, e.g.
+# mariadb://user:pass@host:3306/blogyou, or BMY_DB_HOST), initializes the
+# schema, then starts OpenResty. The image does NOT embed a database server.
 
 set -e
 
@@ -11,8 +12,6 @@ if [ -z "$BMY_BLOG_DIR" ]; then
     export BMY_BLOG_DIR
 fi
 
-DB_DIR=/app/data/mysql
-DB_SOCKET=$DB_DIR/mysql.sock
 DB_NAME=${BMY_DB_NAME:-blogyou}
 
 # ===== Parse BMY_DB_URL (mariadb://user:pass@host:port/db?ssl_ca=...&ssl_cert=...&ssl_key=...) =====
@@ -49,40 +48,32 @@ URLPARSE_SCRIPT
     export BMY_DB_HOST BMY_DB_PORT BMY_DB_USER BMY_DB_PASS BMY_DB_NAME
     export BMY_DB_SSL_CA BMY_DB_SSL_CERT BMY_DB_SSL_KEY BMY_DB_SSL_VERIFY
     DB_NAME=${BMY_DB_NAME:-blogyou}
-    echo "BMY_DB_URL set — database: $DB_NAME, host: ${BMY_DB_HOST:-(embedded socket)}"
+    echo "BMY_DB_URL set — database: $DB_NAME, host: ${BMY_DB_HOST:-(not set)}"
 fi
 
 # ===== External database detection =====
-# When BMY_DB_HOST is set, no embedded MariaDB is started and all schema
-# init / migration work targets the external server (distributed deployment).
-EXTERNAL_DB=0
-if [ -n "$BMY_DB_HOST" ]; then
-    EXTERNAL_DB=1
-    echo "Using EXTERNAL MariaDB at $BMY_DB_HOST:${BMY_DB_PORT:-3306} (database: $DB_NAME)"
-else
-    # Embedded DB: make the socket path known to the migration script and the
-    # nginx workers (defaults to the container datadir when not provided).
-    export BMY_DB_SOCKET="${BMY_DB_SOCKET:-$DB_SOCKET}"
+# The Docker image does NOT include a MariaDB server, so an external
+# database is mandatory (usually the one running on the Docker host).
+if [ -z "$BMY_DB_HOST" ]; then
+    echo "ERROR: no external database configured."
+    echo "This image does not embed a MariaDB server. Set BMY_DB_URL (e.g."
+    echo "mariadb://user:pass@host:3306/blogyou) or BMY_DB_HOST to point at"
+    echo "your MariaDB/MySQL server (for example the one on the Docker host)."
+    exit 1
 fi
+echo "Using EXTERNAL MariaDB at $BMY_DB_HOST:${BMY_DB_PORT:-3306} (database: $DB_NAME)"
 
-# Build the mariadb client command prefix.
-# Embedded DB: unix socket, root, no password.
-# External DB: TCP with configured user; password goes through MYSQL_PWD so it
-# never shows up in `ps` output.
-if [ "$EXTERNAL_DB" = "1" ]; then
-    # TLS / mutual-TLS flags for the CLI tools (used for schema + migration)
-    SSL_ARGS=""
-    [ -n "$BMY_DB_SSL_CA" ] && SSL_ARGS="$SSL_ARGS --ssl-ca=$BMY_DB_SSL_CA"
-    [ -n "$BMY_DB_SSL_CERT" ] && SSL_ARGS="$SSL_ARGS --ssl-cert=$BMY_DB_SSL_CERT"
-    [ -n "$BMY_DB_SSL_KEY" ] && SSL_ARGS="$SSL_ARGS --ssl-key=$BMY_DB_SSL_KEY"
-    [ "$BMY_DB_SSL_VERIFY" = "0" ] && SSL_ARGS="$SSL_ARGS --ssl-verify-server-cert=OFF"
-    export BMY_DB_SSL_FLAGS="$SSL_ARGS"
-    MYSQL_CMD="mariadb $SSL_ARGS --default-character-set=utf8mb4 -h $BMY_DB_HOST -P ${BMY_DB_PORT:-3306} -u ${BMY_DB_USER:-blogyou}"
-    export MYSQL_PWD="${BMY_DB_PASS:-}"
-else
-    unset MYSQL_PWD 2>/dev/null || true
-    MYSQL_CMD="mariadb --socket=$DB_SOCKET"
-fi
+# Build the mariadb client command prefix (TCP). The password goes through
+# MYSQL_PWD so it never shows up in `ps` output.
+# TLS / mutual-TLS flags for the CLI tools (used for schema + migration)
+SSL_ARGS=""
+[ -n "$BMY_DB_SSL_CA" ] && SSL_ARGS="$SSL_ARGS --ssl-ca=$BMY_DB_SSL_CA"
+[ -n "$BMY_DB_SSL_CERT" ] && SSL_ARGS="$SSL_ARGS --ssl-cert=$BMY_DB_SSL_CERT"
+[ -n "$BMY_DB_SSL_KEY" ] && SSL_ARGS="$SSL_ARGS --ssl-key=$BMY_DB_SSL_KEY"
+[ "$BMY_DB_SSL_VERIFY" = "0" ] && SSL_ARGS="$SSL_ARGS --ssl-verify-server-cert=OFF"
+export BMY_DB_SSL_FLAGS="$SSL_ARGS"
+MYSQL_CMD="mariadb $SSL_ARGS --default-character-set=utf8mb4 -h $BMY_DB_HOST -P ${BMY_DB_PORT:-3306} -u ${BMY_DB_USER:-blogyou}"
+export MYSQL_PWD="${BMY_DB_PASS:-}"
 
 # Detect correct nginx binary
 if [ -x /usr/sbin/nginx ]; then
@@ -125,85 +116,15 @@ if [ -z "$BMY_BLOG_DIR" ]; then
 fi
 echo "Blog content: $BMY_BLOG_DIR"
 
-# ===== Start embedded MariaDB (skipped for external DB) =====
-if [ "$EXTERNAL_DB" = "1" ]; then
-    echo "External DB configured — skipping embedded MariaDB startup"
-else
-    echo "Starting MariaDB..."
-
-    # Remove stale socket from previous run (volume persists it, fools readiness check)
-    rm -f "$DB_SOCKET"
-
-    mariadbd \
-        --datadir="$DB_DIR" \
-        --socket="$DB_SOCKET" \
-        --port=3308 \
-        --skip-networking \
-        --user=mysql \
-        --pid-file=/tmp/mariadb.pid &
-    MARIADB_PID=$!
-
-    # Wait for MariaDB to actually accept connections (not just create socket file)
-    for i in $(seq 1 30); do
-        if $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
-            echo "MariaDB ready (PID: $MARIADB_PID)"
-            # Make socket accessible by nginx worker (group-readable)
-            chmod 755 "$DB_DIR" 2>/dev/null || true
-            chmod 666 "$DB_SOCKET" 2>/dev/null || true
-            break
-        fi
-        sleep 1
-    done
-
-    if ! $MYSQL_CMD -e "SELECT 1" >/dev/null 2>&1; then
-        echo "ERROR: MariaDB failed to start within 30 seconds"
-        # Dump error log for debugging
-        if [ -f "$DB_DIR/$(hostname).err" ]; then
-            tail -30 "$DB_DIR/$(hostname).err"
-        fi
-        exit 1
-    fi
-
-    # ===== Upgrade MariaDB data directory if needed =====
-    # The volume may hold a datadir initialized by an older MariaDB (e.g. 10.11
-    # from the previous alpine:3.20 image). Compare the version recorded in the
-    # datadir against the running server and run mariadb-upgrade when they differ.
-    # MariaDB writes mysql_upgrade_info (<=10.11) or mariadb_upgrade_info (>=11.4).
-    MARKER=$(ls "$DB_DIR"/mysql_upgrade_info "$DB_DIR"/mariadb_upgrade_info 2>/dev/null | head -1)
-    if [ -n "$MARKER" ]; then
-        OLD_VER=$(head -n1 "$MARKER" 2>/dev/null)
-        CUR_VER=$($MYSQL_CMD -N -e "SELECT VERSION()" 2>/dev/null)
-        if [ -n "$OLD_VER" ] && [ "$OLD_VER" != "$CUR_VER" ]; then
-            echo "MariaDB datadir was created by $OLD_VER, server is $CUR_VER — running mariadb-upgrade..."
-            mariadb-upgrade --socket="$DB_SOCKET" --force 2>&1 | tail -5
-            echo "MariaDB upgrade finished"
-        else
-            echo "MariaDB datadir version matches server ($CUR_VER), no upgrade needed"
-        fi
-    fi
-fi
-
-# ===== Initialize database schema if needed =====
-DB_EXISTS=$($MYSQL_CMD -e "SHOW DATABASES LIKE '$DB_NAME'" 2>/dev/null | grep "$DB_NAME" || true)
-
-if [ "$EXTERNAL_DB" = "1" ]; then
-    echo "Applying schema to external database '$DB_NAME'..."
-    # The external DB user may lack CREATE DATABASE rights — tolerate failure,
-    # the DDL below is idempotent (CREATE TABLE IF NOT EXISTS).
-    $MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true
-    echo "Database exists check done"
-elif [ -z "$DB_EXISTS" ]; then
-    echo "Initializing database schema..."
-    $MYSQL_CMD < /app/docker/db_init.sql
-    # Fresh start: clear any leftover admin credentials
-    rm -f "$BMY_BLOG_DIR"/data/admin.json 2>/dev/null || true
-    echo "Database initialized"
-else
-    echo "Database already exists, applying any pending schema migrations..."
-fi
+# ===== Initialize database schema =====
+# The host DB user may lack CREATE DATABASE rights — tolerate failure, the
+# DDL below is idempotent (CREATE TABLE IF NOT EXISTS).
+echo "Applying schema to database '$DB_NAME'..."
+$MYSQL_CMD -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;" 2>/dev/null || true
+echo "Database exists check done"
 
 # Apply pending schema migrations (idempotent — safe to re-run on every boot;
-# also the only schema path for external databases).
+# this is the only schema path for the external database).
 $MYSQL_CMD "$DB_NAME" -e "
     CREATE TABLE IF NOT EXISTS comments (
         id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -297,13 +218,6 @@ $MYSQL_CMD "$DB_NAME" -e "
 "
 echo "Schema migration done"
 
-# Embedded-DB only: ensure nginx worker can access the MySQL socket
-# (directory gets 700 on fresh volume)
-if [ "$EXTERNAL_DB" != "1" ]; then
-    chmod 755 "$DB_DIR" 2>/dev/null || true
-    chown -R mysql:mysql "$DB_DIR" 2>/dev/null || true
-fi
-
 # ===== Run JSON→DB migration (if not yet done) =====
 echo "Running JSON→DB migration if needed..."
 
@@ -314,26 +228,23 @@ local cjson = require("cjson")
 local blog_dir = os.getenv("BMY_BLOG_DIR") or "/app/blog"
 local DATA_DIR  = blog_dir .. "/data"
 
--- Build the mariadb client command for the configured database (embedded
--- socket or external TCP). Password is passed via MYSQL_PWD so it never
--- appears in `ps`. TLS/mTLS flags come from BMY_DB_SSL_FLAGS (exported by
--- the entrypoint after parsing BMY_DB_URL).
+-- Build the mariadb client command for the external (TCP) database.
+-- Password is passed via MYSQL_PWD so it never appears in `ps`. TLS/mTLS
+-- flags come from BMY_DB_SSL_FLAGS (exported by the entrypoint after
+-- parsing BMY_DB_URL). BMY_DB_HOST is guaranteed to be set — the entrypoint
+-- exits unless an external database is configured.
 local function mysql_cmd()
     local host = os.getenv("BMY_DB_HOST")
     local name = os.getenv("BMY_DB_NAME") or "blogyou"
     local ssl_flags = os.getenv("BMY_DB_SSL_FLAGS") or ""
-    if host and host ~= "" then
-        local port = os.getenv("BMY_DB_PORT") or "3306"
-        local user = os.getenv("BMY_DB_USER") or "blogyou"
-        local pass = os.getenv("BMY_DB_PASS") or ""
-        local pass_q = pass:gsub("'", "'\\''")
-        return "MYSQL_PWD='" .. pass_q .. "' mariadb " .. ssl_flags .. " --default-character-set=utf8mb4 -h" .. host .. " -P" .. port .. " -u" .. user .. " " .. name
+    if not host or host == "" then
+        error("BMY_DB_HOST is not set; an external database is required")
     end
-    local sock = os.getenv("BMY_DB_SOCKET")
-    if not sock or sock == "" then
-        sock = blog_dir .. "/data/mysql/mysql.sock"
-    end
-    return "mariadb --socket=" .. sock .. " --default-character-set=utf8mb4 " .. name
+    local port = os.getenv("BMY_DB_PORT") or "3306"
+    local user = os.getenv("BMY_DB_USER") or "blogyou"
+    local pass = os.getenv("BMY_DB_PASS") or ""
+    local pass_q = pass:gsub("'", "'\\''")
+    return "MYSQL_PWD='" .. pass_q .. "' mariadb " .. ssl_flags .. " --default-character-set=utf8mb4 -h" .. host .. " -P" .. port .. " -u" .. user .. " " .. name
 end
 
 local function run(sql)
