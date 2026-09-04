@@ -144,9 +144,14 @@
       if (newPass !== newPass2) { if (errEl) errEl.textContent = '两次密码输入不一致'; return; }
       if (errEl) errEl.textContent = '保存中...';
 
+      var payload = { action: 'change', old_password: oldPass, new_password: newPass };
+      // new_user is optional ("留空则不修改") — omit it when blank, otherwise
+      // the backend would store an empty username and lock everyone out.
+      if (newUser) payload.new_user = newUser;
+
       var res = await api('/setup', {
         method: 'POST',
-        body: JSON.stringify({ action: 'change', old_password: oldPass, new_password: newPass, new_user: newUser })
+        body: JSON.stringify(payload)
       });
       if (res.errno === 0) { toast('✅ 密码已更改'); loadContent(); }
       else { if (errEl) errEl.textContent = res.errmsg || '更改失败'; }
