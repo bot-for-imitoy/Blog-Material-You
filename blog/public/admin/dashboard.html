@@ -48,7 +48,7 @@
         <a href="imagehost.html">🖼️ 图床</a>
         <a href="backup.html">💾 数据备份</a>
       </nav>
-      <a href="login.html" class="logout">🚪 退出</a>
+      <a href="#" class="logout" onclick="return doLogout(event)">🚪 退出</a>
     </div>
     <div class="main" id="main-content">加载中...</div>
   </div>
@@ -57,6 +57,11 @@
   <script>
     const API = '/api/admin';
     var token = '';
+    async function doLogout(e) {
+      if (e) e.preventDefault();
+      try { await fetch(API + '/logout', { method: 'POST' }); } catch (err) {}
+      window.location.href = 'login.html';
+    }
 
     function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function toast(msg) {
@@ -73,16 +78,6 @@
       return res.json();
     }
 
-    function applyTokenToSidebar() {
-      document.querySelectorAll('.sidebar a').forEach(function(a) {
-        var href = a.getAttribute('href');
-        if (href && href.indexOf('?') !== -1) {
-          if (href.indexOf('token=') === -1) a.setAttribute('href', href + '&token=' + encodeURIComponent(token));
-        } else if (href && href !== '#') {
-          a.setAttribute('href', href + '?token=' + encodeURIComponent(token));
-        }
-      });
-    }
 
     async function loadContent() {
       var el = document.getElementById('main-content');
@@ -123,8 +118,6 @@
     document.addEventListener('DOMContentLoaded', function() {
       var params = new URLSearchParams(window.location.search);
       token = params.get('token') || '';
-      if (!token) { window.location.href = 'login.html'; return; }
-      applyTokenToSidebar();
       loadContent();
     });
   </script>

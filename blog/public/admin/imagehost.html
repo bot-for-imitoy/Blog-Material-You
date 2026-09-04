@@ -64,7 +64,7 @@
         <a href="imagehost.html" class="active">🖼️ 图床</a>
         <a href="backup.html">💾 数据备份</a>
       </nav>
-      <a href="login.html" class="logout">🚪 退出</a>
+      <a href="#" class="logout" onclick="return doLogout(event)">🚪 退出</a>
     </div>
     <div class="main">
       <div class="page-header">
@@ -209,6 +209,11 @@
   <script>
     const API = '/api/admin';
     var token = '';
+    async function doLogout(e) {
+      if (e) e.preventDefault();
+      try { await fetch(API + '/logout', { method: 'POST' }); } catch (err) {}
+      window.location.href = 'login.html';
+    }
 
     function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function toast(msg) {
@@ -216,16 +221,6 @@
       if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
       el.innerHTML = '<div class="toast-el">' + escapeHtml(msg) + '</div>';
       setTimeout(function() { if (el.firstChild) el.innerHTML = ''; }, 4000);
-    }
-    function applyTokenToSidebar() {
-      document.querySelectorAll('.sidebar a').forEach(function(a) {
-        var href = a.getAttribute('href');
-        if (href && href.indexOf('?') !== -1) {
-          if (href.indexOf('token=') === -1) a.setAttribute('href', href + '&token=' + encodeURIComponent(token));
-        } else if (href && href !== '#') {
-          a.setAttribute('href', href + '?token=' + encodeURIComponent(token));
-        }
-      });
     }
 
     var $ = function(id) { return document.getElementById(id); };
@@ -402,8 +397,6 @@
     // ===== Init =====
     var params = new URLSearchParams(window.location.search);
     token = params.get('token') || '';
-    if (!token) { window.location.href = 'login.html'; return; }
-    applyTokenToSidebar();
     loadConfig();
   </script>
 </body>
