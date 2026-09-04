@@ -59,6 +59,13 @@ RUN chmod +x /app/docker/docker-entrypoint.sh
 # Make all Lua files readable by nginx worker
 RUN find /app/backend/lua -name '*.lua' -exec chmod 644 {} \;
 
+# nginx workers drop container-level supplementary groups when switching to
+# the nginx user (initgroups), so host-mounted TLS certs owned by the host's
+# ssl-cert group (gid 963 on the deployment host) must be readable through an
+# in-image group membership. If your host uses a different gid for the certs'
+# group, adjust 963 accordingly.
+RUN addgroup -S -g 963 ssl-cert && addgroup nginx ssl-cert
+
 # Install ImageMagick for avatar resize
 RUN apk add --no-cache imagemagick
 
