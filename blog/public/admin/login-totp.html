@@ -69,7 +69,7 @@
         if (data.errno === 0 && data.data && data.data.token) {
           toast('登录成功 ✓');
           setTimeout(function() {
-            window.location.href = 'dashboard.html?token=' + encodeURIComponent(data.data.token);
+            window.location.href = 'dashboard.html';
           }, 300);
         } else {
           toast('验证失败：' + (data.errmsg || '验证码错误'));

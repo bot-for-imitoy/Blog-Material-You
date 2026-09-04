@@ -87,7 +87,7 @@
           return;
         }
         if (data.data && data.data.token) {
-          window.location.href = 'dashboard.html?token=' + encodeURIComponent(data.data.token);
+          window.location.href = 'dashboard.html';
         }
       } catch(e) {
         if (errEl) { errEl.textContent = '网络错误: ' + e.message; errEl.style.display = ''; }
@@ -105,7 +105,7 @@
         if (urlToken) headers['Authorization'] = 'Bearer ' + urlToken;
         var r = await fetch(API + '/posts', { headers: headers });
         if (r.ok) {
-          window.location.href = 'dashboard.html' + (urlToken ? '?token=' + encodeURIComponent(urlToken) : '');
+          window.location.href = 'dashboard.html';
           return;
         }
       } catch(e) {}

@@ -49,7 +49,7 @@
         <a href="imagehost.html">🖼️ 图床</a>
         <a href="backup.html">💾 数据备份</a>
       </nav>
-      <a href="login.html" class="logout">🚪 退出</a>
+      <a href="#" class="logout" onclick="return doLogout(event)">🚪 退出</a>
     </div>
     <div class="main" id="main-content">加载中...</div>
   </div>
@@ -58,6 +58,11 @@
   <script>
     const API = '/api/admin';
     var token = '';
+    async function doLogout(e) {
+      if (e) e.preventDefault();
+      try { await fetch(API + '/logout', { method: 'POST' }); } catch (err) {}
+      window.location.href = 'login.html';
+    }
 
     function escapeHtml(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function toast(msg) {
@@ -74,26 +79,16 @@
       return res.json();
     }
 
-    function applyTokenToSidebar() {
-      document.querySelectorAll('.sidebar a').forEach(function(a) {
-        var href = a.getAttribute('href');
-        if (href && href.indexOf('?') !== -1) {
-          if (href.indexOf('token=') === -1) a.setAttribute('href', href + '&token=' + encodeURIComponent(token));
-        } else if (href && href !== '#') {
-          a.setAttribute('href', href + '?token=' + encodeURIComponent(token));
-        }
-      });
-    }
 
     async function saveTalk() {
       var content = document.getElementById('talk-content').value.trim();
       if (!content) { toast('内容不能为空'); return; }
       var res = await api('/talks', { method: 'POST', body: JSON.stringify({ content: content }) });
-      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已发布 ✓'); window.location.href = 'talks.html?token=' + encodeURIComponent(token); }
+      if (res.errno === 0) { await api('/reload', { method: 'POST' }); toast('已发布 ✓'); window.location.href = 'talks.html'; }
       else toast('发布失败');
     }
 
-    function cancelEdit() { window.location.href = 'talks.html?token=' + encodeURIComponent(token); }
+    function cancelEdit() { window.location.href = 'talks.html'; }
 
     function loadContent() {
       var el = document.getElementById('main-content');
@@ -110,8 +105,6 @@
     document.addEventListener('DOMContentLoaded', function() {
       var params = new URLSearchParams(window.location.search);
       token = params.get('token') || '';
-      if (!token) { window.location.href = 'login.html'; return; }
-      applyTokenToSidebar();
       loadContent();
     });
   </script>
