@@ -112,8 +112,10 @@ elseif action == "change" then
         ngx.say(cjson.encode({ errno = -1, errmsg = "当前密码错误" }))
         return
     end
-    -- Re-encrypt with new password
-    user = new_user or stored.user
+    -- Re-encrypt with new password. new_user is optional (UI: "留空则不修改");
+    -- an empty string is TRUTHY in Lua, so guard explicitly or the stored
+    -- username would be silently blanked on password-only changes.
+    user = (new_user ~= nil and new_user ~= "") and new_user or stored.user
     local entry = admin_store.encrypt(user, new_pass)
     if not entry then
         ngx.status = 500
