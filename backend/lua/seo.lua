@@ -90,11 +90,11 @@ function _M.for_route(route)
         if tag_slug then
             local tag = ngx.unescape_uri(tag_slug):gsub("/$", "")
             title = tag .. " - " .. site_title
-            desc = "「" .. tag .. "」标签下的文章
+            desc = "「" .. tag .. "」标签下的文章"
         elseif cat_slug then
             local cat = ngx.unescape_uri(cat_slug):gsub("/$", "")
             title = cat .. " - " .. site_title
-            desc = "「" .. cat .. "」分类下的文章
+            desc = "「" .. cat .. "」分类下的文章"
         end
     end
 
