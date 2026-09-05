@@ -56,31 +56,31 @@ function _M.for_route(route)
 
     -- Listing pages (exact match, with or without trailing slash)
     elseif route == "/posts/" or route == "/posts" then
-        title = "Posts - " .. site_title
+        title = "文章 - " .. site_title
         desc = "博客所有文章"
     elseif route == "/tags/" or route == "/tags" then
-        title = "Tags - " .. site_title
+        title = "标签 - " .. site_title
         desc = "博客所有标签"
     elseif route == "/categories/" or route == "/categories" then
-        title = "Categories - " .. site_title
+        title = "分类 - " .. site_title
         desc = "博客所有分类"
     elseif route == "/archives/" or route == "/archives" then
-        title = "Archives - " .. site_title
+        title = "归档 - " .. site_title
         desc = "所有已归档文章"
     elseif route == "/friends/" or route == "/friends" then
-        title = "Friends - " .. site_title
+        title = "友链 - " .. site_title
         desc = "友情链接"
     elseif route == "/about/" or route == "/about" then
-        title = "About - " .. site_title
+        title = "关于 - " .. site_title
         desc = site_desc
     elseif route == "/talks/" or route == "/talks" then
-        title = "Moments - " .. site_title
+        title = "动态 - " .. site_title
         desc = "动态"
     elseif route == "/status/" or route == "/status" then
-        title = "Status - " .. site_title
+        title = "状态 - " .. site_title
         desc = "系统状态 & 设备信息"
     elseif route == "/auth/" or route == "/auth" then
-        title = "Auth - " .. site_title
+        title = "身份验证 - " .. site_title
         desc = "访客认证"
 
     -- Single tag / category
@@ -90,11 +90,11 @@ function _M.for_route(route)
         if tag_slug then
             local tag = ngx.unescape_uri(tag_slug):gsub("/$", "")
             title = tag .. " - " .. site_title
-            desc = "Posts tagged with " .. tag
+            desc = "「" .. tag .. "」标签下的文章
         elseif cat_slug then
             local cat = ngx.unescape_uri(cat_slug):gsub("/$", "")
             title = cat .. " - " .. site_title
-            desc = "Posts in category " .. cat
+            desc = "「" .. cat .. "」分类下的文章
         end
     end
 

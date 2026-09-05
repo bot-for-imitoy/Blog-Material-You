@@ -40,7 +40,7 @@ ngx.header["X-SSR-Title"] = ngx.escape_uri(seo_data.title)
 local function render_or_404(template, data)
     local html = renderer.render(template, data)
     if not html then
-        html = renderer.render("pages/404", {}) or "<h1>404 — Page Not Found</h1>"
+        html = renderer.render("pages/404", {}) or "<h1>404 — 页面未找到</h1>"
     end
     ngx.say(html)
 end
