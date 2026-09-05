@@ -51,6 +51,6 @@
     <mdui-text-field id="comment-content" label="<%= _h._("commentContent") %>" variant="outlined" max-rows="4" autosize></mdui-text-field>
     <mdui-button id="comment-submit-button" variant="filled"><%= _h._("submit") %></mdui-button>
   </div>
-  <h3 class="comment-section-title" id="comment-section-title"><%= _h._("commentTitle") or "Comments" %></h3>
+  <h3 class="comment-section-title" id="comment-section-title"><%= _h._("commentTitle") or "评论" %></h3>
   <mdui-list id="comments-container" class="comment-list"></mdui-list>
 </div>
