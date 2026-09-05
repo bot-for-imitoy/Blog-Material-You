@@ -9,7 +9,7 @@
     <div style="font-size:48px;margin-bottom:12px">👤</div>
     <div style="font-size:18px;font-weight:500;margin-bottom:4px"><%= _h.h(authUser) %></div>
     <div style="font-size:14px;color:rgb(var(--mdui-color-outline));margin-bottom:16px"><%= _h.h(authEmail) %></div>
-    <div style="font-size:13px;margin-bottom:16px"><%= "Permissions: " %><%= authPerms and #authPerms > 0 and table.concat(authPerms, ", ") or "None" %></div>
+    <div style="font-size:13px;margin-bottom:16px"><%= "权限：" %><%= authPerms and #authPerms > 0 and table.concat(authPerms, ", ") or "无" %></div>
     <div style="display:flex;gap:8px;justify-content:center">
       <mdui-button variant="text" onclick="setAuth(null);navigate('/auth/',true)"><%= _h._("admin_logout") %></mdui-button>
       <mdui-button variant="text" onclick="navigate('/',true)"><%= "← Home" %></mdui-button>

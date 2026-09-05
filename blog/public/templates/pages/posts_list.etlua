@@ -6,7 +6,7 @@
 <%
   local years = {}
   for _, p in ipairs(posts or {}) do
-    local y = p.date and p.date:sub(1, 4) or "Unknown"
+    local y = p.date and p.date:sub(1, 4) or "未知"
     if not years[y] then years[y] = {} end
     table.insert(years[y], p)
   end

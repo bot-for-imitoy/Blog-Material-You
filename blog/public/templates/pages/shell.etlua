@@ -121,7 +121,7 @@
       else if (ssrPath.endsWith('/')) ssrPath = ssrPath.slice(0, -1);
       // Trailing slashes stripped; the SSR router handles both with/without
       const res = await fetch('/api/ssr' + ssrPath);
-      if (!res.ok) return '<div class="loading-placeholder"><h2>Error</h2><p>Failed to load page (' + res.status + ')</p></div>';
+      if (!res.ok) return '<div class="loading-placeholder"><h2>错误</h2><p>页面加载失败 (' + res.status + ')</p></div>';
       // Apply the page title computed by the Lua backend (X-SSR-Title header)
       var ssrTitle = res.headers.get('X-SSR-Title');
       if (ssrTitle) {
@@ -169,7 +169,7 @@
         postRender(container);
       } catch (err) {
         console.error('Navigation error:', err);
-        container.innerHTML = '<div class="loading-placeholder"><h2>Error</h2><p>Failed to load page: ' + escapeHtml(err.message) + '</p></div>';
+        container.innerHTML = '<div class="loading-placeholder"><h2>错误</h2><p>页面加载失败：' + escapeHtml(err.message) + '</p></div>';
       }
 
       container.classList.remove('loading');
@@ -311,7 +311,7 @@
           var wrapper = img.closest('.post-header-cover-wrapper');
           if (wrapper) {
             wrapper.querySelector('.image-skeleton').innerHTML =
-              '<div class="image-skeleton-icon">❌</div><span>Failed to load</span>';
+              '<div class="image-skeleton-icon">❌</div><span>加载失败</span>';
           }
         });
         if (img.complete) {
@@ -327,13 +327,13 @@
         wrapper.className = 'image-wrapper';
         var skeleton = document.createElement('div');
         skeleton.className = 'image-skeleton';
-        skeleton.innerHTML = '<div class="image-skeleton-icon">🖼️</div><span>Loading...</span>';
+        skeleton.innerHTML = '<div class="image-skeleton-icon">🖼️</div><span>加载中...</span>';
         img.parentNode.insertBefore(wrapper, img);
         wrapper.appendChild(skeleton);
         wrapper.appendChild(img);
         img.addEventListener('load', function() { wrapper.classList.add('loaded'); });
         img.addEventListener('error', function() {
-          skeleton.innerHTML = '<div class="image-skeleton-icon">❌</div><span>Failed to load</span>';
+          skeleton.innerHTML = '<div class="image-skeleton-icon">❌</div><span>加载失败</span>';
         });
         if (img.complete) {
           if (img.naturalWidth > 0) wrapper.classList.add('loaded');
@@ -377,7 +377,7 @@
         var titleEl = document.getElementById('comment-section-title');
         if (titleEl && countResult.data) {
           var count = parseInt(countResult.data.count) || 0;
-          titleEl.textContent = count + ' Comment' + (count !== 1 ? 's' : '');
+          titleEl.textContent = count + ' 条评论';
         }
 
         var container = document.getElementById('comments-container');
@@ -505,22 +505,22 @@
       // Fetch server status
       fetch('/api/status').then(function(r) { return r.json(); }).then(function(d) {
         var el = document.getElementById('status-online');
-        if (el) el.textContent = d.online ? '✅ Online' : '❌ Offline';
+        if (el) el.textContent = d.online ? '✅ 在线' : '❌ 离线';
         var el2 = document.getElementById('status-users');
         if (el2) el2.textContent = '' + (d.registered_users || 0);
       }).catch(function() {
         var el = document.getElementById('status-online');
-        if (el) el.textContent = '❌ Connection failed';
+        if (el) el.textContent = '❌ 连接失败';
       });
 
       // Auth card
       var authCardEl = document.getElementById('status-auth-card');
       if (authCardEl) {
         if (isAuthed()) {
-          authCardEl.innerHTML = '<mdui-card variant="elevated" style="padding:16px;margin-top:12px;width:100%"><div style="font-size:14px">👤 ' + escapeHtml(getAuthName()) + ' (' + escapeHtml(getAuthEmail()) + ')</div><div style="font-size:12px;color:rgb(var(--mdui-color-outline));margin-top:4px">Permissions: ' + (getAuthPerms().join(', ') || 'None') + '</div></mdui-card>';
+          authCardEl.innerHTML = '<mdui-card variant="elevated" style="padding:16px;margin-top:12px;width:100%"><div style="font-size:14px">👤 ' + escapeHtml(getAuthName()) + ' (' + escapeHtml(getAuthEmail()) + ')</div><div style="font-size:12px;color:rgb(var(--mdui-color-outline));margin-top:4px">权限：' + (getAuthPerms().join(', ') || '无') + '</div></mdui-card>';
         }
         var lockEl = document.getElementById('status-lock');
-        if (lockEl) lockEl.textContent = isAuthed() ? '🔓 Authenticated' : '🔒 Unauthenticated';
+        if (lockEl) lockEl.textContent = isAuthed() ? '🔓 已认证' : '🔒 未认证';
       }
 
       updatePlaybackStatus();
@@ -533,15 +533,15 @@
       if (!isAuthed()) {
         el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
           + '<div style="font-size:36px;margin-bottom:12px">🔐</div>'
-          + '<div style="font-size:16px;margin-bottom:12px">Calendar — Cannot view. Who are you?</div>'
-          + '<mdui-button variant="filled" onclick="navigate(\'/auth/\',true)">Go to Auth</mdui-button>'
+          + '<div style="font-size:16px;margin-bottom:12px">日历 — 无法查看，请先验证身份</div>'
+          + '<mdui-button variant="filled" onclick="navigate(\'/auth/\',true)">前往身份验证</mdui-button>'
           + '</mdui-card>';
         return;
       }
       if (!hasPerm('calendar')) {
         el.innerHTML = '<mdui-card variant="elevated" style="padding:24px;text-align:center;width:100%">'
           + '<div style="font-size:36px;margin-bottom:12px">🚫</div>'
-          + '<div style="font-size:16px;margin-bottom:12px">Calendar — No permission</div>'
+          + '<div style="font-size:16px;margin-bottom:12px">日历 — 无权限</div>'
           + '</mdui-card>';
         return;
       }
@@ -552,7 +552,7 @@
           renderCalendarInStatus(events);
         })
         .catch(function(e) {
-          el.innerHTML = '<p style="color:rgb(var(--mdui-color-error));text-align:center">Load failed: ' + escapeHtml(e.message) + '</p>';
+          el.innerHTML = '<p style="color:rgb(var(--mdui-color-error));text-align:center">加载失败：' + escapeHtml(e.message) + '</p>';
         });
     }
 
@@ -562,7 +562,7 @@
       var html = '<mdui-card variant="elevated" style="padding:16px;width:100%">'
         + '<h2 style="font-size:16px;font-weight:500;margin-bottom:12px">📅 Calendar</h2>';
       if (events.length === 0) {
-        html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">No upcoming events</p>';
+        html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">暂无即将开始的事件</p>';
       } else {
         var today = new Date().toISOString().slice(0, 10);
         events.sort(function(a, b) { return (a.date || '') > (b.date || '') ? 1 : -1; });
@@ -582,7 +582,7 @@
             shown++;
           }
         });
-        if (shown === 0) html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">No upcoming events</p>';
+        if (shown === 0) html += '<p style="text-align:center;color:rgb(var(--mdui-color-outline));padding:12px">暂无即将开始的事件</p>';
       }
       html += '</mdui-card>';
       el.innerHTML = html;
@@ -593,9 +593,9 @@
       if (p) return '🎵 ' + escapeHtml(p);
       var media = document.querySelectorAll('audio,video');
       for (var i = 0; i < media.length; i++) {
-        if (!media[i].paused) return '🎵 Playing media';
+        if (!media[i].paused) return '🎵 正在播放媒体';
       }
-      return '⏸️ None';
+      return '⏸️ 无';
     }
 
     function updatePlaybackStatus() {
@@ -605,7 +605,7 @@
       try {
         var ctx = new (window.AudioContext || window.webkitAudioContext)();
         if (ctx.state === 'running') {
-          if (!window._currentPlayback) window._currentPlayback = 'Audio active';
+          if (!window._currentPlayback) window._currentPlayback = '音频播放中';
         }
       } catch(e) {}
 
@@ -618,7 +618,7 @@
       var email = document.getElementById('auth-email-input')?.value?.trim();
       var resultEl = document.getElementById('auth-result');
       if (!email || !email.match(/^[^@]+@[^@]+\.[^@]+$/)) {
-        resultEl.textContent = 'Please enter a valid email address';
+        resultEl.textContent = '请输入有效的邮箱地址';
         resultEl.style.color = 'rgb(var(--mdui-color-error))';
         return;
       }
@@ -632,20 +632,20 @@
         if (data.errno === 0 && data.data) {
           if (data.data.registered) {
             setAuth(email, data.data.name, data.data.permissions);
-            resultEl.textContent = '✅ Auth success!';
+            resultEl.textContent = '✅ 验证成功！';
             resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
             setTimeout(function() { navigate('/calendar/', true); }, 800);
           } else {
-            resultEl.innerHTML = 'Email not registered.<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 Send registration request</mdui-button>';
+            resultEl.innerHTML = '该邮箱尚未注册。<br><mdui-button variant="text" onclick="registerAuth()" style="margin-top:8px">📨 发送注册申请</mdui-button>';
             resultEl.style.color = 'rgb(var(--mdui-color-outline))';
             window._pendingAuthEmail = email;
           }
         } else {
-          resultEl.textContent = (data.errmsg || 'Verification failed');
+          resultEl.textContent = (data.errmsg || '验证失败');
           resultEl.style.color = 'rgb(var(--mdui-color-error))';
         }
       } catch(e) {
-        resultEl.textContent = 'Network error: ' + e.message;
+        resultEl.textContent = '网络错误：' + e.message;
         resultEl.style.color = 'rgb(var(--mdui-color-error))';
       }
     }
@@ -665,11 +665,11 @@
           resultEl.innerHTML = '✅ Registration request submitted! Please wait for admin approval.<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← Back to Home</mdui-button>';
           resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
         } else {
-          resultEl.textContent = data.errmsg || 'Request failed';
+          resultEl.textContent = data.errmsg || '请求失败';
           resultEl.style.color = 'rgb(var(--mdui-color-error))';
         }
       } catch(e) {
-        resultEl.textContent = 'Network error: ' + e.message;
+        resultEl.textContent = '网络错误：' + e.message;
         resultEl.style.color = 'rgb(var(--mdui-color-error))';
       }
     }
