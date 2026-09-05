@@ -18,3 +18,5 @@ backend/nginx.pid
 # OS
 .DS_Store
 Thumbs.db
+docker-compose.local.yml
+certs.local/
