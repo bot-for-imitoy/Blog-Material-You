@@ -662,7 +662,7 @@
         });
         var data = await res.json();
         if (data.errno === 0) {
-          resultEl.innerHTML = '✅ Registration request submitted! Please wait for admin approval.<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← Back to Home</mdui-button>';
+          resultEl.innerHTML = '✅ 注册申请已提交！请等待管理员审核。<br><mdui-button variant="text" onclick="navigate(\'/\',true)" style="margin-top:8px">← 返回首页</mdui-button>';
           resultEl.style.color = 'rgb(var(--mdui-color-tertiary))';
         } else {
           resultEl.textContent = data.errmsg || '请求失败';
