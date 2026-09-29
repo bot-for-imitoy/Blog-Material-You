@@ -9,6 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import matter from 'gray-matter';
+import { formatDate } from '../lib/text.ts';
 
 export interface MarkdownFile {
   /** Absolute path on disk. */
@@ -207,13 +208,18 @@ export function isSafeSlug(slug: string): boolean {
 /**
  * Serialise frontmatter + body back to a Markdown file.
  * `js-yaml` (via gray-matter) guarantees the output stays valid.
+ *
+ * Dates are normalised to `YYYY-MM-DD`: the YAML parser turns an unquoted
+ * `date: 2026-07-17` into a JS `Date`, which would otherwise be written back as
+ * a noisy `'2026-07-17T00:00:00.000Z'` timestamp (this bit the backup importer,
+ * which round-trips parsed frontmatter).
  */
 export function stringifyMarkdown(data: Record<string, unknown>, body: string): string {
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
     if (value === undefined || value === null || value === '') continue;
     if (Array.isArray(value) && value.length === 0) continue;
-    clean[key] = value;
+    clean[key] = value instanceof Date ? formatDate(value) : value;
   }
   const rendered = matter.stringify(body.endsWith('\n') ? body : `${body}\n`, clean);
   // gray-matter does not add a blank line after the closing fence.

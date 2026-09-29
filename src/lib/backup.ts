@@ -27,7 +27,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { COMMENTS_DIR, DATA_DIR, FRIENDS_DIR, PAGES_DIR, POSTS_DIR, TALKS_DIR } from '../paths.ts';
-import { str } from './text.ts';
+import { formatDate, str } from './text.ts';
 import {
   atomicWriteFile,
   invalidateAll,
@@ -180,6 +180,23 @@ function readCalendar(): CalendarEvent[] {
 /* -------------------------------------------------------------------------- */
 
 /**
+ * Convert a parsed frontmatter object into something that survives a JSON
+ * round-trip unchanged.
+ *
+ * The YAML parser turns an unquoted `date: 2026-07-17` into a JS `Date`, which
+ * `JSON.stringify` then emits as `'2026-07-17T00:00:00.000Z'` — restoring a
+ * backup would silently rewrite every content file with noisy timestamps.
+ * Dates are therefore normalised to `YYYY-MM-DD` before export.
+ */
+function plainFrontmatter(data: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    out[key] = value instanceof Date ? formatDate(value) : value;
+  }
+  return out;
+}
+
+/**
  * Collect every piece of blog state into one JSON-encodable document.
  * Missing optional stores (site.json, visitors.json, calendar.json, …) simply
  * produce their empty/default representation — this never throws.
@@ -194,12 +211,12 @@ export async function exportBackup(): Promise<Record<string, unknown>> {
       // faithful and unknown frontmatter keys survive a round-trip.
       posts: safely(
         'posts',
-        () => scanMarkdownDir(POSTS_DIR).map((md) => ({ slug: md.name, frontmatter: md.data, body: md.body })),
+        () => scanMarkdownDir(POSTS_DIR).map((md) => ({ slug: md.name, frontmatter: plainFrontmatter(md.data), body: md.body })),
         [],
       ),
       pages: safely(
         'pages',
-        () => scanMarkdownDir(PAGES_DIR).map((md) => ({ slug: md.name, frontmatter: md.data, body: md.body })),
+        () => scanMarkdownDir(PAGES_DIR).map((md) => ({ slug: md.name, frontmatter: plainFrontmatter(md.data), body: md.body })),
         [],
       ),
       talks: safely(

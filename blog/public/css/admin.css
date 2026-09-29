@@ -1,0 +1,650 @@
+/**
+ * admin.css — styles for the admin console (/admin/**).
+ *
+ * The console shares the Material You palette with the public site: every colour
+ * comes from an mdui design token, so the theme follows the seed colour set by
+ * the shell and `mdui-theme-auto` handles light/dark automatically. Only a few
+ * neutral surfaces need an explicit dark-scheme nudge (see the bottom).
+ *
+ * Layout: `mdui-layout` docks the drawer on wide screens and turns it into an
+ * overlay on narrow ones; admin.js keeps the drawer's open state in sync.
+ */
+
+/* ==========================================================================
+   Shell
+   ======================================================================== */
+
+body {
+    margin: 0;
+    background-color: rgb(var(--mdui-color-surface));
+    color: rgb(var(--mdui-color-on-surface));
+    font-family: 'Google Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* The drawer is a layout child; these keep its content scrollable. */
+.admin-brand {
+    padding: 24px 24px 8px 24px;
+    font-size: 20px;
+    font-weight: 500;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.admin-layout mdui-navigation-drawer {
+    --shape-corner: 0 16px 16px 0;
+}
+
+.admin-layout mdui-list {
+    margin: 0 8px;
+}
+
+/* Content column: `mdui-layout-main` already reserves the drawer width, this
+   only adds the page padding and a maximum reading width. */
+.admin-main {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 88px 24px 48px 24px;
+}
+
+/* Login / setup shell: no drawer, just a centred card.
+   (`main` is the requested generic name for the content column.) */
+.main {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 24px;
+}
+
+.admin-auth {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 100vh;
+    padding: 24px;
+}
+
+/* ==========================================================================
+   Page header
+   ======================================================================== */
+
+.page-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 400;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.page-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.section-title {
+    margin: 24px 0 12px 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: rgb(var(--mdui-color-on-surface-variant));
+}
+
+/* ==========================================================================
+   Cards
+   ======================================================================== */
+
+.card {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    margin-bottom: 20px;
+    padding: 20px 24px;
+    background-color: rgb(var(--mdui-color-surface-container-low));
+}
+
+.card h2 {
+    margin: 0 0 12px 0;
+    font-size: 20px;
+    font-weight: 500;
+    color: rgb(var(--mdui-color-on-surface));
+}
+
+.card h3 {
+    margin: 16px 0 8px 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: rgb(var(--mdui-color-on-surface-variant));
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 20px 12px;
+    text-align: center;
+    background-color: rgb(var(--mdui-color-secondary-container));
+}
+
+.stat-number {
+    font-size: 36px;
+    font-weight: 500;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.stat-label {
+    font-size: 13px;
+    color: rgb(var(--mdui-color-on-secondary-container));
+}
+
+.empty-state {
+    padding: 32px 16px;
+    text-align: center;
+    font-size: 15px;
+    color: rgb(var(--mdui-color-outline));
+}
+
+/* ==========================================================================
+   List rows (post / comment / talk / friend / page / visitor)
+   ======================================================================== */
+
+.post-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 8px;
+    border-bottom: 1px solid rgba(var(--mdui-color-outline), 0.2);
+}
+
+.post-item:last-child {
+    border-bottom: none;
+}
+
+/* Alias kept for templates that name the row after its content type. */
+.comment-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 8px;
+    border-bottom: 1px solid rgba(var(--mdui-color-outline), 0.2);
+}
+
+.post-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 320px;
+    min-width: 0;
+}
+
+.post-info h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 500;
+    color: rgb(var(--mdui-color-on-surface));
+    overflow-wrap: anywhere;
+}
+
+.post-info h3 a {
+    color: rgb(var(--mdui-color-primary));
+    text-decoration: none;
+}
+
+.post-info > span {
+    font-size: 13px;
+    color: rgb(var(--mdui-color-outline));
+    overflow-wrap: anywhere;
+}
+
+.post-info a {
+    color: rgb(var(--mdui-color-primary));
+}
+
+.post-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* Friend rows place an avatar next to the text. */
+.friend-info {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Plain-text content of a talk or a comment; whitespace is meaningful. */
+.talk-content {
+    font-size: 15px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: rgb(var(--mdui-color-on-surface));
+}
+
+.comment-mail {
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgb(var(--mdui-color-outline));
+}
+
+/* ==========================================================================
+   Badges
+   ======================================================================== */
+
+.badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    vertical-align: middle;
+}
+
+.badge-archived {
+    background-color: rgb(var(--mdui-color-tertiary-container));
+    color: rgb(var(--mdui-color-on-tertiary-container));
+}
+
+.badge-published {
+    background-color: rgb(var(--mdui-color-primary-container));
+    color: rgb(var(--mdui-color-on-primary-container));
+}
+
+.status-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    vertical-align: middle;
+}
+
+.status-enabled {
+    background-color: rgb(var(--mdui-color-primary-container));
+    color: rgb(var(--mdui-color-on-primary-container));
+}
+
+.status-disabled {
+    background-color: rgb(var(--mdui-color-surface-container-highest));
+    color: rgb(var(--mdui-color-on-surface-variant));
+}
+
+/* ==========================================================================
+   Forms
+   ======================================================================== */
+
+.card mdui-text-field,
+.card mdui-select,
+.card mdui-switch {
+    display: block;
+    margin-bottom: 16px;
+}
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+/* Fields inside a row share the width instead of stacking. */
+.form-row > * {
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.form-group > label {
+    font-size: 13px;
+    color: rgb(var(--mdui-color-on-surface-variant));
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+/* Permission checkboxes (visitors page). */
+.perm-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.form-error,
+.form-warning {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    background-color: rgb(var(--mdui-color-error-container));
+    color: rgb(var(--mdui-color-on-error-container));
+}
+
+.form-warning {
+    background-color: rgb(var(--mdui-color-tertiary-container));
+    color: rgb(var(--mdui-color-on-tertiary-container));
+}
+
+.desc {
+    margin: 0 0 16px 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgb(var(--mdui-color-on-surface-variant));
+}
+
+.warn {
+    margin: 0 0 16px 0;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    background-color: rgb(var(--mdui-color-tertiary-container));
+    color: rgb(var(--mdui-color-on-tertiary-container));
+}
+
+/* ==========================================================================
+   Markdown editor toolbar
+   ======================================================================== */
+
+/* The view calls it `.md-toolbar`; `.editor-toolbar` is the generic alias. */
+.md-toolbar,
+.editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(var(--mdui-color-outline), 0.2);
+}
+
+/* ==========================================================================
+   Login / first-run setup
+   ======================================================================== */
+
+.login-card {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 420px;
+    padding: 32px;
+    border-radius: 28px;
+    background-color: rgb(var(--mdui-color-surface-container-low));
+    box-shadow: var(--mdui-elevation-level2, 0 2px 8px rgba(0, 0, 0, 0.15));
+}
+
+.login-card h1 {
+    margin: 0 0 8px 0;
+    font-size: 26px;
+    font-weight: 500;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.login-card .desc {
+    margin-bottom: 24px;
+}
+
+.login-card mdui-text-field {
+    display: block;
+    margin-bottom: 16px;
+}
+
+.login-card mdui-button {
+    margin-top: 8px;
+}
+
+.login-card section[hidden] {
+    display: none;
+}
+
+/* ==========================================================================
+   Two-factor authentication
+   ======================================================================== */
+
+.totp-qr {
+    display: block;
+    width: 200px;
+    height: 200px;
+    margin: 16px auto;
+    padding: 8px;
+    border-radius: 12px;
+    background-color: #fff; /* QR codes need a light quiet zone to scan */
+}
+
+/* `.totp-secret` is the generic alias of the rendered secret box. */
+.totp-secret,
+.totp-secret-display {
+    display: block;
+    margin: 12px 0;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-family: 'Maple Mono NF CN', 'Fira Code', Consolas, monospace;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    word-break: break-all;
+    text-align: center;
+    background-color: rgb(var(--mdui-color-surface-container-high));
+    color: rgb(var(--mdui-color-on-surface));
+    user-select: all;
+}
+
+.totp-uri {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    word-break: break-all;
+    background-color: rgb(var(--mdui-color-surface-container-high));
+    color: rgb(var(--mdui-color-on-surface-variant));
+    user-select: all;
+}
+
+/* ==========================================================================
+   Result boxes and file pickers (image host, backup)
+   ======================================================================== */
+
+.result-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    background-color: rgb(var(--mdui-color-surface-container-high));
+    color: rgb(var(--mdui-color-on-surface));
+    overflow-wrap: anywhere;
+}
+
+.result-box.result-error {
+    background-color: rgb(var(--mdui-color-error-container));
+    color: rgb(var(--mdui-color-on-error-container));
+}
+
+.result-label {
+    color: rgb(var(--mdui-color-on-surface-variant));
+}
+
+.result-value {
+    font-weight: 500;
+}
+
+.file-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.file-row input[type='file'] {
+    flex: 1 1 240px;
+    min-width: 0;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: rgb(var(--mdui-color-on-surface));
+    background-color: rgb(var(--mdui-color-surface-container-high));
+}
+
+.file-name {
+    font-size: 13px;
+    color: rgb(var(--mdui-color-outline));
+    overflow-wrap: anywhere;
+}
+
+/* ==========================================================================
+   Feedback: flash banner and toast
+   ======================================================================== */
+
+.admin-flash {
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    background-color: rgb(var(--mdui-color-primary-container));
+    color: rgb(var(--mdui-color-on-primary-container));
+}
+
+.admin-flash-error {
+    background-color: rgb(var(--mdui-color-error-container));
+    color: rgb(var(--mdui-color-on-error-container));
+}
+
+.admin-flash[hidden] {
+    display: none;
+}
+
+/* Bottom toast: the fallback used when no snackbar element exists. */
+#toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 4000;
+    max-width: min(90vw, 480px);
+    padding: 12px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    text-align: center;
+    color: rgb(var(--mdui-color-inverse-on-surface));
+    background-color: rgb(var(--mdui-color-inverse-surface));
+    box-shadow: var(--mdui-elevation-level3, 0 4px 16px rgba(0, 0, 0, 0.2));
+    opacity: 0;
+    transform: translate(-50%, 16px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+#toast.toast-visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+#toast.toast-error {
+    color: rgb(var(--mdui-color-on-error-container));
+    background-color: rgb(var(--mdui-color-error-container));
+}
+
+/* `mdui-snackbar` is a custom element; nothing to style beyond placement. */
+#admin-snackbar {
+    --z-index: 4000;
+}
+
+/* ==========================================================================
+   Responsive
+   ======================================================================== */
+
+@media (max-width: 900px) {
+    .admin-main {
+        padding: 80px 16px 40px 16px;
+    }
+
+    .page-header h1 {
+        font-size: 26px;
+    }
+
+    .stat-number {
+        font-size: 30px;
+    }
+}
+
+@media (max-width: 600px) {
+    .admin-main {
+        padding: 76px 12px 32px 12px;
+    }
+
+    .card {
+        padding: 16px;
+    }
+
+    .post-item {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .post-actions {
+        justify-content: flex-end;
+    }
+
+    .login-card {
+        padding: 24px;
+        border-radius: 20px;
+    }
+}
+
+/* ==========================================================================
+   Dark scheme
+   ======================================================================== */
+
+@media (prefers-color-scheme: dark) {
+    /* Token-driven surfaces already flip; these are the spots where a
+       translucent border or shadow needs re-balancing. */
+    .post-item,
+    .comment-item,
+    .md-toolbar,
+    .editor-toolbar {
+        border-bottom-color: rgba(var(--mdui-color-outline), 0.3);
+    }
+
+    .login-card {
+        box-shadow: none;
+        border: 1px solid rgba(var(--mdui-color-outline), 0.25);
+    }
+
+    .totp-qr {
+        /* Keep the quiet zone light even in dark mode; QR scanning needs it. */
+        background-color: #fff;
+    }
+}
