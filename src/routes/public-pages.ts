@@ -34,10 +34,13 @@ const MARKDOWN_STYLES = [
   '/css/post-content.css',
   '/css/code.css',
   '/vendor/katex/katex.min.css',
-  '/vendor/highlight/github.min.css',
+  // Syntax highlighting follows the OS colour scheme, matching mdui's
+  // `mdui-theme-auto` behaviour on <html>.
+  { href: '/vendor/highlight/github.min.css', media: '(prefers-color-scheme: light)' },
+  { href: '/vendor/highlight/github-dark.min.css', media: '(prefers-color-scheme: dark)' },
 ];
 
-const VIEW_STYLES: Record<string, string[]> = {
+const VIEW_STYLES: Record<string, Array<string | { href: string; media?: string }>> = {
   'pages/home': ['/css/index.css', '/css/post-card.css'],
   'pages/post': MARKDOWN_STYLES,
   'pages/talks': [...MARKDOWN_STYLES, '/css/about.css'],

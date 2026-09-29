@@ -21,8 +21,12 @@
   <link rel="stylesheet" href="/css/navigation-drawer.css">
   <link rel="stylesheet" href="/css/lists.css">
   <link rel="stylesheet" href="/css/header-card.css">
-  <% (styles || []).forEach(function (href) { %>
-  <link rel="stylesheet" href="<%= href %>">
+  <% (styles || []).forEach(function (entry) { %>
+    <% if (typeof entry === 'string') { %>
+  <link rel="stylesheet" href="<%= entry %>">
+    <% } else { %>
+  <link rel="stylesheet" href="<%= entry.href %>"<% if (entry.media) { %> media="<%= entry.media %>"<% } %>>
+    <% } %>
   <% }); %>
   <%- headExtra || '' %>
 </head>

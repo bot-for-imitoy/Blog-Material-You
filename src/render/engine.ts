@@ -48,8 +48,8 @@ export interface RenderData {
   [key: string]: unknown;
   seo?: PageSeo;
   currentPath?: string;
-  /** Extra stylesheet hrefs for this page. */
-  styles?: string[];
+  /** Extra stylesheet hrefs for this page. An object form allows a `media` query. */
+  styles?: Array<string | { href: string; media?: string }>;
   /** Extra page-level ES module hrefs for this page. */
   pageScripts?: string[];
   /** Extra <head> markup (e.g. RSS autodiscovery). */

@@ -101,23 +101,37 @@
     user-select: none;
 }
 
+/* ===== Tiles =====
+   game-2048.js gives every tile the classes `cell-2048 cell-<value>`, exactly
+   like the original engine, and uses `cell-2048 cell-super` above 2048.
+   That means `.cell-2048` is the shared base class *and* the value class of the
+   winning tile (`cell-2048 cell-2048`), which CSS cannot tell apart from the
+   base class alone. The base rule therefore carries the gold "2048" look and
+   every other value rule follows it: same specificity, later source order, so
+   the value rules win for their tiles and only the 2048 tile stays gold. */
 .cell-2048 {
+    --tile-glow: 0 0 30px 10px rgba(237, 194, 46, 0.3);
+
     width: 88px;
     height: 88px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 32px;
+    font-size: 22px;
     font-weight: 700;
     border-radius: 4px;
-    background: rgba(var(--mdui-color-outline), 0.08);
-    color: rgb(var(--mdui-color-on-surface));
     transition: background 0.08s ease, color 0.08s ease;
+
+    background: #edc22e;
+    color: #f9f6f2;
+    box-shadow: var(--tile-glow);
 }
 
 /* Empty cell. */
 .cell-0 {
     background: rgba(var(--mdui-color-outline), 0.08);
+    color: rgb(var(--mdui-color-on-surface));
+    box-shadow: none;
 }
 
 /* Classic 2048 palette: warm, high-contrast tiles that stay legible on the
@@ -128,22 +142,55 @@
 .cell-16 { background: #f59563; color: #f9f6f2; }
 .cell-32 { background: #f67c5f; color: #f9f6f2; }
 .cell-64 { background: #f65e3b; color: #f9f6f2; }
-.cell-128 { background: #edcf72; color: #f9f6f2; font-size: 28px; }
-.cell-256 { background: #edcc61; color: #f9f6f2; font-size: 28px; }
-.cell-512 { background: #edc850; color: #f9f6f2; font-size: 28px; }
-.cell-1024 { background: #edc53f; color: #f9f6f2; font-size: 22px; }
-.cell-2048 {
-    background: #edc22e;
-    color: #f9f6f2;
-    font-size: 22px;
-    box-shadow: 0 0 30px 10px rgba(237, 194, 46, 0.3);
-}
+.cell-128 { background: #edcf72; color: #f9f6f2; }
+.cell-256 { background: #edcc61; color: #f9f6f2; }
+.cell-512 { background: #edc850; color: #f9f6f2; }
+.cell-1024 { background: #edc53f; color: #f9f6f2; }
 
 /* Every value above 2048 (4096, 8192, …) shares this colour. */
 .cell-super {
     background: #3c3a32;
     color: #f9f6f2;
+}
+
+/* Typography shrinks as the numbers grow (three digits and up). */
+.cell-2,
+.cell-4,
+.cell-8,
+.cell-16,
+.cell-32,
+.cell-64 {
+    font-size: 32px;
+}
+
+.cell-128,
+.cell-256,
+.cell-512 {
+    font-size: 28px;
+}
+
+.cell-1024 {
+    font-size: 22px;
+}
+
+.cell-super {
     font-size: 18px;
+}
+
+/* Only the numbered tiles drop the 2048 glow. */
+.cell-0,
+.cell-2,
+.cell-4,
+.cell-8,
+.cell-16,
+.cell-32,
+.cell-64,
+.cell-128,
+.cell-256,
+.cell-512,
+.cell-1024,
+.cell-super {
+    box-shadow: none;
 }
 
 /* ===== Controls ===== */
@@ -229,9 +276,20 @@
         padding: 4px;
     }
 
+    /* The base rule also sizes the 2048 tile: smaller tiles re-state their own
+       size right after it. */
     .cell-2048 {
         width: 68px;
         height: 68px;
+        font-size: 16px;
+    }
+
+    .cell-2,
+    .cell-4,
+    .cell-8,
+    .cell-16,
+    .cell-32,
+    .cell-64 {
         font-size: 24px;
     }
 
@@ -239,11 +297,6 @@
     .cell-256,
     .cell-512 {
         font-size: 20px;
-    }
-
-    .cell-1024,
-    .cell-2048 {
-        font-size: 16px;
     }
 
     .cell-super {
@@ -258,35 +311,22 @@
 }
 
 /* ===== Dark scheme ===== */
-/* The palette above is scheme-agnostic; only the neutral surfaces need a nudge
-   so the board does not glow against a dark background. */
+/* The tile palette above is scheme-agnostic; only the neutral surfaces and the
+   glow need a nudge so the board does not glare against a dark background. */
 @media (prefers-color-scheme: dark) {
     .grid-2048 {
         background: rgba(var(--mdui-color-outline), 0.25);
     }
 
-    .cell-2048,
+    /* Empty cells only — the numbered tiles keep their classic colours. */
     .cell-0 {
         background: rgba(var(--mdui-color-outline), 0.14);
     }
 
-    .cell-2048.cell-2 { background: #eee4da; }
-    .cell-2048.cell-4 { background: #ede0c8; }
-    .cell-2048.cell-8 { background: #f2b179; }
-    .cell-2048.cell-16 { background: #f59563; }
-    .cell-2048.cell-32 { background: #f67c5f; }
-    .cell-2048.cell-64 { background: #f65e3b; }
-    .cell-2048.cell-128 { background: #edcf72; }
-    .cell-2048.cell-256 { background: #edcc61; }
-    .cell-2048.cell-512 { background: #edc850; }
-    .cell-2048.cell-1024 { background: #edc53f; }
-    .cell-2048.cell-2048 {
-        background: #edc22e;
-        box-shadow: 0 0 24px 6px rgba(237, 194, 46, 0.22);
-    }
-
-    .cell-2048.cell-super {
-        background: #3c3a32;
+    /* Changes the variable the base rule consumes; the numbered tiles still
+       override `box-shadow` with `none`, so only the 2048 tile glows. */
+    .cell-2048 {
+        --tile-glow: 0 0 24px 6px rgba(237, 194, 46, 0.22);
     }
 }
 
