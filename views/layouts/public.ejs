@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN" class="mdui-theme-auto">
+<html lang="<%= site.language %>" class="mdui-theme-auto" data-theme-color="<%= site.themeColor %>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,8 +8,17 @@
   <meta property="og:title" content="<%= seo.title %>">
   <meta property="og:description" content="<%= seo.desc %>">
   <meta property="og:type" content="website">
+  <% if (site.keywords && site.keywords.length > 0) { %>
+  <meta name="keywords" content="<%= site.keywords.join(', ') %>">
+  <% } %>
+  <% if (site.author) { %>
+  <meta name="author" content="<%= site.author %>">
+  <meta property="og:site_name" content="<%= site.title %>">
+  <% } %>
   <link rel="canonical" href="<%= seo.canonicalUrl %>">
+  <% if (features.rss) { %>
   <link rel="alternate" type="application/rss+xml" title="<%= site.title %>" href="/rss.xml">
+  <% } %>
 
   <!-- mdui 2 (Material Design 3 Web Components) is vendored from npm, so the
        site never depends on a public CDN and the CSP can stay strict. -->
@@ -38,9 +47,11 @@
       </mdui-button-icon>
       <mdui-top-app-bar-title id="app-bar-title"><%= site.title %></mdui-top-app-bar-title>
       <div style="flex-grow: 1"></div>
+      <% if (features.search) { %>
       <mdui-button-icon href="/search/" aria-label="<%= t('search_title') %>">
         <mdui-icon src="/icon/search.svg"></mdui-icon>
       </mdui-button-icon>
+      <% } %>
     </mdui-top-app-bar>
 
     <mdui-navigation-drawer class="navigation-drawer" close-on-overlay-click open="true">
@@ -48,7 +59,7 @@
         <div class="navigation-drawer-header">
           <mdui-avatar src="<%= site.avatar || '/img/avatar.jpg' %>" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
           <div class="navigation-drawer-header-title" id="nav-name"><%= site.title %></div>
-          <div class="navigation-drawer-header-subtitle" id="nav-slogan"><%= site.desc %></div>
+          <div class="navigation-drawer-header-subtitle" id="nav-slogan"><%= site.subtitle %></div>
         </div>
         <mdui-list class="navigation-drawer-list" id="sidebar-list">
           <% (menu || []).forEach(function (item) { %>

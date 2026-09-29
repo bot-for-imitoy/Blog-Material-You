@@ -136,7 +136,7 @@ export function createPublicPagesRouter(): Router {
           toc: primary.toc,
           cats: post.categories,
           tags: post.tags,
-          commentsEnabled: getSiteSettings().commentsEnabled,
+          commentsEnabled: getSiteSettings().features.comments,
         },
         seoForRoute(`/post/${encodeURIComponent(slug)}`),
         '/posts/',
@@ -288,6 +288,12 @@ export function createPublicPagesRouter(): Router {
    */
   router.get('/search', async (req, res, next) => {
     try {
+      // Gated at request time (not mount time) so toggling `features.search` in
+      // _config.yml takes effect without a restart.
+      if (!getSiteSettings().features.search) {
+        await notFound(res, '/search/');
+        return;
+      }
       const outcome = searchPosts(req.query.q);
       await page(
         res,
@@ -351,8 +357,12 @@ export function createPublicPagesRouter(): Router {
 
   // ===================== Feeds =====================
 
-  router.get('/sitemap.xml', (_req, res) => {
-    const { site } = { site: getSiteSettings() };
+  router.get('/sitemap.xml', (_req, res, next) => {
+    if (!getSiteSettings().features.sitemap) {
+      next();
+      return;
+    }
+    const site = getSiteSettings();
     const base = site.url.replace(/\/+$/, '');
     const urls: Array<{ loc: string; lastmod?: string }> = [
       { loc: '/' },
@@ -379,10 +389,15 @@ export function createPublicPagesRouter(): Router {
     res.type('application/xml').send(body);
   });
 
-  router.get('/rss.xml', (_req, res) => {
-    const { site } = { site: getSiteSettings() };
+  router.get('/rss.xml', (_req, res, next) => {
+    const settings = getSiteSettings();
+    if (!settings.features.rss) {
+      next();
+      return;
+    }
+    const site = settings;
     const base = site.url.replace(/\/+$/, '');
-    const posts = activePosts().slice(0, 20);
+    const posts = activePosts().slice(0, settings.rssLimit);
     const escape = (value: string) =>
       value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const body =
@@ -390,7 +405,7 @@ export function createPublicPagesRouter(): Router {
       `<rss version="2.0"><channel>\n` +
       `  <title>${escape(site.title)}</title>\n` +
       `  <link>${base}/</link>\n` +
-      `  <description>${escape(site.desc)}</description>\n` +
+      `  <description>${escape(site.description)}</description>\n` +
       posts
         .map(
           (post) =>

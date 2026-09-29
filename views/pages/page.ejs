@@ -1,8 +1,8 @@
 <div class="content">
-  <mdui-card variant="elevated" class="about-header" id="about-header">
+  <mdui-card variant="elevated" class="about-header" id="about-header"<% if (features.easterEgg) { %> data-easter-egg="true"<% } %>>
     <mdui-avatar class="about-avatar" id="about-avatar" src="<%= site.avatar || '/img/avatar.jpg' %>"></mdui-avatar>
     <div class="about-title"><%= pageTitle %></div>
-    <div class="about-description"><%= site.desc %></div>
+    <div class="about-description"><%= site.subtitle %></div>
   </mdui-card>
   <hr>
   <div class="markdown-content"><%- pageHtml %></div>

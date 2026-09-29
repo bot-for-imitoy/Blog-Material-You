@@ -1,27 +1,92 @@
 /**
- * site-config.ts — Site configuration and the complete UI string dictionary.
+ * site-config.ts — the single site configuration file.
  *
- * These values used to be hard-coded in `backend/lua/config.lua`. They are
- * still the defaults, but every one of them can now be overridden from
- * `blog/data/site.json` so the site can be re-branded without editing code.
+ * Like Hexo's `_config.yml`, everything a site owner is expected to change lives
+ * in **one tracked YAML file at the repository root**: `_config.yml`.
+ * Site identity, appearance, the navigation menu, feature toggles, list
+ * lengths and any UI-string overrides all come from there. The TypeScript in
+ * this module only supplies the *defaults* used when a key is absent, so a
+ * partial (or even missing) config file still boots.
  *
- * The public `/api/site` endpoint deliberately omits the session secret and any
- * credential material (the old `/api/config` leaked all three).
+ * What deliberately does NOT live here:
+ *   - secrets and deployment specifics (port, bind address, session secret,
+ *     admin bootstrap, S3 credentials). Those stay environment variables
+ *     (`.env` / `BMY_*`), because they differ per deployment and must never be
+ *     committed. See `.env.example`.
+ *
+ * The file is read with an mtime cache, so editing `_config.yml` takes effect
+ * on the next request without restarting the server.
  */
-import { DATA_DIR, SITE_URL } from './paths.ts';
-import { JsonStore } from './store/json-store.ts';
+import fs from 'node:fs';
 import path from 'node:path';
+import yaml from 'js-yaml';
+import { ROOT, SITE_URL } from './paths.ts';
 
+/** One sidebar / navigation entry. */
 export interface MenuItem {
   text: string;
   icon: string;
   route: string;
+  /** Optional UI-string KEY used as the page title for this route. */
   pageTitle?: string;
+  /** Optional UI-string KEY used as the page description for this route. */
   pageDesc?: string;
 }
 
-/** UI strings, keyed exactly as the templates reference them. */
-export const STRINGS: Record<string, string> = {
+export interface SiteFeatures {
+  /** Show the comment form and load the comment client on post pages. */
+  comments: boolean;
+  /** Expose the permission-gated visitor calendar on the status page. */
+  calendar: boolean;
+  /** Show the app-bar search button and serve `/search/`. */
+  search: boolean;
+  /** Enable the 2048 easter egg on the about page. */
+  easterEgg: boolean;
+  /** Serve `/rss.xml`. */
+  rss: boolean;
+  /** Serve `/sitemap.xml`. */
+  sitemap: boolean;
+}
+
+export interface SiteSettings {
+  // ===== Identity =====
+  title: string;
+  /** Short tagline shown under the site name in the sidebar. */
+  subtitle: string;
+  /** Longer description used for the meta description / Open Graph. */
+  description: string;
+  keywords: string[];
+  author: string;
+  /** BCP-47 language tag, written into <html lang="…">. */
+  language: string;
+  /** Canonical base URL (used by canonical tags, sitemap and RSS). */
+  url: string;
+
+  // ===== Appearance =====
+  avatar: string;
+  copyright: string;
+  github: string;
+  /** Seed colour for mdui's dynamic Material You colour scheme. */
+  themeColor: string;
+
+  // ===== Content =====
+  menu: MenuItem[];
+  features: SiteFeatures;
+  excerpt: { length: number; lengthWithCover: number };
+  /** Number of posts in the RSS feed. */
+  rssLimit: number;
+
+  // ===== UI strings =====
+  /** Overrides merged over the built-in dictionary in `DEFAULT_STRINGS`. */
+  strings: Record<string, string>;
+}
+
+/**
+ * Built-in UI strings. `_config.yml` can override any of them under `strings:`,
+ * which keeps the defaults complete (no template ever renders a missing key)
+ * while letting a site re-word anything without touching code.
+ */
+export const DEFAULT_STRINGS: Record<string, string> = {
   title: "imitoy's Blog",
   desc: '暂无简介',
   avatar: '/img/avatar.jpg',
@@ -216,8 +281,8 @@ export const STRINGS: Record<string, string> = {
   auth_permissions: '当前权限',
 };
 
-/** Sidebar / navigation menu (also drives the admin shell). */
-export const MENU: MenuItem[] = [
+/** Default sidebar / navigation menu, mirroring the original site. */
+export const DEFAULT_MENU: MenuItem[] = [
   { text: '首页', icon: '/icon/home.svg', route: '/' },
   { text: '文章', pageTitle: 'page_posts', pageDesc: 'page_posts_desc', icon: '/icon/article.svg', route: '/posts/' },
   { text: '标签', pageTitle: 'page_tags', pageDesc: 'page_tags_desc', icon: '/icon/tag.svg', route: '/tags/' },
@@ -228,70 +293,220 @@ export const MENU: MenuItem[] = [
   { text: '友链', pageTitle: 'page_friends', pageDesc: 'page_friends_desc', icon: '/icon/friends.svg', route: '/friends/' },
 ];
 
-export interface SiteSettings {
-  title: string;
-  desc: string;
-  avatar: string;
-  copyright: string;
-  github: string;
-  /** Canonical base URL, used by sitemap/RSS/canonical tags. */
-  url: string;
-  /** Per-post comments enabled. */
-  commentsEnabled: boolean;
-  /** Whether the visitor calendar feature is exposed. */
-  calendarEnabled: boolean;
-  strings: Record<string, string>;
-}
+/** The one configuration file. Overridable with BMY_CONFIG_FILE. */
+export const CONFIG_FILE = process.env.BMY_CONFIG_FILE
+  ? path.resolve(process.env.BMY_CONFIG_FILE)
+  : path.join(ROOT, '_config.yml');
 
-function defaults(): SiteSettings {
+function defaultSettings(): SiteSettings {
   return {
-    title: STRINGS.title!,
-    desc: STRINGS.desc!,
-    avatar: STRINGS.avatar!,
-    copyright: STRINGS.copyright!,
-    github: 'https://github.com/imitoy/Blog',
+    title: DEFAULT_STRINGS.title!,
+    subtitle: DEFAULT_STRINGS.desc!,
+    description: '暂无简介',
+    keywords: [],
+    author: '',
+    language: 'zh-CN',
     url: SITE_URL,
-    commentsEnabled: true,
-    calendarEnabled: true,
+    avatar: DEFAULT_STRINGS.avatar!,
+    copyright: DEFAULT_STRINGS.copyright!,
+    github: 'https://github.com/imitoy/Blog',
+    themeColor: '#ff006a',
+    menu: DEFAULT_MENU,
+    features: { comments: true, calendar: true, search: true, easterEgg: true, rss: true, sitemap: true },
+    excerpt: { length: 200, lengthWithCover: 120 },
+    rssLimit: 20,
     strings: {},
   };
 }
 
-const store = new JsonStore<SiteSettings>(path.join(DATA_DIR, 'site.json'), defaults, 0o644);
+// ===================== loading =====================
 
-/** Current site settings (defaults merged with `blog/data/site.json`). */
-export function getSiteSettings(): SiteSettings {
-  const saved = store.read();
-  return { ...defaults(), ...saved, strings: { ...(saved.strings ?? {}) } };
+interface ConfigCache {
+  mtimeMs: number;
+  raw: Record<string, unknown>;
 }
 
-export function updateSiteSettings(patch: Partial<SiteSettings>): SiteSettings {
-  const next = { ...getSiteSettings(), ...patch };
-  store.write(next);
-  return next;
+let cache: ConfigCache | null = null;
+
+/**
+ * Read `_config.yml`. A missing file is not an error — the built-in defaults
+ * take over, which keeps `npm start` working on a bare checkout.
+ */
+function readConfigFile(): Record<string, unknown> {
+  let stat: fs.Stats;
+  try {
+    stat = fs.statSync(CONFIG_FILE);
+  } catch {
+    cache = null;
+    return {};
+  }
+
+  if (cache && cache.mtimeMs === stat.mtimeMs) return cache.raw;
+
+  try {
+    const parsed = yaml.load(fs.readFileSync(CONFIG_FILE, 'utf8'), { filename: CONFIG_FILE });
+    const raw = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
+    cache = { mtimeMs: stat.mtimeMs, raw };
+    return raw;
+  } catch (err) {
+    // A broken config must be loud but must not take the site down: fall back
+    // to defaults so the operator can still reach the admin and fix the file.
+    // The failure is cached against the file's mtime so a broken file logs once
+    // per edit instead of once per request.
+    console.error(`[config] failed to parse ${CONFIG_FILE}: ${(err as Error).message}`);
+    console.error('[config] falling back to built-in defaults until the file changes');
+    cache = { mtimeMs: stat.mtimeMs, raw: {} };
+    return {};
+  }
+}
+
+/** Coerce a YAML scalar to a trimmed string. */
+function text(value: unknown, fallback: string): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+}
+
+function bool(value: unknown, fallback: boolean): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const lowered = value.toLowerCase();
+    if (['true', 'yes', 'on', '1'].includes(lowered)) return true;
+    if (['false', 'no', 'off', '0'].includes(lowered)) return false;
+  }
+  return fallback;
+}
+
+function wholeNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const parsed = typeof value === 'number' ? value : Number.parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(Math.trunc(parsed), min), max);
+}
+
+function stringList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((v) => text(v, '')).filter((v) => v !== '');
+  if (typeof value === 'string' && value.trim() !== '') {
+    return value.split(',').map((v) => v.trim()).filter(Boolean);
+  }
+  return [];
+}
+
+/** Normalise one menu entry; invalid entries are dropped rather than throwing. */
+function toMenuItem(raw: unknown): MenuItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const entry = raw as Record<string, unknown>;
+  const route = text(entry.route, '');
+  const label = text(entry.text, '');
+  if (route === '' || label === '') return null;
+  const item: MenuItem = {
+    text: label,
+    icon: text(entry.icon, '/icon/article.svg'),
+    route,
+  };
+  const pageTitle = text(entry.pageTitle ?? entry.page_title, '');
+  if (pageTitle) item.pageTitle = pageTitle;
+  const pageDesc = text(entry.pageDesc ?? entry.page_desc, '');
+  if (pageDesc) item.pageDesc = pageDesc;
+  return item;
+}
+
+function toMenu(value: unknown, fallback: MenuItem[]): MenuItem[] {
+  if (!Array.isArray(value)) return fallback;
+  const items = value.map(toMenuItem).filter((item): item is MenuItem => item !== null);
+  return items.length > 0 ? items : fallback;
+}
+
+/** Merge the YAML file over the defaults. */
+function normalise(raw: Record<string, unknown>): SiteSettings {
+  const base = defaultSettings();
+
+  const theme = (raw.theme && typeof raw.theme === 'object' ? raw.theme : {}) as Record<string, unknown>;
+  const features = (raw.features && typeof raw.features === 'object' ? raw.features : {}) as Record<string, unknown>;
+  const excerpt = (raw.excerpt && typeof raw.excerpt === 'object' ? raw.excerpt : {}) as Record<string, unknown>;
+  const strings = (raw.strings && typeof raw.strings === 'object' ? raw.strings : {}) as Record<string, unknown>;
+
+  const subtitle = text(raw.subtitle ?? raw.desc, base.subtitle);
+  return {
+    title: text(raw.title, base.title),
+    subtitle,
+    // Fall back to the subtitle so a site that only sets one of them still gets
+    // a sensible meta description.
+    description: text(raw.description, subtitle),
+    keywords: stringList(raw.keywords),
+    author: text(raw.author, base.author),
+    language: text(raw.language, base.language),
+    // The canonical URL is the one setting that a deployment may need to
+    // override without editing a tracked file (e.g. a container behind a
+    // different hostname), so an explicitly set BMY_SITE_URL wins over the
+    // YAML value. Everything else is file-first.
+    url: SITE_URL !== '' ? SITE_URL : text(raw.url, base.url),
+    avatar: text(raw.avatar, base.avatar),
+    copyright: text(raw.copyright, base.copyright),
+    github: text(raw.github, base.github),
+    themeColor: text(theme.color ?? raw.themeColor, base.themeColor),
+    menu: toMenu(raw.menu, base.menu),
+    features: {
+      comments: bool(features.comments, base.features.comments),
+      calendar: bool(features.calendar, base.features.calendar),
+      search: bool(features.search, base.features.search),
+      easterEgg: bool(features.easterEgg ?? features.easter_egg, base.features.easterEgg),
+      rss: bool(features.rss, base.features.rss),
+      sitemap: bool(features.sitemap, base.features.sitemap),
+    },
+    excerpt: {
+      length: wholeNumber(excerpt.length, base.excerpt.length, 1, 5000),
+      lengthWithCover: wholeNumber(excerpt.lengthWithCover, base.excerpt.lengthWithCover, 1, 5000),
+    },
+    rssLimit: wholeNumber(raw.rssLimit, base.rssLimit, 1, 200),
+    // Only string values are accepted, so a stray nested object cannot leak into
+    // a template as "[object Object]".
+    strings: Object.fromEntries(
+      Object.entries(strings)
+        .filter(([, value]) => typeof value === 'string' || typeof value === 'number')
+        .map(([key, value]) => [key, String(value)]),
+    ),
+  };
+}
+
+/** Current site settings (cached per `_config.yml` mtime). */
+export function getSiteSettings(): SiteSettings {
+  return normalise(readConfigFile());
+}
+
+/** Drop the config cache (used after an external write, and by tests). */
+export function invalidateConfig(): void {
+  cache = null;
 }
 
 /**
- * Resolve a UI string key. Custom overrides from `site.json` win over the
- * built-in dictionary, and an unknown key returns itself (matching the old
- * `_h._()` behaviour).
+ * Resolve a UI string key: `_config.yml` overrides win over the built-in
+ * dictionary, and an unknown key returns itself so a typo is visible rather
+ * than blank.
  */
 export function t(key: string): string {
   const settings = getSiteSettings();
-  return settings.strings[key] ?? STRINGS[key] ?? key;
+  return settings.strings[key] ?? DEFAULT_STRINGS[key] ?? key;
 }
 
 /** Everything the templates need, assembled once per render. */
 export interface TemplateGlobals {
   site: {
     title: string;
-    desc: string;
+    subtitle: string;
+    description: string;
+    keywords: string[];
+    author: string;
+    language: string;
+    url: string;
     avatar: string;
     copyright: string;
     github: string;
-    url: string;
+    themeColor: string;
   };
-  menu: Array<{ text: string; icon: string; route: string; pageTitle?: string; pageDesc?: string }>;
+  menu: MenuItem[];
+  features: SiteFeatures;
   t: (key: string) => string;
   strings: Record<string, string>;
 }
@@ -301,33 +516,47 @@ export function templateGlobals(): TemplateGlobals {
   return {
     site: {
       title: settings.title,
-      desc: settings.desc,
+      subtitle: settings.subtitle,
+      description: settings.description,
+      keywords: settings.keywords,
+      author: settings.author,
+      language: settings.language,
+      url: settings.url,
       avatar: settings.avatar,
       copyright: settings.copyright,
       github: settings.github,
-      url: settings.url,
+      themeColor: settings.themeColor,
     },
-    menu: MENU,
+    menu: settings.menu,
+    features: settings.features,
     t,
-    strings: { ...STRINGS, ...settings.strings },
+    strings: { ...DEFAULT_STRINGS, ...settings.strings },
   };
 }
 
-/** Public representation for `/api/site` — no secrets. */
+/**
+ * Public representation for `/api/site`.
+ * Deliberately contains no credential material (the original `/api/config`
+ * leaked `session_secret`, `admin_user` and `admin_pass`).
+ */
 export function publicSiteConfig(): Record<string, unknown> {
   const settings = getSiteSettings();
   return {
     title: settings.title,
-    desc: settings.desc,
+    subtitle: settings.subtitle,
+    description: settings.description,
+    keywords: settings.keywords,
+    author: settings.author,
+    language: settings.language,
+    url: settings.url,
     avatar: settings.avatar,
     copyright: settings.copyright,
     github: settings.github,
-    url: settings.url,
-    commentsEnabled: settings.commentsEnabled,
-    calendarEnabled: settings.calendarEnabled,
-    menu: MENU,
-    strings: { ...STRINGS, ...settings.strings },
+    themeColor: settings.themeColor,
+    menu: settings.menu,
+    features: settings.features,
+    excerpt: settings.excerpt,
+    rssLimit: settings.rssLimit,
+    strings: { ...DEFAULT_STRINGS, ...settings.strings },
   };
 }
-
-export { store as siteStore };

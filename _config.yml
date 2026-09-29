@@ -1,0 +1,131 @@
+# ============================================================================
+#  Blog Material You — 站点配置文件
+# ============================================================================
+#  这是本站唯一需要修改的配置文件（类似 Hexo 的 _config.yml）。
+#  站点名称、简介、头像、导航菜单、功能开关、列表长度、界面文案都在这里。
+#
+#  · 只写你想改的键即可，未写的键会自动使用内置默认值。
+#  · 保存后立即生效，无需重启服务（按文件修改时间自动重载）。
+#  · 语法是 YAML：用两个空格缩进，不要用 Tab；字符串一般不必加引号，
+#    但以 # 开头或包含 : 的值请用引号包起来。
+#
+#  不放在这里的内容：端口、监听地址、会话密钥、管理员初始密码、S3 密钥等
+#  「因部署而异 / 属于机密」的设置，仍然使用环境变量（见 .env.example）。
+# ============================================================================
+
+# ===== 站点信息 =====
+
+# 站点名称。显示在侧边栏、顶栏、浏览器标题与订阅源中。
+title: imitoy's Blog
+
+# 副标题 / 一句话简介。显示在侧边栏站点名称下方。
+subtitle: 暂无简介
+
+# 站点描述。用于页面的 meta description 与 Open Graph；留空则沿用 subtitle。
+description: 一个使用 Node.js 与 Material You 构建的博客
+
+# 关键词（数组）。写入页面的 meta keywords，可留空。
+keywords: []
+
+# 作者名。写入 meta author。留空则不输出。
+author: ''
+
+# 页面语言，写入 <html lang="…">。
+language: zh-CN
+
+# 站点对外地址，用于 canonical 链接、sitemap.xml 与 rss.xml。
+# 例如 https://blog.example.com（末尾不要加 /）。留空则使用相对路径。
+url: ''
+
+# ===== 外观 =====
+
+# 头像图片地址（相对于 public 目录，或完整的 http(s) 地址）。
+avatar: /img/avatar.jpg
+
+# 页脚版权文字。
+copyright: © 2025 Blog Material You
+
+# 侧边栏 / 页脚展示的 GitHub 地址，可留空。
+github: https://github.com/imitoy/Blog
+
+theme:
+  # 动态配色种子色。mdui 会据此生成整套 Material You 配色方案。
+  # 想跟随头像主色，可改成图片地址并在前台调用 getColorFromImage。
+  color: '#ff006a'
+
+# ===== 导航菜单 =====
+# text    菜单文字
+# route   目标地址
+# icon    图标路径（public 目录下，或完整地址）
+# pageTitle / pageDesc 可选，取值为下方 strings 里的键名，用于该页面的标题与说明
+menu:
+  - text: 首页
+    icon: /icon/home.svg
+    route: /
+  - text: 文章
+    icon: /icon/article.svg
+    route: /posts/
+    pageTitle: page_posts
+    pageDesc: page_posts_desc
+  - text: 标签
+    icon: /icon/tag.svg
+    route: /tags/
+    pageTitle: page_tags
+    pageDesc: page_tags_desc
+  - text: 分类
+    icon: /icon/category.svg
+    route: /categories/
+    pageTitle: page_categories
+    pageDesc: page_categories_desc
+  - text: 动态
+    icon: /icon/chat.svg
+    route: /talks/
+    pageTitle: page_moments
+    pageDesc: page_moments_desc
+  - text: 关于
+    icon: /icon/person.svg
+    route: /about/
+  - text: 归档
+    icon: /icon/archive.svg
+    route: /archives/
+    pageTitle: page_archives
+    pageDesc: page_archives_desc
+  - text: 友链
+    icon: /icon/friends.svg
+    route: /friends/
+    pageTitle: page_friends
+    pageDesc: page_friends_desc
+
+# ===== 功能开关 =====
+features:
+  # 文章页的评论表单与评论列表
+  comments: true
+  # 状态页里需要访客权限的日历
+  calendar: true
+  # 顶栏搜索入口与 /search/ 页面
+  search: true
+  # 关于页连点 7 次头像进入 2048 小游戏
+  easterEgg: true
+  # /rss.xml 订阅源
+  rss: true
+  # /sitemap.xml 站点地图
+  sitemap: true
+
+# ===== 列表与摘要 =====
+excerpt:
+  # 首页卡片摘要保留的字符数（无封面时）
+  length: 200
+  # 有封面时摘要保留的字符数（封面已提供信息，摘要可以更短）
+  lengthWithCover: 120
+
+# RSS 订阅源包含的文章数量
+rssLimit: 20
+
+# ===== 界面文案（可选覆盖）=====
+# 内置文案已覆盖全部界面文字，键名见 src/site-config.ts 的 DEFAULT_STRINGS。
+# 这里写上同名键即可覆盖，例如：
+# strings:
+#   page_posts: 博客
+#   page_posts_desc: 全部文章列表
+#   no_posts: 还没有发布任何文章
+strings: {}

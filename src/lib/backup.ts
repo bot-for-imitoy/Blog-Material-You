@@ -9,10 +9,11 @@
  *   content.posts / pages / talks / friends → Markdown files under `blog/`
  *   data.comments → `blog/data/comments/*.json`
  *   data.visitors → `blog/data/visitors.json`
- *   data.site     → `blog/data/site.json`
  *   data.calendar → `blog/data/calendar.json`
  *   data.admin / totp / imghost → credential material (`admin.json`, `totp.json`,
  *                                 `imghost.json` in `blog/data/`)
+ *   data.site     → the *effective* site settings, exported for reference only
+ *                   (they live in `_config.yml`, which a restore never touches)
  *
  * ⚠️ SECURITY: a backup contains the admin password verifier (scrypt salt+hash),
  * the TOTP shared secret and the S3/SFTP image-host keys. The file must be
@@ -43,7 +44,7 @@ import { addComment, listAllComments } from '../store/comments.ts';
 import { credentialsStore } from '../store/credentials.ts';
 import { totpStore } from '../store/totp-state.ts';
 import { visitorsStore } from '../store/visitors.ts';
-import { getSiteSettings, siteStore } from '../site-config.ts';
+import { getSiteSettings } from '../site-config.ts';
 import type { FriendInput } from '../content/friends.ts';
 import type { Comment } from '../store/comments.ts';
 import type { CredentialsFile } from '../store/credentials.ts';
@@ -198,8 +199,8 @@ function plainFrontmatter(data: Record<string, unknown>): Record<string, unknown
 
 /**
  * Collect every piece of blog state into one JSON-encodable document.
- * Missing optional stores (site.json, visitors.json, calendar.json, …) simply
- * produce their empty/default representation — this never throws.
+ * Missing optional stores (visitors.json, calendar.json, …) and a missing
+ * `_config.yml` simply produce their default representation — this never throws.
  */
 export async function exportBackup(): Promise<Record<string, unknown>> {
   const doc: BackupDocument = {
@@ -577,25 +578,21 @@ function restoreVisitors(value: unknown): number {
 }
 
 /**
- * Overwrite the site settings store with the payload. JsonStore merges the
- * built-in defaults back in on read, so absent keys fall back automatically;
- * `strings` is coerced to a plain string map so a hand-edited backup cannot
- * smuggle non-string values into the templates.
+ * Site settings are deliberately NOT restored from a backup.
+ *
+ * They now live in the tracked `_config.yml`, which is deployment configuration
+ * that belongs in version control alongside the code — exactly like `.env`.
+ * Overwriting it from a content backup would also destroy the file's comments.
+ * The backup still *contains* the effective settings so they can be diffed and
+ * copied over by hand; this function only reports that nothing was written.
  */
 function restoreSite(value: unknown): number {
-  const settings = asObject(value);
-  if (!settings) {
-    console.warn('[backup] import: site section is not an object, skipping');
-    return 0;
+  if (value !== undefined && value !== null) {
+    console.warn(
+      '[backup] import: site settings are kept in _config.yml and are not restored from a backup — copy any values you need by hand',
+    );
   }
-
-  const strings: Record<string, string> = {};
-  for (const [key, raw] of Object.entries(asObject(settings.strings) ?? {})) {
-    strings[key] = str(raw);
-  }
-
-  siteStore.write({ ...settings, strings } as unknown as SiteSettings);
-  return 1;
+  return 0;
 }
 
 /** Overwrite `blog/data/calendar.json` with the payload's event array. */

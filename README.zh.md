@@ -72,7 +72,7 @@ Blog-Material-You/
 | 路径 | 内容 | 是否 gitignore |
 |------|------|----------------|
 | `blog/posts/`、`blog/pages/`、`blog/talks/`、`blog/friends/` | 你的内容（Markdown）——**这就是数据库** | 是（仓库只跟踪 `.gitkeep`） |
-| `blog/data/` | 运行状态：`admin.json`（凭据）、`totp.json`、`visitors.json`、`site.json`、`calendar.json`、`imghost.json`、`secret.json`、`comments/`、`sessions/` | 是 |
+| `blog/data/` | 运行状态：`admin.json`（凭据）、`totp.json`、`visitors.json`、`calendar.json`、`imghost.json`、`secret.json`、`comments/`、`sessions/` | 是 |
 | `blog/public/vendor/` | mdui / KaTeX / highlight.js，由 `scripts/sync-assets.mjs` 从 `node_modules` 生成 | 是 |
 | `blog/public/avatars/`、`blog/public/uploads/` | 上传的图片 | 是 |
 
@@ -274,8 +274,8 @@ sort_order: 0
 - **访客身份验证**（`/auth/`）——读者输入邮箱：已注册地址会获得签名的访客 Cookie，未注册地址可以提交注册申请，进入管理后台的审核队列。退出登录既支持普通表单提交（`POST /auth/logout`，无需 JavaScript），也支持 JSON 接口（`POST /api/auth/logout`）。
 - **2048**（`/2048/`）——彩蛋小游戏，最高分保存在浏览器本地。
 - **搜索**（`/search/`）——对标题、标签、分类与正文进行全文搜索，索引在进程内构建。无需 JavaScript 即可使用（普通 GET 表单）；`js/search.js` 会把它升级为输入即搜，`Ctrl`/`Cmd`+`K` 可直接聚焦搜索框。
-- **双语内容**——文章与页面各自支持英文标题/正文；前台 UI 文案位于 `src/site-config.ts`，可在 `blog/data/site.json` 中按键覆盖。
-- **SEO**——逐路由的 `<title>`、meta description 与 canonical 链接，以及 `/sitemap.xml` 和 `/rss.xml`（最新 20 篇文章）。设置 `BMY_SITE_URL` 后，canonical 与订阅链接为绝对地址。
+- **双语内容**——文章与页面各自支持英文标题/正文；前台 UI 文案的内置默认值位于 `src/site-config.ts`，可在 `_config.yml` 的 `strings:` 下按键覆盖。
+- **SEO**——逐路由的 `<title>`、meta description 与 canonical 链接，以及 `/sitemap.xml` 和 `/rss.xml`（最新 `rssLimit` 篇文章）。在 `_config.yml` 中设置 `url`（或设置 `BMY_SITE_URL`）后，canonical 与订阅链接为绝对地址。
 
 ### 评论
 
@@ -346,6 +346,64 @@ sort_order: 0
 
 ## 配置
 
+配置分两部分，思路是「Hexo + 十二要素应用」：
+
+| 内容 | 位置 | 是否纳入版本控制 |
+|------|------|------------------|
+| **站点配置**——名称、副标题、描述、关键词、作者、语言、头像、主题色、导航菜单、功能开关、摘要长度、界面文案 | **`_config.yml`**（仓库根目录） | **是** |
+| **部署配置**——端口、监听地址、会话密钥、管理员初始账号、S3 密钥 | **环境变量**（`.env` / `BMY_*`） | 否 |
+
+这样拆分是有意的：前者属于站点内容，应该和代码一起进仓库；后者因机器而异且包含机密，绝不能提交。
+
+### 站点配置 —— `_config.yml`
+
+仓库根目录下唯一一个带注释的配置文件。只写你想改的键即可，其余键自动使用内置默认值，所以文件不完整——甚至不存在——也能正常启动。
+
+```yaml
+title: imitoy's Blog          # 站点名称（侧边栏、顶栏、<title>）
+subtitle: 暂无简介             # 站点名称下方的一句话简介
+description: 一个使用 Node.js 与 Material You 构建的博客   # meta description
+keywords: []                  # meta keywords
+author: ''                    # meta author
+language: zh-CN               # <html lang="…">
+url: ''                       # canonical / sitemap / RSS 使用的站点地址
+
+avatar: /img/avatar.jpg
+copyright: © 2025 Blog Material You
+github: https://github.com/imitoy/Blog
+theme:
+  color: '#ff006a'            # Material You 配色种子色
+
+menu:                         # 侧边栏 / 导航
+  - text: 首页
+    icon: /icon/home.svg
+    route: /
+
+features:                     # 整块功能的开关
+  comments: true
+  calendar: true
+  search: true
+  easterEgg: true
+  rss: true
+  sitemap: true
+
+excerpt:
+  length: 200                 # 首页卡片摘要长度（无封面）
+  lengthWithCover: 120        # 首页卡片摘要长度（有封面）
+rssLimit: 20
+
+strings: {}                   # 覆盖任意界面文案，例如 {page_posts: 博客文章}
+```
+
+- **无需重启**——文件按修改时间缓存，改完下一次请求即生效。
+- **功能开关在请求时生效**：关掉 `search`、`rss`、`sitemap`、`easterEgg` 会移除对应路由与界面入口，`calendar: false` 会隐藏状态页的日历卡片。
+- **`strings`** 可覆盖内置词典中的任意键（见 `src/site-config.ts` 的 `DEFAULT_STRINGS`）；未覆盖的键保持内置值。
+- **`BMY_CONFIG_FILE`** 可让服务读取另一个配置文件，便于把每套部署的配置放在检出目录之外。
+- `url` 是唯一允许被环境变量覆盖的值：显式设置了 **`BMY_SITE_URL`** 时它优先于 `_config.yml`，这样容器无需改动受版本控制的文件就能改指向。
+- YAML 写错时会大声报错并回退到默认值，而不是让站点挂掉，便于你先进后台把它修好。
+
+### 部署配置 —— 环境变量
+
 把 `.env.example` 复制为 `.env`（该文件已 gitignore），或把变量传给 Docker。所有变量都是可选的——默认值已适配本地使用。
 
 ### 服务
@@ -354,7 +412,7 @@ sort_order: 0
 |------|--------|------|
 | `BMY_PORT` | `30999` | HTTP 监听端口 |
 | `BMY_HOST` | `0.0.0.0` | 监听地址 |
-| `BMY_SITE_URL` | *(空)* | 站点对外地址，例如 `https://blog.example.com`。用于 canonical 链接、`sitemap.xml` 和 `rss.xml`；未设置时这些地址为相对路径 |
+| `BMY_SITE_URL` | *(空)* | **优先于 `_config.yml` 中的 `url`。** 站点对外地址，例如 `https://blog.example.com`，用于 canonical 链接、`sitemap.xml` 和 `rss.xml`；未设置时这些地址为相对路径 |
 | `BMY_TRUST_PROXY` | `0` | 位于反向代理后方时设为 `1`，限流会按 `X-Forwarded-For` 中的真实客户端 IP 计数 |
 | `BMY_MAX_UPLOAD_MB` | `100` | JSON / URL-encoded 请求体上限，单位 MB（用于导入备份） |
 | `NODE_ENV` | `development` | `production` 会启用 EJS 模板缓存并关闭开发期警告 |
@@ -377,6 +435,7 @@ sort_order: 0
 | `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | 运行状态（凭据、评论、访客、TOTP、设置、会话） |
 | `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | 静态资源（css/js/icon/img/vendor/avatars/uploads） |
 | `BMY_VIEWS_DIR` | `./views` | EJS 模板目录 |
+| `BMY_CONFIG_FILE` | `./_config.yml` | 站点配置文件路径（见上文） |
 
 ### 图床（S3 / SFTP）
 
@@ -689,7 +748,7 @@ volumes:
 
 用 nginx/Caddy/Traefik 在前面提供 HTTPS（应用本身只在单个端口上使用明文 HTTP）：
 
-1. 设置 **`BMY_SITE_URL`** 为对外的 `https://` 地址，否则 canonical 链接、`sitemap.xml` 与 `rss.xml` 都会使用相对地址。
+1. 在 `_config.yml` 中设置 **`url`**（或设置 **`BMY_SITE_URL`** 环境变量）为对外的 `https://` 地址，否则 canonical 链接、`sitemap.xml` 与 `rss.xml` 都会使用相对地址。
 2. 设置 **`BMY_TRUST_PROXY=1`**，让 Express 信任 `X-Forwarded-For`，限流将按真实客户端 IP 而非代理 IP 计数。若不设置，一个滥用者就可能耗尽所有人的限额。
 3. 转发 `Host` 与 `X-Forwarded-Proto`，并允许至少与 `BMY_MAX_UPLOAD_MB` 相当的请求体大小。
 4. **Cookie 的 `Secure` 标记：**会话 Cookie 与访客 Cookie 都设置了 `HttpOnly` 以及 `SameSite=Strict`/`Lax`，但**没有**设置 `Secure`——在明文 HTTP 下 `Secure` Cookie 永远不会被发送，因此代码选择关闭它。如果你在代理处终止 TLS 并希望加上该标记，请在 `setSessionCookie()`（`src/auth/session.ts`）和 `setVisitorCookie()`（`src/auth/visitor.ts`）中加上 `secure: true`，并确保应用只通过 HTTPS 访问。在此之前，请不要让应用以明文 HTTP 直接暴露在公网。

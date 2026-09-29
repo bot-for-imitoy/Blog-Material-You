@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { POSTS_DIR } from '../paths.ts';
 import { formatDate, parseDate, str, stripMarkdown, toList } from '../lib/text.ts';
+import { getSiteSettings } from '../site-config.ts';
 import {
   deleteMarkdownFile,
   readMarkdownFile,
@@ -167,9 +168,15 @@ export function groupByYear(posts: Post[]): Array<{ year: string; posts: Post[] 
     .sort((a, b) => (a.year < b.year ? 1 : a.year > b.year ? -1 : 0));
 }
 
-/** Shorten a post body for card/list views. */
+/**
+ * Shorten a post body for card/list views.
+ * The two lengths come from `excerpt.length` / `excerpt.lengthWithCover` in
+ * `_config.yml`; a post with a cover gets a shorter excerpt because the image
+ * already carries part of the message.
+ */
 export function excerptOf(post: Pick<Post, 'content' | 'cover'>, maxChars?: number): string {
-  const limit = maxChars ?? (post.cover ? 120 : 200);
+  const { excerpt } = getSiteSettings();
+  const limit = maxChars ?? (post.cover ? excerpt.lengthWithCover : excerpt.length);
   return stripMarkdown(post.content, limit);
 }
 

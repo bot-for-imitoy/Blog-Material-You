@@ -65,10 +65,12 @@
     </div>
   </mdui-card>
 
+  <% if (features.calendar) { %>
   <mdui-card variant="elevated" class="status-card" id="status-calendar">
     <div class="status-card-body">
       <div class="mdui-list-item-title">📅 Calendar</div>
       <div class="mdui-list-item-text" id="status-calendar-body"><%= t('loading') %></div>
     </div>
   </mdui-card>
+  <% } %>
 </div>

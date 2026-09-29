@@ -252,9 +252,17 @@ function currentPath() {
   return path.endsWith('/') ? path : `${path}/`;
 }
 
-/** Whether the current page hosts the easter egg. */
+/**
+ * Whether the current page hosts the easter egg.
+ *
+ * The path alone is not enough: `features.easterEgg` in _config.yml can switch
+ * it off, and the server signals that by rendering the about header without
+ * `data-easter-egg="true"` — there are no inline scripts (the CSP forbids them),
+ * so a data attribute is how server-side configuration reaches the client.
+ */
 function isEasterEggPage() {
-  return EASTER_EGG_PATHS.includes(currentPath());
+  if (!EASTER_EGG_PATHS.includes(currentPath())) return false;
+  return document.querySelector('[data-easter-egg="true"]') !== null;
 }
 
 /** Play the avatar pulse animation, restarting it on rapid clicks. */

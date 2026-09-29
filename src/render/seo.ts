@@ -18,7 +18,12 @@ const DESC_LIMIT = 200;
 
 function site(): { title: string; desc: string } {
   const settings = getSiteSettings();
-  return { title: settings.title || 'Blog', desc: settings.desc || '' };
+  return {
+    title: settings.title || 'Blog',
+    // `description` is the meta-description field; fall back to the sidebar
+    // subtitle so a site that only sets one of them still gets a sensible tag.
+    desc: settings.description || settings.subtitle || '',
+  };
 }
 
 /** SEO metadata for a public route path (canonical form, e.g. `/posts/`). */

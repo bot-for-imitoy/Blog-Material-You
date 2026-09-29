@@ -12,12 +12,15 @@ This is a ground-up rewrite of the previous OpenResty/Lua + MariaDB implementati
 
 ```
 Blog-Material-You/
+├── _config.yml               # ★ The site configuration file — name, description, avatar,
+│                             #   menu, feature switches, list lengths, UI strings
 ├── src/                      # Node.js + TypeScript application (run directly, no build step)
 │   ├── index.ts              # Entry point: runtime dirs, vendor assets, admin bootstrap, HTTP server
 │   ├── app.ts                # Express wiring: security headers, Origin guard, static, routes, 404/500
 │   ├── paths.ts              # Every filesystem location + environment variable resolution
 │   ├── version.ts            # Application version (reported by /api/health and /api/status)
-│   ├── site-config.ts        # Site settings + the complete UI string dictionary + navigation menu
+│   ├── site-config.ts        # Loads _config.yml, merges it over built-in defaults, and the
+│   │                         # complete default UI string dictionary + default menu
 │   ├── content/              # Markdown content model (the "database")
 │   │   ├── markdown-files.ts # mtime/size-cached scanner, frontmatter parser, atomic writer
 │   │   ├── posts.ts          # blog/posts/*.md       → Post
@@ -52,8 +55,7 @@ Blog-Material-You/
 │   ├── talks/                # <unixtime>.md
 │   ├── friends/              # <id>-<slug>.md
 │   ├── data/                 # Runtime state (gitignored): credentials, comments,
-│   │                         # visitors, TOTP, sessions, site/calendar/imghost settings
-│   ├── locales.yml           # Legacy translation file kept for reference (unused at runtime)
+│   │                         # visitors, TOTP, sessions, calendar/imghost settings
 │   └── public/               # Static assets served under /css, /js, /icon, /img, …
 │       └── vendor/           # GENERATED: mdui, KaTeX, highlight.js copied from node_modules
 ├── scripts/
@@ -72,7 +74,7 @@ Blog-Material-You/
 | Path | Contents | Gitignored |
 |------|----------|------------|
 | `blog/posts/`, `blog/pages/`, `blog/talks/`, `blog/friends/` | Your content as Markdown — **this is the database** | yes (only `.gitkeep` files are tracked) |
-| `blog/data/` | Runtime state: `admin.json` (credentials), `totp.json`, `visitors.json`, `site.json`, `calendar.json`, `imghost.json`, `secret.json`, `comments/`, `sessions/` | yes |
+| `blog/data/` | Runtime state: `admin.json` (credentials), `totp.json`, `visitors.json`, `calendar.json`, `imghost.json`, `secret.json`, `comments/`, `sessions/` | yes |
 | `blog/public/vendor/` | mdui / KaTeX / highlight.js, generated from `node_modules` by `scripts/sync-assets.mjs` | yes |
 | `blog/public/avatars/`, `blog/public/uploads/` | Uploaded images | yes |
 
@@ -274,8 +276,8 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - **Visitor identity** (`/auth/`) — a reader enters an email address; a registered address receives a signed visitor cookie, an unknown one can submit a registration request that lands in the admin approval queue. Logging out works both as a plain HTML form post (`POST /auth/logout`, no JavaScript required) and as JSON (`POST /api/auth/logout`).
 - **2048** (`/2048/`) — the easter egg, complete with best-score persistence in the browser.
 - **Search** (`/search/`) — full-text search over titles, tags, categories and post bodies, with an in-process index. Works without JavaScript (plain GET form); `js/search.js` upgrades it to live results as you type, and `Ctrl`/`Cmd`+`K` focuses the field.
-- **Bilingual content** — per-post and per-page English title/body; the public UI strings live in `src/site-config.ts` and can be overridden per key from `blog/data/site.json`.
-- **SEO** — per-route `<title>`, meta description and canonical link, plus `/sitemap.xml` and `/rss.xml` (20 newest posts). Set `BMY_SITE_URL` so the canonical URLs and feed links are absolute.
+- **Bilingual content** — per-post and per-page English title/body; the public UI strings have built-in defaults in `src/site-config.ts` and can be overridden per key under `strings:` in `_config.yml`.
+- **SEO** — per-route `<title>`, meta description and canonical link, plus `/sitemap.xml` and `/rss.xml` (`rssLimit` newest posts). Set `url` in `_config.yml` (or `BMY_SITE_URL`) so the canonical URLs and feed links are absolute.
 
 ### Comments
 
@@ -346,6 +348,64 @@ Without an SMTP provider there is no way to prove that a visitor controls the ad
 
 ## Configuration
 
+Configuration is split in two, like Hexo plus twelve-factor:
+
+| What | Where | Version-controlled? |
+|------|-------|---------------------|
+| **Site configuration** — name, tagline, description, keywords, author, language, avatar, theme colour, navigation menu, feature switches, excerpt lengths, UI wording | **`_config.yml`** (repository root) | **Yes** |
+| **Deployment configuration** — port, bind address, session secret, admin bootstrap, S3 credentials | **environment variables** (`.env` / `BMY_*`) | No |
+
+The split is deliberate: the first is content-ish and belongs in the repository next to the code; the second differs per machine and includes secrets, so it must never be committed.
+
+### Site configuration — `_config.yml`
+
+One file, comment-annotated, at the repository root. Only the keys you want to change need to be present; everything else falls back to built-in defaults, so a partial or even missing file still boots.
+
+```yaml
+title: imitoy's Blog          # site name (sidebar, app bar, <title>)
+subtitle: 暂无简介             # tagline under the site name
+description: 一个使用 Node.js 与 Material You 构建的博客   # meta description
+keywords: []                  # meta keywords
+author: ''                    # meta author
+language: zh-CN               # <html lang="…">
+url: ''                       # canonical base URL for canonical/sitemap/RSS
+
+avatar: /img/avatar.jpg
+copyright: © 2025 Blog Material You
+github: https://github.com/imitoy/Blog
+theme:
+  color: '#ff006a'            # Material You seed colour
+
+menu:                         # sidebar / navigation
+  - text: 首页
+    icon: /icon/home.svg
+    route: /
+
+features:                     # turn whole features off
+  comments: true
+  calendar: true
+  search: true
+  easterEgg: true
+  rss: true
+  sitemap: true
+
+excerpt:
+  length: 200                 # home-card excerpt (no cover)
+  lengthWithCover: 120        # home-card excerpt (with cover)
+rssLimit: 20
+
+strings: {}                   # override any UI string, e.g. {page_posts: 博客文章}
+```
+
+- **No restart needed** — the file is read with an mtime cache, so an edit takes effect on the next request.
+- **Feature switches are honoured at request time**: turning `search`, `rss`, `sitemap` or `easterEgg` off removes the corresponding route/UI, and `calendar: false` hides the status-page calendar card.
+- **`strings`** overrides any key from the built-in dictionary (see `DEFAULT_STRINGS` in `src/site-config.ts`); a key you do not override keeps its built-in value.
+- **`BMY_CONFIG_FILE`** points the server at a different file, which is handy for keeping per-deployment config outside the checkout.
+- `url` is the one value an environment variable may override: an explicitly set **`BMY_SITE_URL`** wins over `_config.yml`, so a container can be re-pointed without editing a tracked file.
+- A malformed YAML file is logged loudly and falls back to defaults rather than taking the site down, so you can still reach the admin area and fix it.
+
+### Deployment configuration — environment variables
+
 Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker. Everything is optional — the defaults are sensible for local use.
 
 ### Service
@@ -354,7 +414,7 @@ Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker
 |----------|---------|---------|
 | `BMY_PORT` | `30999` | HTTP listen port |
 | `BMY_HOST` | `0.0.0.0` | Listen address |
-| `BMY_SITE_URL` | *(empty)* | Public base URL, e.g. `https://blog.example.com`. Used for canonical links, `sitemap.xml` and `rss.xml`; without it those URLs are relative |
+| `BMY_SITE_URL` | *(empty)* | **Overrides `url` in `_config.yml`.** Public base URL, e.g. `https://blog.example.com`, used for canonical links, `sitemap.xml` and `rss.xml`; without it those URLs are relative |
 | `BMY_TRUST_PROXY` | `0` | Set to `1` behind a reverse proxy so rate limiting keys on the real client IP from `X-Forwarded-For` |
 | `BMY_MAX_UPLOAD_MB` | `100` | JSON/URL-encoded request-body limit, in MB (backup import) |
 | `NODE_ENV` | `development` | `production` enables EJS template caching and disables development warnings |
@@ -377,6 +437,7 @@ Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker
 | `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | Runtime state (credentials, comments, visitors, TOTP, settings, sessions) |
 | `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | Static assets (css/js/icon/img/vendor/avatars/uploads) |
 | `BMY_VIEWS_DIR` | `./views` | EJS template directory |
+| `BMY_CONFIG_FILE` | `./_config.yml` | Path to the site configuration file (see above) |
 
 ### Image host (S3 / SFTP)
 
@@ -689,7 +750,7 @@ volumes:
 
 Put nginx/Caddy/Traefik in front for HTTPS (the app speaks plain HTTP on one port):
 
-1. Set **`BMY_SITE_URL`** to the public `https://` address, otherwise canonical links, `sitemap.xml` and `rss.xml` carry relative URLs.
+1. Set **`url`** in `_config.yml` (or the **`BMY_SITE_URL`** environment variable) to the public `https://` address, otherwise canonical links, `sitemap.xml` and `rss.xml` carry relative URLs.
 2. Set **`BMY_TRUST_PROXY=1`** so Express trusts `X-Forwarded-For` and rate limits key on the real client IP instead of the proxy's. Without it, one abusive client can exhaust the limit for everyone.
 3. Forward both `Host` and `X-Forwarded-Proto`, and allow request bodies at least as large as `BMY_MAX_UPLOAD_MB`.
 4. **Cookie `Secure` flag:** session and visitor cookies are marked `HttpOnly` and `SameSite=Strict`/`Lax`, but not `Secure` — over plain HTTP a `Secure` cookie would never be sent, so the code leaves it off. If you terminate TLS at the proxy and want the flag, add `secure: true` in `setSessionCookie()` (`src/auth/session.ts`) and `setVisitorCookie()` (`src/auth/visitor.ts`) and serve the app exclusively over HTTPS. Until then, keep the app off the public internet over plain HTTP.
