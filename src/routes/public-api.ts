@@ -49,6 +49,7 @@ import {
 } from '../store/visitors.ts';
 import { publicSiteConfig } from '../site-config.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
+import { searchPosts } from '../lib/search.ts';
 import { hitCounter, rateLimit } from '../lib/ratelimit.ts';
 import { processAvatar, mirrorToImghost } from '../media/avatar.ts';
 import { createVisitorToken, clearVisitorCookie, getVisitorEmail, setVisitorCookie } from '../auth/visitor.ts';
@@ -244,6 +245,24 @@ export function createPublicApiRouter(): Router {
       return;
     }
     ok(res, addComment(result.comment));
+  });
+
+  // ===================== Search =====================
+
+  /**
+   * Full-text search over the Markdown content.
+   * Returns an empty result set (not an error) for an empty query so the client
+   * can render its "type a keyword" state without special-casing.
+   */
+  router.get('/search', rateLimit({ name: 'search', windowMs: 60_000, max: 60 }), (req, res) => {
+    const outcome = searchPosts(req.query.q, { limit: Number(req.query.limit) || undefined });
+    ok(res, {
+      query: outcome.query,
+      tokens: outcome.tokens,
+      total: outcome.total,
+      limit: Number(req.query.limit) || 20,
+      results: outcome.hits,
+    });
   });
 
   // ===================== Visitor auth =====================

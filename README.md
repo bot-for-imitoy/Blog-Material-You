@@ -273,6 +273,7 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - **Status** (`/status/`) — live process uptime, Node.js version, memory usage and content counts (posts, comments, talks, friends, registered visitors), plus the permission-gated visitor calendar.
 - **Visitor identity** (`/auth/`) — a reader enters an email address; a registered address receives a signed visitor cookie, an unknown one can submit a registration request that lands in the admin approval queue. Logging out works both as a plain HTML form post (`POST /auth/logout`, no JavaScript required) and as JSON (`POST /api/auth/logout`).
 - **2048** (`/2048/`) — the easter egg, complete with best-score persistence in the browser.
+- **Search** (`/search/`) — full-text search over titles, tags, categories and post bodies, with an in-process index. Works without JavaScript (plain GET form); `js/search.js` upgrades it to live results as you type, and `Ctrl`/`Cmd`+`K` focuses the field.
 - **Bilingual content** — per-post and per-page English title/body; the public UI strings live in `src/site-config.ts` and can be overridden per key from `blog/data/site.json`.
 - **SEO** — per-route `<title>`, meta description and canonical link, plus `/sitemap.xml` and `/rss.xml` (20 newest posts). Set `BMY_SITE_URL` so the canonical URLs and feed links are absolute.
 
@@ -282,6 +283,17 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - Fields: `id`, `nick`, `mail`, `comment`, `link`, `ua`, `avatar`, `url`, `createTime`.
 - Server-side validation: nickname ≤ 80, email ≤ 200 and format-checked, body ≤ 5000, `link` must start with `http(s)://`, user agent truncated to 500 characters (the original implementation had no limits at all).
 - Posting is rate limited to 10 comments per IP per minute. Comment moderation (list across all pages, delete) lives in the admin console.
+
+### Search
+
+`/search/` is a normal server-rendered page, so a query is a shareable URL and the form works with JavaScript disabled. It queries titles, English titles, tags, categories and post bodies.
+
+- **Index**: built in-process from the same mtime-cached Markdown scanner the rest of the site uses, and memoised on the set of file mtimes — editing a post invalidates it automatically, with no rebuild step or search daemon. `POST /api/admin/reload` drops it explicitly.
+- **Matching is substring-based**, not word-based. Chinese has no spaces, so a Latin-style tokeniser would fail on exactly the queries this blog receives; Latin queries still work because matching is case-insensitive and a multi-word query is split on spaces for AND-style ranking.
+- **Ranking**: title matches outweigh English titles, which outweigh tags/categories, which outweigh body hits. Archived posts are still findable but rank 40% lower. A post matching every token ranks above one matching only some.
+- **Snippets** are cut around the first match and the matched terms are wrapped in `<mark>`. Highlighting is XSS-safe by construction: text is HTML-escaped *before* the `<mark>` tags are inserted, so a post containing `<script>` can never inject markup. The client-side live search never uses `innerHTML` either — it rebuilds the highlight with `createElement` + `textContent`.
+- **Rate limit**: 60 requests per IP per minute on `/api/search`.
+- **SEO**: the results page carries `noindex, follow`, since per-query result pages are thin duplicates; the posts they link to stay indexable.
 
 ### Admin console
 
@@ -429,6 +441,7 @@ Every JSON endpoint except `/api/health` uses the same envelope:
 | GET | `/api/pages/:slug` | One page: metadata, raw Markdown, rendered `html`, `toc` (404 if missing) |
 | GET | `/api/talks` | All talks, newest first, each with rendered `html` |
 | GET | `/api/friends` | Friend links in display order |
+| GET | `/api/search?q=<query>&limit=<n>` | Full-text search. Returns `{query, tokens, total, limit, results}`; each result carries plain `title`/`snippet` plus pre-escaped `titleHtml`/`snippetHtml` with `<mark>`. An empty `q` returns an empty result set, not an error. `limit` defaults to 20 (max 50) |
 | GET | `/api/comments?path=<url>` | Comments for a page path, oldest first. Add `&type=count` to get `{count}` only |
 | POST | `/api/comments` | Post a comment. Body `{nick, mail, comment, url, link?, ua?, avatar?}` |
 | POST | `/api/auth/check` | `{email}` → `{registered, permissions, name}`; sets the signed visitor cookie when the address is registered |

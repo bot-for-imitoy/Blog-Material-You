@@ -273,6 +273,7 @@ sort_order: 0
 - **状态**（`/status/`）——实时进程运行时长、Node.js 版本、内存占用、内容统计（文章、评论、动态、友链、注册访客），以及需要权限的访客日历。
 - **访客身份验证**（`/auth/`）——读者输入邮箱：已注册地址会获得签名的访客 Cookie，未注册地址可以提交注册申请，进入管理后台的审核队列。退出登录既支持普通表单提交（`POST /auth/logout`，无需 JavaScript），也支持 JSON 接口（`POST /api/auth/logout`）。
 - **2048**（`/2048/`）——彩蛋小游戏，最高分保存在浏览器本地。
+- **搜索**（`/search/`）——对标题、标签、分类与正文进行全文搜索，索引在进程内构建。无需 JavaScript 即可使用（普通 GET 表单）；`js/search.js` 会把它升级为输入即搜，`Ctrl`/`Cmd`+`K` 可直接聚焦搜索框。
 - **双语内容**——文章与页面各自支持英文标题/正文；前台 UI 文案位于 `src/site-config.ts`，可在 `blog/data/site.json` 中按键覆盖。
 - **SEO**——逐路由的 `<title>`、meta description 与 canonical 链接，以及 `/sitemap.xml` 和 `/rss.xml`（最新 20 篇文章）。设置 `BMY_SITE_URL` 后，canonical 与订阅链接为绝对地址。
 
@@ -282,6 +283,17 @@ sort_order: 0
 - 字段：`id`、`nick`、`mail`、`comment`、`link`、`ua`、`avatar`、`url`、`createTime`。
 - 服务端校验：昵称 ≤ 80，邮箱 ≤ 200 且校验格式，正文 ≤ 5000，`link` 必须以 `http(s)://` 开头，User-Agent 截断到 500 字符（旧实现完全没有限制）。
 - 提交评论按 IP 限制为每分钟 10 条。评论审核（跨页面列表、删除）位于管理后台。
+
+### 搜索
+
+`/search/` 是普通的服务端渲染页面，因此查询结果是一个可分享的 URL，禁用 JavaScript 也能使用。搜索范围覆盖标题、英文标题、标签、分类与正文。
+
+- **索引**：在进程内用全站同一套「按 mtime 缓存」的 Markdown 扫描器构建，并以文件 mtime 集合作为记忆化键——改一篇文章即自动失效，不需要重建步骤或搜索服务。`POST /api/admin/reload` 会显式清空它。
+- **采用子串匹配而非分词匹配**。中文没有空格，按拉丁语系分词会恰好在这个博客最常见的查询上失效；拉丁查询同样可用，因为匹配不区分大小写，多词查询会按空格拆分成 AND 式排序。
+- **排序**：标题命中 > 英文标题命中 > 标签/分类命中 > 正文命中；已归档文章仍可搜到，但权重降低 40%；命中全部关键词的文章排在只命中部分关键词的前面。
+- **摘要**围绕首个命中位置截取，命中的词用 `<mark>` 包裹。高亮在构造上就是 XSS 安全的：先对文本做 HTML 转义，**再**插入 `<mark>`，因此包含 `<script>` 的文章无法注入标记。前端即时搜索也完全不用 `innerHTML`，而是用 `createElement` + `textContent` 重建高亮。
+- **限流**：`/api/search` 每 IP 每分钟 60 次。
+- **SEO**：结果页带 `noindex, follow`，因为逐查询的结果页属于稀薄重复内容；它链接到的文章本身仍可被索引。
 
 ### 管理后台
 
@@ -429,6 +441,7 @@ SFTP 没有对应的环境变量，请在 `/admin/imghost/` 页面配置，配�
 | GET | `/api/pages/:slug` | 单个页面：元数据、原始 Markdown、渲染后的 `html`、`toc`（不存在则 404） |
 | GET | `/api/talks` | 全部动态，新的在前，每条带渲染后的 `html` |
 | GET | `/api/friends` | 按展示顺序排列的友链 |
+| GET | `/api/search?q=<query>&limit=<n>` | 全文搜索。返回 `{query, tokens, total, limit, results}`；每条结果同时给出纯文本 `title`/`snippet` 与已转义的 `titleHtml`/`snippetHtml`（含 `<mark>`）。`q` 为空时返回空结果集而非报错。`limit` 默认 20（上限 50） |
 | GET | `/api/comments?path=<url>` | 某页面路径下的评论，旧的在前。加 `&type=count` 只返回 `{count}` |
 | POST | `/api/comments` | 提交评论。请求体 `{nick, mail, comment, url, link?, ua?, avatar?}` |
 | POST | `/api/auth/check` | `{email}` → `{registered, permissions, name}`；邮箱已注册时同时下发签名访客 Cookie |

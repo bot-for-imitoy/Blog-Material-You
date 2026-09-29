@@ -1,0 +1,88 @@
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= t('search_title') %></div>
+  <div class="header-content"><%= t('search_desc') %></div>
+</mdui-card>
+
+<div
+  class="search-page"
+  id="search-page"
+  data-strings="<%= JSON.stringify({
+    resultsFor: t('search_results_for'),
+    empty: t('search_empty'),
+    noResults: t('search_no_results'),
+    archived: t('search_archived'),
+    failed: t('load_failed'),
+  }) %>"
+>
+  <!--
+    A real GET form: submitting navigates to /search/?q=… so the query is
+    shareable and the page works with JavaScript disabled. `search.js` upgrades
+    this to live results as you type.
+  -->
+  <form class="search-form" method="get" action="/search/" role="search" id="search-form">
+    <mdui-text-field
+      id="search-input"
+      class="search-input"
+      type="search"
+      name="q"
+      value="<%= query %>"
+      label="<%= t('search_placeholder') %>"
+      helper="<%= t('search_hint') %>"
+      clearable
+      autofocus
+    ></mdui-text-field>
+    <mdui-button type="submit" variant="filled" id="search-submit"><%= t('search_button') %></mdui-button>
+  </form>
+
+  <div class="search-status" id="search-status" role="status" aria-live="polite">
+    <% if (hasQuery) { %>
+    <span class="search-count"><%= t('search_results_for').replace('{n}', String(total)).replace('{q}', query) %></span>
+    <% } else { %>
+    <span class="search-count search-count-idle"><%= t('search_empty') %></span>
+    <% } %>
+  </div>
+
+  <div class="search-results" id="search-results">
+    <% if (hasQuery && results.length === 0) { %>
+    <div class="search-empty" id="search-empty">
+      <div class="search-empty-icon">🔍</div>
+      <p><%= t('search_no_results') %></p>
+      <p class="search-empty-tip"><%= t('search_hint') %></p>
+    </div>
+    <% } %>
+
+    <% results.forEach(function (hit) { %>
+    <mdui-card variant="elevated" class="search-result">
+      <a class="search-result-link" href="/post/<%= urlEncode(hit.slug) %>">
+        <div class="search-result-title"><%- hit.titleHtml %></div>
+      </a>
+      <div class="search-result-meta">
+        <mdui-icon src="/icon/calender.svg"></mdui-icon>
+        <span><%= formatDate(hit.date) %></span>
+        <% if (hit.archived) { %>
+        <span class="search-badge"><%= t('search_archived') %></span>
+        <% } %>
+      </div>
+      <% if (hit.snippetHtml) { %>
+      <div class="search-result-snippet"><%- hit.snippetHtml %></div>
+      <% } %>
+      <% if (hit.tags.length > 0 || hit.categories.length > 0) { %>
+      <div class="search-result-chips">
+        <% hit.categories.forEach(function (cat) { %>
+        <mdui-chip rounded href="/categories/<%= urlEncode(cat) %>/">
+          <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+          <%= cat %>
+        </mdui-chip>
+        <% }); %>
+        <% hit.tags.forEach(function (tag) { %>
+        <mdui-chip rounded href="/tags/<%= urlEncode(tag) %>/">
+          <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+          <%= tag %>
+        </mdui-chip>
+        <% }); %>
+      </div>
+      <% } %>
+    </mdui-card>
+    <% }); %>
+  </div>
+</div>

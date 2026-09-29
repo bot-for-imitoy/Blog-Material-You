@@ -24,6 +24,7 @@ import { listTalks } from '../content/talks.ts';
 import { listFriends } from '../content/friends.ts';
 import { getSiteSettings } from '../site-config.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
+import { searchPosts } from '../lib/search.ts';
 import { renderPage, type PageSeo } from '../render/engine.ts';
 import { seoForNotFound, seoForRoute } from '../render/seo.ts';
 import { getVisitorEmail, clearVisitorCookie } from '../auth/visitor.ts';
@@ -45,6 +46,7 @@ const VIEW_STYLES: Record<string, Array<string | { href: string; media?: string 
   'pages/post': MARKDOWN_STYLES,
   'pages/talks': [...MARKDOWN_STYLES, '/css/about.css'],
   'pages/page': [...MARKDOWN_STYLES, '/css/about.css'],
+  'pages/search': ['/css/search.css'],
   'game/2048': ['/css/game-2048.css'],
 };
 
@@ -52,6 +54,7 @@ const VIEW_SCRIPTS: Record<string, string[]> = {
   'pages/post': ['/js/comments.js'],
   'pages/status': ['/js/status.js'],
   'pages/auth': ['/js/auth.js'],
+  'pages/search': ['/js/search.js'],
   'game/2048': ['/js/game-2048.js'],
 };
 
@@ -271,6 +274,37 @@ export function createPublicPagesRouter(): Router {
   router.get('/2048', async (_req, res, next) => {
     try {
       await page(res, 'game/2048', {}, seoForRoute('/2048/'), '/2048/');
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // ===================== Search =====================
+
+  /**
+   * Search results page. Rendered on the server so a query is a shareable,
+   * bookmarkable URL and the form works without JavaScript; `search.js`
+   * upgrades it to live, as-you-type results.
+   */
+  router.get('/search', async (req, res, next) => {
+    try {
+      const outcome = searchPosts(req.query.q);
+      await page(
+        res,
+        'pages/search',
+        {
+          query: outcome.query,
+          tokens: outcome.tokens,
+          total: outcome.total,
+          results: outcome.hits,
+          hasQuery: outcome.tokens.length > 0,
+          // Search result pages are thin, per-query duplicates: keep them out of
+          // the index but let crawlers follow the links to the posts themselves.
+          headExtra: '<meta name="robots" content="noindex, follow">',
+        },
+        seoForRoute('/search/'),
+        '/search/',
+      );
     } catch (err) {
       next(err);
     }

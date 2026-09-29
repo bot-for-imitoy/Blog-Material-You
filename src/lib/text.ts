@@ -47,6 +47,9 @@ function squeeze(s: string): string {
 export function stripMarkdown(input: unknown, maxChars = 200): string {
   if (input === null || input === undefined) return '';
   let s = String(input).replace(/^\s+/, '');
+  // Drop raw HTML first (the original excerpt logic did the same) so a post with
+  // an embedded <script>/<img> never surfaces markup in a card or meta tag.
+  s = s.replace(/<[^>]*>/g, ' ');
   s = s.replace(/^[ \t]*#{1,6}[ \t]*/gm, '');
   s = s.replace(/^[ \t]*>[ \t]?/gm, '');
   s = s.replace(/```[\s\S]*?```/g, ' ');

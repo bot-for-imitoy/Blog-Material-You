@@ -93,6 +93,18 @@ export const STRINGS: Record<string, string> = {
   page_404_title: '404 — 页面未找到',
   page_404_desc: '你访问的页面不存在。',
 
+  // Search
+  search_title: '搜索',
+  search_desc: '在全部文章中查找',
+  search_placeholder: '输入关键词…',
+  search_button: '搜索',
+  search_hint: '支持标题、标签、分类与正文；多个关键词用空格分隔。',
+  search_empty: '请输入关键词开始搜索。',
+  search_no_results: '没有找到匹配的文章。',
+  search_results_for: '找到 {n} 篇与「{q}」相关的文章',
+  search_archived: '已归档',
+  search_clear: '清空',
+
   admin_title: '博客后台',
   admin_login_title: '博客后台登录',
   admin_login_btn: '登录',

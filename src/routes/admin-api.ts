@@ -31,6 +31,7 @@ import { addTalk, deleteTalk, listTalks, parseTalkId, updateTalk } from '../cont
 import { addFriend, deleteFriend, listFriends, parseFriendId, publicFriend, publicFriends, updateFriend } from '../content/friends.ts';
 import { invalidateAll, isSafeSlug } from '../content/markdown-files.ts';
 import { deleteComment, listAllComments } from '../store/comments.ts';
+import { invalidateSearchIndex } from '../lib/search.ts';
 import { PERMISSIONS, approvePending, isValidEmail, listPending, listVisitors, normaliseEmail, removePending, removeVisitor, setVisitor } from '../store/visitors.ts';
 import { maskImghostConfig, readImghostConfig, saveImghostConfig, type ImghostConfig } from '../store/imghost-config.ts';
 import { testConnection, upload, uploadKey } from '../media/imghost.ts';
@@ -850,6 +851,9 @@ export function createAdminApiRouter(): Router {
    */
   router.post('/reload', requireAdmin, adminApiHandler((_req, res) => {
     invalidateAll();
+    // The search index is keyed by file mtimes and would normally refresh on
+    // its own; this makes an explicit reload authoritative.
+    invalidateSearchIndex();
     ok(res, {
       posts: listPosts().length,
       pages: listPages().length,

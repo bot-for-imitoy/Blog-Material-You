@@ -57,6 +57,7 @@ export function seoForRoute(route: string): PageSeo {
     '/status/': { title: `状态 - ${siteTitle}`, desc: '系统状态与设备信息' },
     '/auth/': { title: `身份验证 - ${siteTitle}`, desc: '访客认证' },
     '/2048/': { title: `2048 - ${siteTitle}`, desc: '2048 小游戏' },
+    '/search/': { title: `搜索 - ${siteTitle}`, desc: '搜索博客文章' },
     '/': { title: siteTitle, desc: siteDesc },
   };
 
