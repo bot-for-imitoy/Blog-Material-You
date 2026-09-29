@@ -1,0 +1,40 @@
+<%
+  /**
+   * admin/pages.ejs — standalone page list (about, talks, …).
+   * Editing an existing page goes to /admin/pages/:slug/edit/; a new page uses
+   * a free-form slug, so both entry points land on the same editor template.
+   */
+%>
+<div class="page-header">
+  <h1>📑 页面</h1>
+  <mdui-button variant="filled" icon="add" href="/admin/pages/new/" data-action="new-page">➕ 新建页面</mdui-button>
+</div>
+
+<% if (pages.length === 0) { %>
+  <div class="empty-state">暂无页面</div>
+<% } else { %>
+  <mdui-card>
+    <% pages.forEach((page) => { %>
+      <div class="post-item" data-slug="<%= page.slug %>">
+        <div class="post-info">
+          <h3><%= page.title || page.slug %></h3>
+          <span><%= page.slug %></span>
+        </div>
+        <div class="post-actions">
+          <mdui-button
+            variant="text"
+            href="/admin/pages/<%= encodeURIComponent(page.slug) %>/edit/"
+            data-action="edit-page"
+            data-slug="<%= page.slug %>"
+          >✏️ 编辑</mdui-button>
+          <mdui-button
+            variant="text"
+            data-action="delete-page"
+            data-slug="<%= page.slug %>"
+            data-title="<%= page.title || page.slug %>"
+          >🗑️ 删除</mdui-button>
+        </div>
+      </div>
+    <% }); %>
+  </mdui-card>
+<% } %>

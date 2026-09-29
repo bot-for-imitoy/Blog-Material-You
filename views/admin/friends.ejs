@@ -1,0 +1,47 @@
+<%
+  /**
+   * admin/friends.ejs — friend links in display order (sort_order, then id).
+   */
+%>
+<div class="page-header">
+  <h1>🔗 友链</h1>
+  <mdui-button variant="filled" icon="add" href="/admin/friends/new/" data-action="new-friend">➕ 添加</mdui-button>
+</div>
+
+<% if (friends.length === 0) { %>
+  <div class="empty-state">暂无友链，点击右上角按钮添加</div>
+<% } else { %>
+  <mdui-card>
+    <% friends.forEach((friend) => { %>
+      <div class="post-item" data-id="<%= friend.id %>">
+        <div class="post-info friend-info">
+          <% if (friend.avatar) { %>
+            <mdui-avatar src="<%= friend.avatar %>"></mdui-avatar>
+          <% } %>
+          <div>
+            <h3><%= friend.title || friend.url %></h3>
+            <span>
+              <a href="<%= friend.url %>" target="_blank" rel="noopener noreferrer"><%= friend.url %></a>
+              <% if (friend.descr) { %> · <%= friend.descr %><% } %>
+              · 排序: <%= friend.sortOrder %>
+            </span>
+          </div>
+        </div>
+        <div class="post-actions">
+          <mdui-button
+            variant="text"
+            href="/admin/friends/<%= friend.id %>/edit/"
+            data-action="edit-friend"
+            data-id="<%= friend.id %>"
+          >✏️ 编辑</mdui-button>
+          <mdui-button
+            variant="text"
+            data-action="delete-friend"
+            data-id="<%= friend.id %>"
+            data-title="<%= friend.title %>"
+          >🗑️ 删除</mdui-button>
+        </div>
+      </div>
+    <% }); %>
+  </mdui-card>
+<% } %>

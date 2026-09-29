@@ -1,0 +1,127 @@
+<%
+  /**
+   * admin/editor.ejs — bilingual post editor.
+   *
+   * `post` is always an object (a draft is supplied for /posts/new/) so the
+   * template needs no null checks. Field values go through the escaped output
+   * tag, which HTML-escapes them — safe inside attribute values.
+   *
+   * The Markdown toolbar buttons carry data-action plus data-wrap/data-snippet
+   * so /js/admin.js can implement insertion without any inline handler.
+   *
+   * `notFound` is optional: routes only pass it when the requested file is
+   * missing, so it is normalised here instead of being tested directly.
+   */
+  const missing = typeof notFound === 'undefined' ? '' : notFound;
+%>
+<div class="page-header">
+  <h1><%= isNew ? '✏️ 新建文章' : '✏️ 编辑文章' %></h1>
+  <div class="page-header-actions">
+    <mdui-button variant="text" href="/admin/posts/">取消</mdui-button>
+    <mdui-button variant="filled" data-action="save-post">💾 保存</mdui-button>
+  </div>
+</div>
+
+<% if (missing) { %>
+  <div class="form-warning">文章未找到：<%= missing %>（保存将创建一篇新文章）</div>
+<% } %>
+<div id="editor-error" class="form-error" hidden></div>
+
+<mdui-card class="card">
+  <div class="form-row">
+    <mdui-text-field
+      id="ed-slug"
+      label="标识（Slug）"
+      placeholder="article-slug"
+      value="<%= post.slug %>"
+      helper="仅限字母、数字、点、下划线或短横线"
+      <%= isNew ? '' : 'readonly' %>
+    ></mdui-text-field>
+    <mdui-text-field
+      id="ed-date"
+      label="日期"
+      type="date"
+      value="<%= post.date %>"
+    ></mdui-text-field>
+  </div>
+
+  <div class="form-row">
+    <mdui-text-field
+      id="ed-title"
+      label="标题 (中文)"
+      placeholder="文章标题"
+      value="<%= post.title %>"
+    ></mdui-text-field>
+    <mdui-text-field
+      id="ed-title-en"
+      label="标题 (English)"
+      placeholder="Post title"
+      value="<%= post.titleEn %>"
+    ></mdui-text-field>
+  </div>
+
+  <div class="form-row">
+    <mdui-text-field
+      id="ed-cover"
+      label="封面图"
+      placeholder="https://..."
+      value="<%= post.cover %>"
+    ></mdui-text-field>
+  </div>
+
+  <div class="form-row">
+    <mdui-text-field
+      id="ed-tags"
+      label="标签 (逗号分隔)"
+      placeholder="tag1, tag2"
+      value="<%= post.tags.join(', ') %>"
+    ></mdui-text-field>
+    <mdui-text-field
+      id="ed-cats"
+      label="分类 (逗号分隔)"
+      placeholder="cat1, cat2"
+      value="<%= post.categories.join(', ') %>"
+    ></mdui-text-field>
+  </div>
+
+  <div class="form-row">
+    <mdui-text-field id="ed-tags-en" label="标签 (EN)" placeholder="tag1, tag2"></mdui-text-field>
+    <mdui-text-field id="ed-cats-en" label="分类 (EN)" placeholder="cat1, cat2"></mdui-text-field>
+  </div>
+
+  <div class="form-row">
+    <mdui-switch id="ed-archived" <%= post.archived ? 'checked' : '' %>>归档</mdui-switch>
+  </div>
+</mdui-card>
+
+<mdui-card class="card">
+  <h2>内容 (中文)</h2>
+  <div class="md-toolbar">
+    <mdui-button id="tb-bold" variant="text" title="加粗" data-action="md-bold" data-wrap="**" data-snippet="**加粗**">𝐁</mdui-button>
+    <mdui-button id="tb-italic" variant="text" title="斜体" data-action="md-italic" data-wrap="*" data-snippet="*斜体*">𝑰</mdui-button>
+    <mdui-button id="tb-heading" variant="text" title="标题" data-action="md-heading" data-snippet="&#10;## 标题&#10;">H</mdui-button>
+    <mdui-button id="tb-list" variant="text" title="列表" data-action="md-list" data-snippet="&#10;- 列表项&#10;">≡</mdui-button>
+    <mdui-button id="tb-code" variant="text" title="代码" data-action="md-code" data-snippet="&#10;```&#10;代码&#10;```&#10;">&lt;/&gt;</mdui-button>
+    <mdui-button id="tb-quote" variant="text" title="引用" data-action="md-quote" data-snippet="&#10;&gt; 引用&#10;">❝</mdui-button>
+  </div>
+  <mdui-text-field
+    id="ed-content"
+    label="内容 (中文)"
+    rows="18"
+    variant="outlined"
+    placeholder="使用 Markdown 编写内容..."
+    value="<%= post.content %>"
+  ></mdui-text-field>
+</mdui-card>
+
+<mdui-card class="card">
+  <h2>内容 (English)</h2>
+  <mdui-text-field
+    id="ed-content-en"
+    label="Content (English)"
+    rows="12"
+    variant="outlined"
+    placeholder="English content in Markdown..."
+    value="<%= post.contentEn %>"
+  ></mdui-text-field>
+</mdui-card>

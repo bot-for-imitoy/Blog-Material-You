@@ -1,23 +1,33 @@
+# Blog Material You — single-container deployment.
+#
+# There is no database service: the blog is file-based (Hexo-like), so the only
+# state to persist is ./blog (content) plus the named volume for blog/data
+# (credentials, comments, visitors, settings).
 services:
   blog:
     build: .
     container_name: blog-material-you
     ports:
       - "8000:30999"
-      - "8002:31000"
     environment:
       - BMY_BLOG_DIR=/app/blog
-      # ===== Database (MariaDB/MySQL on the Docker host) =====
-      # The image does NOT embed a database server — the blog connects to an
-      # external MariaDB/MySQL via a connection URL (`mariadb://` or
-      # `mysql://` are both accepted). The default below points at the
-      # database running on the Docker host; change the credentials to match
-      # your server, and replace host.docker.internal if it is elsewhere.
-      - BMY_DB_URL=mariadb://blogyou:blog-db-pass-2025@host.docker.internal:3306/blogyou
-      # ===== S3 image hosting (external S3-compatible store, default off) =====
-      # Optional: set BMY_IMGHOST_PROVIDER=s3 plus the BMY_S3_* values (e.g.
-      # in your .env) to store uploaded images on MinIO / AWS S3 / Cloudflare
-      # R2 / any S3-compatible service instead of the built-in SFTP provider.
+      # Canonical site URL — used for canonical tags, the sitemap and RSS.
+      # Set this to the public address of your deployment.
+      - BMY_SITE_URL=${BMY_SITE_URL:-}
+      # HMAC key for admin sessions. Leave empty and the app generates one into
+      # blog/data/secret.json on first start; set it explicitly so sessions
+      # survive a volume reset.
+      - BMY_SESSION_SECRET=${BMY_SESSION_SECRET:-}
+      # First-run admin bootstrap. Only applied while no admin account exists,
+      # so a password changed in the UI is never reverted on restart.
+      - BMY_ADMIN_USER=${BMY_ADMIN_USER:-admin}
+      - BMY_ADMIN_PASS=${BMY_ADMIN_PASS:-}
+      # Forgotten password? Set BMY_ADMIN_RESET=1 together with BMY_ADMIN_PASS to
+      # force a reset on the next start, then remove both again.
+      - BMY_ADMIN_RESET=${BMY_ADMIN_RESET:-}
+      # ===== Image hosting (optional) =====
+      # Set BMY_IMGHOST_PROVIDER=s3 plus the BMY_S3_* values to store uploaded
+      # images on MinIO / AWS S3 / Cloudflare R2 instead of the local disk.
       - BMY_IMGHOST_PROVIDER=${BMY_IMGHOST_PROVIDER:-}
       - BMY_S3_ENDPOINT=${BMY_S3_ENDPOINT:-}
       - BMY_S3_BUCKET=${BMY_S3_BUCKET:-}
@@ -27,24 +37,21 @@ services:
       - BMY_S3_PREFIX=${BMY_S3_PREFIX:-}
       - BMY_S3_PUBLIC_URL_BASE=${BMY_S3_PUBLIC_URL_BASE:-}
       - BMY_S3_INSECURE=${BMY_S3_INSECURE:-0}
-      # S3 TLS / mutual TLS (paths inside the container; mount certs):
+      # S3 TLS / mutual TLS (paths inside the container; mount your certs):
       # - BMY_S3_SSL_CA=/certs/ca.pem
-      # - BMY_S3_SSL_CERT=/certs/client.crt
-      # - BMY_S3_SSL_KEY=/certs/client.key
-      # - ./certs:/certs:ro
-    extra_hosts:
-      # Resolve host.docker.internal to the Docker host (Linux), so the
-      # container can reach the database listening on the host machine.
-      - "host.docker.internal:host-gateway"
+      # - BMY_S3_SSL_CERT=/certs/client-bundle.pem
+      # - BMY_S3_SSL_KEY=/certs/client-bundle.pem
     volumes:
-      # Persist admin credentials and runtime data
-      - blog_data_etc:/app/blog/data
-      # Mount posts/pages/friends/talks for easy editing from host
+      # Credentials, comments, visitors, TOTP state, image-host settings.
+      - blog_data:/app/blog/data
+      # Content — mounted so it can be edited from the host.
       - ./blog/posts:/app/blog/posts
       - ./blog/pages:/app/blog/pages
-      - ./blog/friends:/app/blog/friends
       - ./blog/talks:/app/blog/talks
+      - ./blog/friends:/app/blog/friends
+      # Uploaded avatars.
+      - ./blog/public/avatars:/app/blog/public/avatars
     restart: unless-stopped
 
 volumes:
-  blog_data_etc:
+  blog_data:

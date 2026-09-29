@@ -1,0 +1,74 @@
+<div class="content status-content">
+  <mdui-card variant="filled" class="header-card">
+    <div class="header-title"><%= t('page_status') %></div>
+    <div class="header-content"><%= t('page_status_desc') %></div>
+  </mdui-card>
+
+  <mdui-card variant="elevated" class="status-card">
+    <mdui-list>
+      <mdui-list-item>
+        <mdui-icon slot="icon" src="/icon/monitoring.svg"></mdui-icon>
+        <div class="mdui-list-item-content">
+          <div class="mdui-list-item-title">服务状态</div>
+          <div class="mdui-list-item-text" id="status-online"><%= t('loading') %></div>
+        </div>
+      </mdui-list-item>
+      <mdui-list-item>
+        <mdui-icon slot="icon" src="/icon/person.svg"></mdui-icon>
+        <div class="mdui-list-item-content">
+          <div class="mdui-list-item-title"><%= t('status_registered') %></div>
+          <div class="mdui-list-item-text" id="status-users">—</div>
+        </div>
+      </mdui-list-item>
+      <mdui-list-item>
+        <mdui-icon slot="icon" src="/icon/archive.svg"></mdui-icon>
+        <div class="mdui-list-item-content">
+          <div class="mdui-list-item-title"><%= t('status_uptime') %></div>
+          <div class="mdui-list-item-text" id="status-uptime">—</div>
+        </div>
+      </mdui-list-item>
+      <mdui-list-item>
+        <mdui-icon slot="icon" src="/icon/article.svg"></mdui-icon>
+        <div class="mdui-list-item-content">
+          <div class="mdui-list-item-title"><%= t('status_posts') %></div>
+          <div class="mdui-list-item-text" id="status-posts">—</div>
+        </div>
+      </mdui-list-item>
+      <mdui-list-item>
+        <mdui-icon slot="icon" src="/icon/chat.svg"></mdui-icon>
+        <div class="mdui-list-item-content">
+          <div class="mdui-list-item-title"><%= t('status_comments') %></div>
+          <div class="mdui-list-item-text" id="status-comments">—</div>
+        </div>
+      </mdui-list-item>
+      <mdui-list-item>
+        <mdui-icon slot="icon" src="/icon/person.svg"></mdui-icon>
+        <div class="mdui-list-item-content">
+          <div class="mdui-list-item-title"><%= t('status_memory') %></div>
+          <div class="mdui-list-item-text" id="status-memory">—</div>
+        </div>
+      </mdui-list-item>
+      <mdui-list-item>
+        <mdui-icon slot="icon" src="/icon/person.svg"></mdui-icon>
+        <div class="mdui-list-item-content">
+          <div class="mdui-list-item-title"><%= t('status_node') %></div>
+          <div class="mdui-list-item-text" id="status-node">—</div>
+        </div>
+      </mdui-list-item>
+    </mdui-list>
+  </mdui-card>
+
+  <mdui-card variant="elevated" class="status-card" id="status-auth-card">
+    <div class="status-card-body">
+      <div class="mdui-list-item-text"><%= t('auth_required') %></div>
+      <mdui-button variant="filled" href="/auth/"><%= t('auth_check') %></mdui-button>
+    </div>
+  </mdui-card>
+
+  <mdui-card variant="elevated" class="status-card" id="status-calendar">
+    <div class="status-card-body">
+      <div class="mdui-list-item-title">📅 Calendar</div>
+      <div class="mdui-list-item-text" id="status-calendar-body"><%= t('loading') %></div>
+    </div>
+  </mdui-card>
+</div>

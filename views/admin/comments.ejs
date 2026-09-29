@@ -1,0 +1,39 @@
+<%
+  /**
+   * admin/comments.ejs — every comment, newest first.
+   * `mail` is deliberately shown to the admin only (this page is auth-gated).
+   */
+%>
+<div class="page-header">
+  <h1>💬 评论</h1>
+</div>
+
+<% if (comments.length === 0) { %>
+  <div class="empty-state">暂无评论</div>
+<% } else { %>
+  <mdui-card>
+    <% comments.forEach((comment) => { %>
+      <div class="post-item" data-id="<%= comment.id %>">
+        <div class="post-info">
+          <h3>
+            <%= comment.nick || '匿名' %>
+            <% if (comment.mail) { %><span class="comment-mail">&lt;<%= comment.mail %>&gt;</span><% } %>
+          </h3>
+          <div class="talk-content"><%= comment.comment %></div>
+          <span>
+            <%= formatDateTime(comment.createTime) %>
+            <% if (comment.url) { %> · <a href="<%= comment.url %>"><%= comment.url %></a><% } %>
+            <% if (comment.link) { %> · <a href="<%= comment.link %>" target="_blank" rel="noopener noreferrer nofollow"><%= comment.link %></a><% } %>
+          </span>
+        </div>
+        <div class="post-actions">
+          <mdui-button
+            variant="text"
+            data-action="delete-comment"
+            data-id="<%= comment.id %>"
+          >🗑️ 删除</mdui-button>
+        </div>
+      </div>
+    <% }); %>
+  </mdui-card>
+<% } %>

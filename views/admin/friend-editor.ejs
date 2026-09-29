@@ -1,0 +1,38 @@
+<%
+  /**
+   * admin/friend-editor.ejs — add/edit a friend link.
+   * `friend` is always an object; `isNew` distinguishes POST from PUT.
+   * `notFound` is optional, so it is normalised rather than tested directly.
+   */
+  const missing = typeof notFound === 'undefined' ? '' : notFound;
+%>
+<div class="page-header">
+  <h1><%= isNew ? '➕ 添加友链' : '✏️ 编辑友链' %></h1>
+  <div class="page-header-actions">
+    <mdui-button variant="text" href="/admin/friends/">取消</mdui-button>
+    <mdui-button variant="filled" data-action="save-friend">💾 保存</mdui-button>
+  </div>
+</div>
+
+<% if (missing) { %>
+  <div class="form-warning">友链未找到：<%= missing %></div>
+<% } %>
+<div id="friend-error" class="form-error" hidden></div>
+
+<mdui-card class="card">
+  <div class="form-row">
+    <mdui-text-field id="f-title" label="标题 *" placeholder="站点名称" value="<%= friend.title %>"></mdui-text-field>
+    <mdui-text-field id="f-url" label="链接 *" placeholder="https://example.com" value="<%= friend.url %>"></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-text-field id="f-title-en" label="标题 (English)" placeholder="Site name" value="<%= friend.titleEn %>"></mdui-text-field>
+    <mdui-text-field id="f-avatar" label="头像 URL" placeholder="https://..." value="<%= friend.avatar %>"></mdui-text-field>
+    <mdui-text-field id="f-sort" label="排序" type="number" value="<%= friend.sortOrder %>"></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-text-field id="f-descr" label="描述" rows="3" value="<%= friend.descr %>"></mdui-text-field>
+    <mdui-text-field id="f-descr-en" label="描述 (English)" rows="3" value="<%= friend.descrEn %>"></mdui-text-field>
+  </div>
+  <%# The id is carried by the URL when editing; the API needs it in the body. %>
+  <input type="hidden" id="f-id" value="<%= friend.id %>">
+</mdui-card>

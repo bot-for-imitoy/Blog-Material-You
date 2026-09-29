@@ -279,6 +279,19 @@
     pointer-events: none;
 }
 
+/* Error state: app.js adds `.error` when an image fails to load. The image
+   stays hidden and the placeholder keeps its space, but the message turns into
+   the error colour so the failure is obvious instead of an empty box. */
+.markdown-content .image-wrapper.error .image-skeleton,
+.post-header-cover-wrapper.error .image-skeleton {
+    color: rgb(var(--mdui-color-error));
+}
+
+.markdown-content .image-wrapper.error img,
+.post-header-cover-wrapper.error img {
+    opacity: 0;
+}
+
 /* ===== KaTeX Math Rendering ===== */
 .markdown-content .katex-display {
     overflow-x: auto;

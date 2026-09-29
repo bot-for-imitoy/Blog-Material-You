@@ -1,0 +1,36 @@
+<div class="content auth-content">
+  <mdui-card variant="filled" class="header-card">
+    <div class="header-title">🔐 <%= t('page_auth') %></div>
+    <div class="header-content"><%= t('authDesc') %></div>
+  </mdui-card>
+
+  <% if (authed) { %>
+  <mdui-card variant="elevated" class="auth-card" id="auth-card">
+    <div class="auth-card-body">
+      <div class="auth-avatar">👤</div>
+      <div class="auth-name"><%= authUser || authEmail %></div>
+      <div class="auth-email"><%= authEmail %></div>
+      <div class="auth-perms">
+        <%= t('auth_permissions') %>：<%= (authPerms && authPerms.length) ? authPerms.join('、') : t('admin_permissions_none') %>
+      </div>
+      <form method="post" action="/auth/logout" id="auth-logout-form">
+        <mdui-button variant="text" type="submit"><%= t('auth_logout') %></mdui-button>
+      </form>
+    </div>
+  </mdui-card>
+  <% } else { %>
+  <mdui-card variant="elevated" class="auth-card" id="auth-card">
+    <div class="auth-card-body">
+      <mdui-text-field
+        id="auth-email-input"
+        type="email"
+        label="<%= t('auth_email_label') %>"
+        placeholder="<%= t('auth_email_placeholder') %>"
+        variant="outlined"
+      ></mdui-text-field>
+      <mdui-button id="auth-submit-btn" variant="filled" data-action="auth-check"><%= t('auth_check') %></mdui-button>
+      <p id="auth-result" class="auth-result" role="status" aria-live="polite"></p>
+    </div>
+  </mdui-card>
+  <% } %>
+</div>

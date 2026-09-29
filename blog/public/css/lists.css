@@ -63,3 +63,214 @@
   font-size: 14px;
   color: rgb(var(--mdui-color-outline));
 }
+
+/* ==========================================================================
+   Shared small components
+   The server-rendered views (and the few elements the page scripts create)
+   use these classes; they are collected here so every page that includes
+   lists.css gets them without page-specific stylesheets.
+   ======================================================================== */
+
+/* Empty states: "no posts", "no friends", "no upcoming events", … */
+.empty-hint {
+  margin: 16px 0;
+  padding: 32px 16px;
+  text-align: center;
+  font-size: 15px;
+  color: rgb(var(--mdui-color-outline));
+}
+
+.empty-hint a {
+  color: rgb(var(--mdui-color-primary));
+}
+
+/* ===== Talks (/talks/) ===== */
+.talk-item {
+  padding: 8px 0;
+}
+
+/* Timestamp under a talk. */
+.talk-time {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: rgb(var(--mdui-color-outline));
+}
+
+/* ===== Friends (/friends/) ===== */
+.friends-wrapper {
+  padding: 16px;
+}
+
+/* Avatar image in a friend list item (the icon slot is 24px by default). */
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ===== Visitor verification (/auth/) ===== */
+.auth-content {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.auth-card {
+  margin-top: 16px;
+  padding: 24px;
+}
+
+.auth-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Emoji avatar / display name / address of the verified visitor. */
+.auth-avatar {
+  font-size: 48px;
+  margin-bottom: 4px;
+}
+
+.auth-name {
+  font-size: 18px;
+  font-weight: 500;
+  color: rgb(var(--mdui-color-on-surface));
+}
+
+.auth-email {
+  font-size: 14px;
+  color: rgb(var(--mdui-color-outline));
+}
+
+.auth-perms {
+  font-size: 13px;
+  color: rgb(var(--mdui-color-on-surface-variant));
+  text-align: center;
+}
+
+/* Result line of the email check (aria-live region in the view). */
+.auth-result {
+  margin: 12px 0 0 0;
+  font-size: 14px;
+  color: rgb(var(--mdui-color-on-surface-variant));
+}
+
+.auth-result-error {
+  color: rgb(var(--mdui-color-error));
+}
+
+/* Message span inside .auth-result. It is kept separate from the registration
+   button so auth.js can replace the text without removing the button. */
+.auth-result-text {
+  display: inline-block;
+  max-width: 100%;
+}
+
+/* Inline "send registration request" button rendered by auth.js. */
+.auth-register-btn {
+  margin-left: 8px;
+}
+
+/* ===== Status (/status/) ===== */
+.status-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.status-card {
+  width: 100%;
+  padding: 8px 0;
+}
+
+.status-card-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 24px;
+}
+
+/* Calendar rows rendered by status.js. */
+.status-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.status-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* Colour marker of a calendar event; the colour itself is set by status.js. */
+.status-event-dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background-color: rgb(var(--mdui-color-primary));
+}
+
+.status-event-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-event-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: rgb(var(--mdui-color-on-surface));
+}
+
+.status-event-date {
+  font-size: 13px;
+  color: rgb(var(--mdui-color-primary));
+}
+
+.status-event-desc {
+  font-size: 13px;
+  color: rgb(var(--mdui-color-outline));
+}
+
+/* ===== Comments (/post/<slug>/) ===== */
+/* Comment bodies are plain text, so line breaks have to be preserved. */
+.comment-content {
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: rgb(var(--mdui-color-on-surface));
+}
+
+/* ===== About page easter egg ===== */
+/* app.js adds `.pulse` once per click on the about header/avatar. */
+.about-avatar.pulse {
+  animation: about-avatar-pulse 0.3s ease;
+}
+
+@keyframes about-avatar-pulse {
+  from {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-avatar.pulse {
+    animation: none;
+  }
+}

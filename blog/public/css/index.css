@@ -19,9 +19,57 @@
     color: rgb(var(--mdui-color-on-primary-container));
 }
 
-.content-container .card-container{
-    width: calc(100vw - 48px);
-    position: relative;
+/* ===== Post masonry =====
+   The card list used to be laid out by JavaScript (`layoutWaterfall`), which
+   absolutely positioned every card after measuring it. CSS multi-column does the
+   same job declaratively: no measuring, no resize listener and no re-layout
+   once cover images have loaded.
+
+   Breakpoints mirror the removed script (3 columns from 840px, 2 from 428px,
+   1 below). Those numbers were measured against the *content box*: the drawer
+   is docked from 840px upwards and reserves 22.5rem, so a viewport-only media
+   query would squeeze three columns into ~140px on a 840–1200px screen.
+   Browsers with container queries therefore measure the real content box, and
+   the media queries below remain as the fallback. */
+.content-container .card-container {
+    width: 100%;
+    columns: 1;
+    column-gap: 16px;
+}
+
+@media (min-width: 428px) {
+    .content-container .card-container {
+        columns: 2;
+    }
+}
+
+@media (min-width: 840px) {
+    .content-container .card-container {
+        columns: 3;
+    }
+}
+
+@supports (container-type: inline-size) {
+    /* `:has()` keeps the containment on the home page only. `container-type`
+       implies layout containment, which would turn the fixed /2048/ overlay
+       into an absolutely positioned box. */
+    .content-container:has(> .card-container) {
+        container-type: inline-size;
+    }
+
+    @container (min-width: 428px) {
+        /* Same selector as the fallback so specificity ties are decided by
+           source order (this block comes last). */
+        .content-container .card-container {
+            columns: 2;
+        }
+    }
+
+    @container (min-width: 840px) {
+        .content-container .card-container {
+            columns: 3;
+        }
+    }
 }
 
 .index-bottom {

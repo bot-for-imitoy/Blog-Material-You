@@ -1,0 +1,18 @@
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= title %></div>
+  <div class="header-content"><%= description %></div>
+</mdui-card>
+
+<mdui-list class="posts-list">
+<% if (!items || items.length === 0) { %>
+  <p class="empty-hint"><%= t('no_posts') %></p>
+<% } %>
+<% (items || []).forEach(function (item) { %>
+  <mdui-list-item href="/post/<%= urlEncode(item.slug) %>">
+    <div class="mdui-list-item-content">
+      <div class="mdui-list-item-title"><%= item.title %></div>
+      <div class="mdui-list-item-text"><%= formatDate(item.date) %></div>
+    </div>
+  </mdui-list-item>
+<% }); %>
+</mdui-list>

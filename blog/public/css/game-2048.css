@@ -1,0 +1,302 @@
+/**
+ * game-2048.css — styles for the /2048/ easter egg.
+ *
+ * Ported from the inline <style> block that used to live in the game template
+ * (blog/public/templates/game/2048.etlua). Inline styles are not allowed in the
+ * server-rendered views, so the rules live here and are pulled in through
+ * VIEW_STYLES in src/routes/public-pages.ts.
+ *
+ * Colours come from the mdui design tokens wherever possible, so the game
+ * follows the Material You palette and both colour schemes.
+ */
+
+/* Full-viewport layer: the game replaces the page instead of embedding in it. */
+.game-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgb(var(--mdui-color-surface));
+    animation: game-fade-in 0.3s ease;
+}
+
+@keyframes game-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.game-container {
+    text-align: center;
+}
+
+.game-title {
+    font-size: 28px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    color: rgb(var(--mdui-color-primary));
+}
+
+.game-subtitle {
+    font-size: 14px;
+    color: rgb(var(--mdui-color-outline));
+    margin-bottom: 12px;
+}
+
+/* ===== Score boxes ===== */
+/* `.game-score` is the class the original template used; `.game-score-box` is
+   the one the current view uses. Both are styled identically. */
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    max-width: 400px;
+    margin: 0 auto 8px;
+    padding: 0 4px;
+}
+
+.game-score,
+.game-score-box {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 88px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: rgb(var(--mdui-color-outline));
+    background: rgba(var(--mdui-color-outline), 0.15);
+}
+
+.game-score span,
+.game-score-box span {
+    font-size: 20px;
+    font-weight: 600;
+    color: rgb(var(--mdui-color-primary));
+}
+
+/* ===== Board ===== */
+/* The wrapper is the positioning context for the win/lose overlays. */
+.game-grid-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.grid-2048 {
+    display: inline-grid;
+    grid-template-columns: repeat(4, 88px);
+    gap: 6px;
+    padding: 6px;
+    border-radius: 8px;
+    background: rgba(var(--mdui-color-outline), 0.15);
+    user-select: none;
+}
+
+.cell-2048 {
+    width: 88px;
+    height: 88px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    font-weight: 700;
+    border-radius: 4px;
+    background: rgba(var(--mdui-color-outline), 0.08);
+    color: rgb(var(--mdui-color-on-surface));
+    transition: background 0.08s ease, color 0.08s ease;
+}
+
+/* Empty cell. */
+.cell-0 {
+    background: rgba(var(--mdui-color-outline), 0.08);
+}
+
+/* Classic 2048 palette: warm, high-contrast tiles that stay legible on the
+   light *and* dark Material You surfaces. */
+.cell-2 { background: #eee4da; color: #776e65; }
+.cell-4 { background: #ede0c8; color: #776e65; }
+.cell-8 { background: #f2b179; color: #f9f6f2; }
+.cell-16 { background: #f59563; color: #f9f6f2; }
+.cell-32 { background: #f67c5f; color: #f9f6f2; }
+.cell-64 { background: #f65e3b; color: #f9f6f2; }
+.cell-128 { background: #edcf72; color: #f9f6f2; font-size: 28px; }
+.cell-256 { background: #edcc61; color: #f9f6f2; font-size: 28px; }
+.cell-512 { background: #edc850; color: #f9f6f2; font-size: 28px; }
+.cell-1024 { background: #edc53f; color: #f9f6f2; font-size: 22px; }
+.cell-2048 {
+    background: #edc22e;
+    color: #f9f6f2;
+    font-size: 22px;
+    box-shadow: 0 0 30px 10px rgba(237, 194, 46, 0.3);
+}
+
+/* Every value above 2048 (4096, 8192, …) shares this colour. */
+.cell-super {
+    background: #3c3a32;
+    color: #f9f6f2;
+    font-size: 18px;
+}
+
+/* ===== Controls ===== */
+.game-controls {
+    margin-top: 16px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.game-hint {
+    font-size: 13px;
+    color: rgb(var(--mdui-color-outline));
+    margin-top: 10px;
+}
+
+.game-close-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 10002;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(var(--mdui-color-outline), 0.2);
+    color: rgb(var(--mdui-color-on-surface));
+    font-size: 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.game-close-btn:hover {
+    background: rgba(var(--mdui-color-outline), 0.4);
+}
+
+/* ===== Win / lose overlays ===== */
+/* Injected by game-2048.js into .game-grid-wrap, covering the board only. */
+.game-overlay-won,
+.game-overlay-lost {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    animation: game-fade-in 0.3s;
+}
+
+.game-overlay-won {
+    background: rgba(237, 194, 46, 0.5);
+}
+
+.game-overlay-lost {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.game-overlay-msg {
+    padding: 24px;
+    border-radius: 12px;
+    text-align: center;
+    background: rgb(var(--mdui-color-surface));
+}
+
+.game-overlay-msg h2 {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+}
+
+.game-overlay-text {
+    margin: 0 0 12px 0;
+    color: rgb(var(--mdui-color-outline));
+}
+
+/* ===== Small screens ===== */
+@media (max-width: 480px) {
+    .grid-2048 {
+        grid-template-columns: repeat(4, 68px);
+        gap: 4px;
+        padding: 4px;
+    }
+
+    .cell-2048 {
+        width: 68px;
+        height: 68px;
+        font-size: 24px;
+    }
+
+    .cell-128,
+    .cell-256,
+    .cell-512 {
+        font-size: 20px;
+    }
+
+    .cell-1024,
+    .cell-2048 {
+        font-size: 16px;
+    }
+
+    .cell-super {
+        font-size: 14px;
+    }
+
+    .game-score,
+    .game-score-box {
+        min-width: 72px;
+        padding: 4px 10px;
+    }
+}
+
+/* ===== Dark scheme ===== */
+/* The palette above is scheme-agnostic; only the neutral surfaces need a nudge
+   so the board does not glow against a dark background. */
+@media (prefers-color-scheme: dark) {
+    .grid-2048 {
+        background: rgba(var(--mdui-color-outline), 0.25);
+    }
+
+    .cell-2048,
+    .cell-0 {
+        background: rgba(var(--mdui-color-outline), 0.14);
+    }
+
+    .cell-2048.cell-2 { background: #eee4da; }
+    .cell-2048.cell-4 { background: #ede0c8; }
+    .cell-2048.cell-8 { background: #f2b179; }
+    .cell-2048.cell-16 { background: #f59563; }
+    .cell-2048.cell-32 { background: #f67c5f; }
+    .cell-2048.cell-64 { background: #f65e3b; }
+    .cell-2048.cell-128 { background: #edcf72; }
+    .cell-2048.cell-256 { background: #edcc61; }
+    .cell-2048.cell-512 { background: #edc850; }
+    .cell-2048.cell-1024 { background: #edc53f; }
+    .cell-2048.cell-2048 {
+        background: #edc22e;
+        box-shadow: 0 0 24px 6px rgba(237, 194, 46, 0.22);
+    }
+
+    .cell-2048.cell-super {
+        background: #3c3a32;
+    }
+}
+
+/* ===== Reduced motion ===== */
+@media (prefers-reduced-motion: reduce) {
+    .game-overlay,
+    .game-overlay-won,
+    .game-overlay-lost,
+    .cell-2048 {
+        animation: none;
+        transition: none;
+    }
+}

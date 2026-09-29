@@ -1,0 +1,57 @@
+<%
+  /**
+   * admin/dashboard.ejs — overview: stat cards + the five newest posts.
+   * `stats` and `recentPosts` come from the dashboard route.
+   */
+%>
+<div class="page-header">
+  <h1>📊 控制台</h1>
+</div>
+
+<div class="card-grid">
+  <mdui-card class="stat-card">
+    <div class="stat-number"><%= stats.posts %></div>
+    <div class="stat-label">已发布文章</div>
+  </mdui-card>
+  <mdui-card class="stat-card">
+    <div class="stat-number"><%= stats.archived %></div>
+    <div class="stat-label">归档文章</div>
+  </mdui-card>
+  <mdui-card class="stat-card">
+    <div class="stat-number"><%= stats.comments %></div>
+    <div class="stat-label">评论</div>
+  </mdui-card>
+  <mdui-card class="stat-card">
+    <div class="stat-number"><%= stats.talks %></div>
+    <div class="stat-label">动态</div>
+  </mdui-card>
+  <mdui-card class="stat-card">
+    <div class="stat-number"><%= stats.tags %></div>
+    <div class="stat-label">标签</div>
+  </mdui-card>
+</div>
+
+<div class="section-title">最近文章</div>
+<% if (recentPosts.length === 0) { %>
+  <div class="empty-state">暂无文章，点击“新建文章”开始吧</div>
+<% } else { %>
+  <mdui-card>
+    <% recentPosts.forEach((post) => { %>
+      <div class="post-item">
+        <div class="post-info">
+          <h3>
+            <a href="/admin/posts/<%= encodeURIComponent(post.slug) %>/edit/"><%= post.title || post.slug %></a>
+            <% if (post.archived) { %><span class="badge badge-archived">📦 归档</span><% } %>
+          </h3>
+          <span><%= post.date %> · <%= post.slug %></span>
+        </div>
+        <div class="post-actions">
+          <mdui-button
+            variant="text"
+            href="/admin/posts/<%= encodeURIComponent(post.slug) %>/edit/"
+          >✏️ 编辑</mdui-button>
+        </div>
+      </div>
+    <% }); %>
+  </mdui-card>
+<% } %>

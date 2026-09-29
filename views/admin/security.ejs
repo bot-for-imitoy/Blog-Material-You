@@ -1,0 +1,115 @@
+<%
+  /**
+   * admin/security.ejs — two-factor authentication + password change.
+   *
+   * Three TOTP states are represented:
+   *   已启用   enabled && !hasPending
+   *   待验证   hasPending (a secret was generated but not yet confirmed)
+   *   未启用   !enabled && !hasPending
+   *
+   * SECURITY: only the PENDING secret reaches this template. Once 2FA is
+   * active the secret is never rendered, so a compromised admin session cannot
+   * exfiltrate the second factor.
+   */
+  const enabled = totp.enabled;
+  const hasPending = totp.hasPending;
+%>
+<div class="page-header">
+  <h1>🔐 安全设置</h1>
+</div>
+
+<div id="security-error" class="form-error" hidden></div>
+
+<% if (enabled) { %>
+  <mdui-card class="card">
+    <h2>🔐 两步验证 <span class="status-badge status-enabled">✅ 已启用</span></h2>
+    <p class="desc">两步验证已开启。每次登录时需要输入密码和身份验证器中的验证码。</p>
+    <p class="warn"><%= t('admin_totp_save_warning') %></p>
+    <div class="form-actions">
+      <mdui-button variant="outlined" data-action="totp-regenerate">🔄 重新生成密钥</mdui-button>
+      <mdui-button variant="filled" data-action="totp-disable">🚫 禁用</mdui-button>
+    </div>
+  </mdui-card>
+<% } else if (!hasPending) { %>
+  <mdui-card class="card">
+    <h2>🔐 两步验证 <span class="status-badge status-disabled">未启用</span></h2>
+    <p class="desc">开启两步验证后，登录时需要额外输入身份验证器中的验证码，增强账户安全性。</p>
+    <div class="form-actions">
+      <mdui-button variant="filled" data-action="totp-start">🔐 启用</mdui-button>
+    </div>
+  </mdui-card>
+<% } %>
+
+<% if (hasPending) { %>
+  <mdui-card class="card" id="totp-setup-card">
+    <h2>🔐 设置两步验证 <span class="status-badge status-disabled">待验证</span></h2>
+    <p class="desc">使用身份验证器应用（如 Google Authenticator、Authy）扫描此二维码或手动输入密钥，然后填写 6 位验证码完成绑定。</p>
+
+    <%# The QR image is populated by /js/admin.js from data-uri; the manual
+        secret below keeps the page usable without JavaScript. %>
+    <img id="totp-qr" class="totp-qr" alt="TOTP 二维码" data-uri="<%= totp.provisioningUri %>" hidden>
+    <div class="totp-secret-display" id="totp-secret"><%= totp.secret %></div>
+    <div class="form-group">
+      <label>手动输入密钥</label>
+      <code id="totp-uri" class="totp-uri"><%= totp.provisioningUri %></code>
+    </div>
+
+    <div class="form-row">
+      <mdui-text-field
+        id="totp-verify-code"
+        label="验证码"
+        placeholder="000000"
+        maxlength="6"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+      ></mdui-text-field>
+    </div>
+    <div class="form-actions">
+      <mdui-button variant="filled" data-action="totp-verify">✅ 验证并启用</mdui-button>
+      <mdui-button variant="outlined" data-action="totp-cancel">取消</mdui-button>
+    </div>
+  </mdui-card>
+<% } %>
+
+<mdui-card class="card">
+  <h2>🔑 修改密码</h2>
+  <div id="cp-error" class="form-error" hidden></div>
+  <div class="form-row">
+    <mdui-text-field
+      id="cp-old"
+      label="当前密码"
+      type="password"
+      toggle-password
+      placeholder="输入当前密码"
+      autocomplete="current-password"
+    ></mdui-text-field>
+    <mdui-text-field
+      id="cp-user"
+      label="新用户名（可选）"
+      placeholder="留空则不修改"
+      autocomplete="username"
+    ></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-text-field
+      id="cp-new"
+      label="新密码"
+      type="password"
+      toggle-password
+      helper="至少 6 位"
+      placeholder="至少6位"
+      autocomplete="new-password"
+    ></mdui-text-field>
+    <mdui-text-field
+      id="cp-new2"
+      label="确认新密码"
+      type="password"
+      toggle-password
+      placeholder="再次输入新密码"
+      autocomplete="new-password"
+    ></mdui-text-field>
+  </div>
+  <div class="form-actions">
+    <mdui-button variant="filled" data-action="change-password">💾 保存更改</mdui-button>
+  </div>
+</mdui-card>

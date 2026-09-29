@@ -1,0 +1,58 @@
+<%
+  /**
+   * admin/posts.ejs — post list.
+   *
+   * Rows carry data-slug so /js/admin.js can act on the right file; the
+   * 归档/发布 button flips its label and the badge is server-rendered, so the
+   * page is meaningful before any JavaScript runs.
+   */
+%>
+<div class="page-header">
+  <h1>📄 文章</h1>
+  <mdui-button variant="filled" icon="add" href="/admin/posts/new/" data-action="new-post">✏️ 新建</mdui-button>
+</div>
+
+<% if (posts.length === 0) { %>
+  <div class="empty-state">暂无文章，点击右上角按钮创建第一篇</div>
+<% } else { %>
+  <mdui-card>
+    <% posts.forEach((post) => { %>
+      <div class="post-item" data-slug="<%= post.slug %>">
+        <div class="post-info">
+          <h3>
+            <%= post.title || post.slug %>
+            <% if (post.archived) { %>
+              <span class="badge badge-archived">📦 归档</span>
+            <% } else { %>
+              <span class="badge badge-published">📝 已发布</span>
+            <% } %>
+          </h3>
+          <span>
+            <%= post.date %> · <%= post.slug %>
+            <% if (post.categories.length > 0) { %> · <%= post.categories.join(', ') %><% } %>
+            <% if (post.tags.length > 0) { %> · <%= post.tags.join(', ') %><% } %>
+          </span>
+        </div>
+        <div class="post-actions">
+          <mdui-button
+            variant="text"
+            href="/admin/posts/<%= encodeURIComponent(post.slug) %>/edit/"
+            data-action="edit-post"
+            data-slug="<%= post.slug %>"
+          >✏️ 编辑</mdui-button>
+          <mdui-button
+            variant="text"
+            data-action="toggle-archive"
+            data-slug="<%= post.slug %>"
+          ><%= post.archived ? '📤 发布' : '📦 归档' %></mdui-button>
+          <mdui-button
+            variant="text"
+            data-action="delete-post"
+            data-slug="<%= post.slug %>"
+            data-title="<%= post.title || post.slug %>"
+          >🗑️ 删除</mdui-button>
+        </div>
+      </div>
+    <% }); %>
+  </mdui-card>
+<% } %>

@@ -1,0 +1,100 @@
+<%
+  /**
+   * layouts/admin.ejs — the admin console shell.
+   *
+   * Wraps every admin page: a navigation drawer with the console sections, a
+   * top app bar for narrow screens, and the page body rendered unescaped.
+   *
+   * There is deliberately NO inline <script> and NO onclick= handler anywhere:
+   * the app runs under a CSP with `script-src 'self'`, and all behaviour lives
+   * in /js/admin.js, bound through data-action attributes.
+   *
+   * `adminShell: false` (login/setup) renders only the centred card.
+   */
+  const shell = typeof adminShell === 'undefined' ? true : adminShell;
+  const nav = [
+    { href: '/admin/dashboard/', label: '控制台', icon: 'dashboard' },
+    { href: '/admin/posts/', label: '文章', icon: 'article' },
+    { href: '/admin/comments/', label: '评论', icon: 'comment' },
+    { href: '/admin/talks/', label: '动态', icon: 'chat' },
+    { href: '/admin/friends/', label: '友链', icon: 'link' },
+    { href: '/admin/pages/', label: '页面', icon: 'description' },
+    { href: '/admin/visitors/', label: '访客', icon: 'people' },
+    { href: '/admin/security/', label: '安全', icon: 'security' },
+    { href: '/admin/imghost/', label: '图床', icon: 'image' },
+    { href: '/admin/backup/', label: '数据备份', icon: 'backup' },
+  ];
+  // `currentPath` is set by every admin route; fall back to '/' defensively.
+  const here = typeof currentPath === 'undefined' ? '/' : currentPath;
+  const isActive = (href) => here.startsWith(href);
+%><!DOCTYPE html>
+<html lang="zh-CN" class="mdui-theme-auto">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title><%= seo.title %></title>
+  <meta name="description" content="<%= seo.desc %>">
+  <link rel="stylesheet" href="/vendor/mdui/mdui.css">
+  <link rel="stylesheet" href="/css/admin.css">
+  <script src="/vendor/mdui/mdui.global.js"></script>
+  <script type="module" src="/js/admin.js"></script>
+</head>
+<body>
+<% if (!shell) { %>
+  <%# Login / first-run setup: no navigation, just the centred card. %>
+  <main class="admin-auth">
+    <div id="admin-flash" class="admin-flash" role="status" hidden></div>
+    <%- body %>
+  </main>
+  <div id="toast" aria-live="polite"></div>
+  <mdui-snackbar id="admin-snackbar"></mdui-snackbar>
+<% } else { %>
+  <mdui-layout class="admin-layout">
+    <mdui-top-app-bar>
+      <mdui-button-icon icon="menu" data-action="toggle-nav" aria-label="打开导航"></mdui-button-icon>
+      <mdui-top-app-bar-title>博客后台</mdui-top-app-bar-title>
+      <div style="flex-grow:1"></div>
+      <mdui-button-icon icon="open_in_new" href="/" target="_blank" aria-label="查看站点"></mdui-button-icon>
+    </mdui-top-app-bar>
+
+    <mdui-navigation-drawer open>
+      <div class="admin-brand">📝 博客管理</div>
+      <mdui-list>
+        <% nav.forEach((item) => { %>
+          <mdui-list-item
+            rounded
+            icon="<%= item.icon %>"
+            href="<%= item.href %>"
+            <%= isActive(item.href) ? 'active' : '' %>
+          ><%= item.label %></mdui-list-item>
+        <% }); %>
+      </mdui-list>
+      <mdui-divider></mdui-divider>
+      <mdui-list>
+        <mdui-list-item rounded icon="logout" data-action="logout">退出登录</mdui-list-item>
+      </mdui-list>
+    </mdui-navigation-drawer>
+
+    <mdui-layout-main>
+      <div class="admin-main">
+        <%# Flash area filled by /js/admin.js after an action. %>
+        <div id="admin-flash" class="admin-flash" role="status" hidden></div>
+        <%- body %>
+      </div>
+    </mdui-layout-main>
+  </mdui-layout>
+
+  <div id="toast" aria-live="polite"></div>
+  <mdui-snackbar id="admin-snackbar"></mdui-snackbar>
+
+  <%# Generic confirmation dialog: /js/admin.js opens it, data-action buttons
+      answer it, so destructive actions never need an inline handler. %>
+  <mdui-dialog id="admin-confirm" headline="确认操作">
+    <div id="admin-confirm-text">确定要执行此操作吗？</div>
+    <mdui-button slot="action" variant="text" data-action="dialog-cancel">取消</mdui-button>
+    <mdui-button slot="action" variant="filled" data-action="dialog-confirm">确定</mdui-button>
+  </mdui-dialog>
+<% } %>
+</body>
+</html>

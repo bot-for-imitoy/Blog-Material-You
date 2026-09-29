@@ -1,0 +1,18 @@
+<div class="content">
+  <mdui-card variant="elevated" class="about-header">
+    <div class="about-title"><%= t('page_moments') %></div>
+    <div class="about-description"><%= t('page_moments_desc') %></div>
+  </mdui-card>
+
+  <% if (!talks || talks.length === 0) { %>
+  <p class="empty-hint"><%= t('no_talks') %></p>
+  <% } %>
+  <% (talks || []).forEach(function (talk) { %>
+  <hr>
+  <div class="talk-item">
+    <div class="markdown-content"><%- talk.html %></div>
+    <span class="talk-time"><%= formatDateTime(talk.createTime) %></span>
+  </div>
+  <% }); %>
+  <hr>
+</div>

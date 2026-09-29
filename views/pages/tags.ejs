@@ -1,0 +1,17 @@
+<mdui-card variant="filled" class="header-card">
+  <div class="header-title"><%= t('page_tags') %></div>
+  <div class="header-content"><%= t('page_tags_desc') %></div>
+</mdui-card>
+
+<div class="tags-container">
+<% if (!tags || tags.length === 0) { %>
+  <p class="empty-hint"><%= t('no_posts') %></p>
+<% } %>
+<% (tags || []).forEach(function (tag) { %>
+  <mdui-chip rounded href="/tags/<%= urlEncode(tag.name) %>/">
+    <%= tag.name %>
+    <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+    <span slot="badge"><%= tag.count %></span>
+  </mdui-chip>
+<% }); %>
+</div>

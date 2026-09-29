@@ -1,0 +1,96 @@
+<%
+  /**
+   * admin/imghost.ejs — image host configuration (SFTP or S3/MinIO).
+   *
+   * `config` is already masked by the route (secret_key → '********'), so the
+   * stored secret never reaches the browser. An empty or masked secret_key on
+   * save preserves the stored value.
+   *
+   * The two provider field groups are marked with data-provider so
+   * /js/admin.js can show only the group matching #provider.
+   */
+%>
+<div class="page-header">
+  <h1>🖼️ 图床设置</h1>
+  <span id="status-badge" class="status-badge <%= config.enabled ? 'status-enabled' : 'status-disabled' %>">
+    <%= config.enabled ? '已启用' : '未启用' %>
+  </span>
+</div>
+
+<div id="imghost-error" class="form-error" hidden></div>
+
+<mdui-card class="card">
+  <h2>启用状态</h2>
+  <div class="form-row">
+    <mdui-switch id="enabled" <%= config.enabled ? 'checked' : '' %>>启用图床</mdui-switch>
+    <mdui-select id="provider" label="存储方式" value="<%= config.provider %>">
+      <mdui-menu-item value="sftp">SFTP</mdui-menu-item>
+      <mdui-menu-item value="s3">S3 / MinIO</mdui-menu-item>
+    </mdui-select>
+  </div>
+  <mdui-text-field
+    id="filename_template"
+    label="文件名模板"
+    placeholder="{yy}-{mm}-{dd}.{file_extension}"
+    value="<%= config.filename_template %>"
+  ></mdui-text-field>
+</mdui-card>
+
+<div id="s3-card" class="card" data-provider="s3" <%= config.provider === 's3' ? '' : 'hidden' %>>
+  <h2>S3 / MinIO 配置</h2>
+  <div class="form-row">
+    <mdui-text-field id="s3_endpoint" label="Endpoint" placeholder="http://minio:9000 或 https://s3.amazonaws.com" value="<%= config.endpoint %>"></mdui-text-field>
+    <mdui-text-field id="s3_bucket" label="Bucket" placeholder="blog-images" value="<%= config.bucket %>"></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-text-field id="s3_access_key" label="Access Key" value="<%= config.access_key %>"></mdui-text-field>
+    <mdui-text-field id="s3_secret_key" label="Secret Key" type="password" toggle-password placeholder="留空或填 ******** 表示保持不变" value="<%= config.secret_key %>"></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-text-field id="s3_region" label="Region" placeholder="us-east-1" value="<%= config.region %>"></mdui-text-field>
+    <mdui-text-field id="s3_prefix" label="前缀" placeholder="blog" value="<%= config.prefix %>"></mdui-text-field>
+    <mdui-text-field id="s3_public_url_base" label="公开访问地址" placeholder="https://cdn.example.com/blog" value="<%= config.public_url_base %>"></mdui-text-field>
+  </div>
+
+  <h3 class="section-title">TLS / 双向认证（mTLS，可选）</h3>
+  <div class="form-row">
+    <mdui-text-field id="s3_ssl_ca" label="CA 证书路径" placeholder="/certs/ca.pem" value="<%= config.ssl_ca %>"></mdui-text-field>
+    <mdui-text-field id="s3_ssl_cert" label="客户端证书路径" placeholder="/certs/client.crt" value="<%= config.ssl_cert %>"></mdui-text-field>
+    <mdui-text-field id="s3_ssl_key" label="客户端私钥路径" placeholder="/certs/client.key" value="<%= config.ssl_key %>"></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-switch id="s3_insecure" <%= config.insecure ? 'checked' : '' %>>跳过 TLS 验证（自签名证书）</mdui-switch>
+  </div>
+</div>
+
+<div id="sftp-card" class="card" data-provider="sftp" <%= config.provider === 'sftp' ? '' : 'hidden' %>>
+  <h2>SFTP 配置</h2>
+  <div class="form-row">
+    <mdui-text-field id="sftp_host" label="主机" placeholder="example.com" value="<%= config.host %>"></mdui-text-field>
+    <mdui-text-field id="sftp_port" label="端口" type="number" value="<%= config.port %>"></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-text-field id="sftp_username" label="用户名" value="<%= config.username %>"></mdui-text-field>
+    <mdui-text-field id="sftp_ssh_key_path" label="私钥路径" placeholder="/app/keys/id_rsa" value="<%= config.ssh_key_path %>"></mdui-text-field>
+  </div>
+  <div class="form-row">
+    <mdui-text-field id="sftp_remote_dir" label="远程目录" placeholder="/var/www/images" value="<%= config.remote_dir %>"></mdui-text-field>
+    <mdui-text-field id="sftp_public_url_base" label="公开访问地址" placeholder="https://images.example.com" value="<%= config.public_url_base %>"></mdui-text-field>
+  </div>
+</div>
+
+<div class="form-actions">
+  <mdui-button id="save-btn" variant="filled" data-action="save-imghost">💾 保存配置</mdui-button>
+  <mdui-button id="test-btn" variant="outlined" data-action="test-imghost">🔌 测试连接</mdui-button>
+</div>
+<div id="result-box" class="result-box" hidden></div>
+
+<mdui-card class="card">
+  <h2>测试上传</h2>
+  <div class="file-row">
+    <input type="file" id="upload-file" accept="image/*">
+    <mdui-text-field id="upload-name" label="文件名（可选）" placeholder="image.png"></mdui-text-field>
+    <mdui-button id="upload-btn" variant="filled" data-action="upload-imghost">⬆️ 上传</mdui-button>
+  </div>
+  <div id="upload-result" class="result-box" hidden></div>
+</mdui-card>

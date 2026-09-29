@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN" class="mdui-theme-auto">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= seo.title %></title>
+  <meta name="description" content="<%= seo.desc %>">
+  <meta property="og:title" content="<%= seo.title %>">
+  <meta property="og:description" content="<%= seo.desc %>">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="<%= seo.canonicalUrl %>">
+  <link rel="alternate" type="application/rss+xml" title="<%= site.title %>" href="/rss.xml">
+
+  <!-- mdui 2 (Material Design 3 Web Components) is vendored from npm, so the
+       site never depends on a public CDN and the CSP can stay strict. -->
+  <link rel="stylesheet" href="/vendor/mdui/mdui.css">
+  <script src="/vendor/mdui/mdui.global.js"></script>
+
+  <link rel="stylesheet" href="/css/root.css">
+  <link rel="stylesheet" href="/css/content-container.css">
+  <link rel="stylesheet" href="/css/navigation-drawer.css">
+  <link rel="stylesheet" href="/css/lists.css">
+  <link rel="stylesheet" href="/css/header-card.css">
+  <% (styles || []).forEach(function (href) { %>
+  <link rel="stylesheet" href="<%= href %>">
+  <% }); %>
+  <%- headExtra || '' %>
+</head>
+<body<% if (bodyClass) { %> class="<%= bodyClass %>"<% } %>>
+  <mdui-layout class="root">
+    <mdui-top-app-bar class="top-app-bar" scroll-behavior="elevate" scroll-target=".content-container">
+      <mdui-button-icon class="navigation-drawer-button" variant="text" data-action="toggle-drawer">
+        <mdui-icon src="/icon/menu.svg"></mdui-icon>
+      </mdui-button-icon>
+      <mdui-top-app-bar-title id="app-bar-title"><%= site.title %></mdui-top-app-bar-title>
+      <div style="flex-grow: 1"></div>
+      <mdui-button-icon href="/posts/" aria-label="浏览文章">
+        <mdui-icon src="/icon/search.svg"></mdui-icon>
+      </mdui-button-icon>
+    </mdui-top-app-bar>
+
+    <mdui-navigation-drawer class="navigation-drawer" close-on-overlay-click open="true">
+      <div class="navigation-drawer-container">
+        <div class="navigation-drawer-header">
+          <mdui-avatar src="<%= site.avatar || '/img/avatar.jpg' %>" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
+          <div class="navigation-drawer-header-title" id="nav-name"><%= site.title %></div>
+          <div class="navigation-drawer-header-subtitle" id="nav-slogan"><%= site.desc %></div>
+        </div>
+        <mdui-list class="navigation-drawer-list" id="sidebar-list">
+          <% (menu || []).forEach(function (item) { %>
+          <mdui-list-item rounded href="<%= item.route %>" data-route="<%= item.route %>"<% if (isActiveNav(item.route, currentPath)) { %> active<% } %>>
+            <%= item.text %>
+            <mdui-icon src="<%= item.icon %>" slot="icon"></mdui-icon>
+          </mdui-list-item>
+          <% }); %>
+        </mdui-list>
+      </div>
+    </mdui-navigation-drawer>
+
+    <mdui-layout-main class="layout-main">
+      <div class="content-container" id="content-container">
+        <%- body %>
+      </div>
+    </mdui-layout-main>
+  </mdui-layout>
+
+  <script src="/js/navigation-drawer.js"></script>
+  <script type="module" src="/js/color.js"></script>
+  <script type="module" src="/js/app.js"></script>
+  <% (pageScripts || []).forEach(function (src) { %>
+  <script type="module" src="<%= src %>"></script>
+  <% }); %>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<div class="content">
+  <mdui-card variant="elevated" class="post-header">
+    <% if (post.cover) { %>
+    <div class="post-header-cover-wrapper">
+      <div class="image-skeleton">
+        <div class="image-skeleton-icon">🖼️</div>
+        <span><%= t('loading') %></span>
+      </div>
+      <img src="<%= post.cover %>" alt="<%= postTitle %>" class="post-header-cover post-header-meta">
+    </div>
+    <% } %>
+    <div class="post-header-main">
+      <div class="post-header-title post-header-meta"><%= postTitle %></div>
+      <div class="post-header-date post-header-meta">
+        <mdui-icon class="post-header-date-icon" src="/icon/calender.svg"></mdui-icon>
+        <span><%= formatDate(post.date) %></span>
+      </div>
+    </div>
+  </mdui-card>
+
+  <div class="post-header-chips">
+    <% (cats || []).forEach(function (cat) { %>
+    <mdui-chip rounded href="/categories/<%= urlEncode(cat) %>/" class="post-chip-category">
+      <mdui-icon src="/icon/category.svg" slot="icon"></mdui-icon>
+      <%= cat %>
+    </mdui-chip>
+    <% }); %>
+    <% (tags || []).forEach(function (tag) { %>
+    <mdui-chip rounded href="/tags/<%= urlEncode(tag) %>/" class="post-chip-tag">
+      <mdui-icon src="/icon/tag.svg" slot="icon"></mdui-icon>
+      <%= tag %>
+    </mdui-chip>
+    <% }); %>
+  </div>
+
+  <hr>
+  <!-- Rendered on the server by markdown-it, so the article is fully
+       indexable and readable without JavaScript. -->
+  <div class="markdown-content" data-post-slug="<%= post.slug %>"><%- contentHtml %></div>
+  <hr>
+
+  <% if (commentsEnabled) { %>
+  <div class="comment-input">
+    <mdui-text-field id="comment-nick" label="<%= t('nickName') %>" variant="outlined" max-rows="1"></mdui-text-field>
+    <mdui-text-field id="comment-email" label="<%= t('email') %>" variant="outlined" max-rows="1"></mdui-text-field>
+    <mdui-text-field id="comment-website" label="<%= t('website') %>" variant="outlined" max-rows="1"></mdui-text-field>
+    <mdui-text-field id="comment-content" label="<%= t('commentContent') %>" variant="outlined" max-rows="4" autosize></mdui-text-field>
+    <mdui-button id="comment-submit-button" variant="filled"><%= t('submit') %></mdui-button>
+  </div>
+  <h3 class="comment-section-title" id="comment-section-title"><%= t('commentTitle') %></h3>
+  <mdui-list id="comments-container" class="comment-list"></mdui-list>
+
+  <mdui-snackbar class="snackbar-network-error"><%= t('networkError') %></mdui-snackbar>
+  <mdui-snackbar class="snackbar-comment-success"><%= t('commentSuccess') %></mdui-snackbar>
+  <mdui-snackbar class="snackbar-comment-failure"><%= t('commentFail') %></mdui-snackbar>
+  <% } %>
+</div>

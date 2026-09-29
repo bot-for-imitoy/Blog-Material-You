@@ -1,0 +1,32 @@
+<%
+  /**
+   * admin/talks.ejs — short "moments" list, newest first.
+   * The list is server-rendered; /js/admin.js only handles delete.
+   */
+%>
+<div class="page-header">
+  <h1>💭 动态</h1>
+  <mdui-button variant="filled" icon="add" href="/admin/talks/new/" data-action="new-talk">✏️ 发动态</mdui-button>
+</div>
+
+<% if (talks.length === 0) { %>
+  <div class="empty-state">暂无动态，点击右上角按钮发布第一条</div>
+<% } else { %>
+  <mdui-card>
+    <% talks.forEach((talk) => { %>
+      <div class="post-item" data-id="<%= talk.id %>">
+        <div class="post-info">
+          <div class="talk-content"><%= talk.content %></div>
+          <span><%= formatDateTime(talk.createTime) %></span>
+        </div>
+        <div class="post-actions">
+          <mdui-button
+            variant="text"
+            data-action="delete-talk"
+            data-id="<%= talk.id %>"
+          >🗑️ 删除</mdui-button>
+        </div>
+      </div>
+    <% }); %>
+  </mdui-card>
+<% } %>

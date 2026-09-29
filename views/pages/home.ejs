@@ -1,0 +1,35 @@
+<mdui-card variant="filled" class="index-header-card">
+  <div class="index-header-title"><%= site.title %></div>
+  <div class="index-header-content"><%= site.desc %></div>
+</mdui-card>
+
+<div class="card-container" id="card-container">
+<% if (!posts || posts.length === 0) { %>
+  <p class="empty-hint"><%= t('no_posts') %></p>
+<% } %>
+<% (posts || []).forEach(function (post) { %>
+  <mdui-card variant="elevated" class="post-card">
+    <% if (post.cover) { %>
+    <img src="<%= post.cover %>" alt="<%= post.title %>" class="post-card-cover post-card-meta" loading="lazy">
+    <% } %>
+    <div class="post-card-main">
+      <div class="post-card-title post-card-meta"><%= post.title %></div>
+      <div class="post-card-content post-card-meta"><%= post.excerpt %></div>
+      <div class="post-card-date post-card-meta">
+        <mdui-icon src="/icon/calender.svg"></mdui-icon>
+        <span><%= formatDate(post.date) %></span>
+      </div>
+      <mdui-card variant="filled" class="post-card-forward" href="/post/<%= urlEncode(post.slug) %>">
+        <div class="post-card-forward-div">
+          <mdui-icon class="post-card-forward-icon" src="/icon/arrow-forward.svg"></mdui-icon>
+        </div>
+      </mdui-card>
+    </div>
+  </mdui-card>
+<% }); %>
+</div>
+
+<hr>
+<div class="index-bottom">
+  <mdui-chip><%= t('cpr') %></mdui-chip>
+</div>

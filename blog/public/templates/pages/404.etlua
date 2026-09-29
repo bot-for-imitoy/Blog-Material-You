@@ -1,4 +1,0 @@
-<div class="loading-placeholder">
-  <h2><%= _h._("page_404_title") %></h2>
-  <p><%= _h._("page_404_desc") %></p>
-</div>

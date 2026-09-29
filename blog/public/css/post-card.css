@@ -1,9 +1,15 @@
+/* Cards flow inside the multi-column container defined in index.css. They are
+   statically positioned (the old build placed them absolutely from JavaScript)
+   and never break across two columns. `margin-bottom` matches the 16px column
+   gap so the masonry grid stays visually even. */
 .post-card {
     width: 100%;
-    margin-bottom: 32px;
+    margin-bottom: 16px;
     padding: 20px;
     background-color: rgb(var(--mdui-color-secondary-container));
-    position: absolute;
+    position: static;
+    break-inside: avoid;
+    -webkit-column-break-inside: avoid;
 }
 
 .post-card-meta {

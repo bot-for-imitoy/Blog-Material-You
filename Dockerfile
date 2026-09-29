@@ -1,74 +1,45 @@
-# Blog Material You — Docker image
-# OpenResty only: the image does NOT bundle a database server — connect to an
-# external MariaDB/MySQL (e.g. the one on the Docker host) via BMY_DB_URL or
-# BMY_DB_HOST. mariadb-client is kept for automatic schema init/migration.
+# Blog Material You — Node.js image
+#
+# A single self-contained container: no database server, no nginx, no Python.
+# Content is Markdown on disk and all runtime state lives under /app/blog/data.
+FROM node:24-alpine
 
-# alpine:3.23 (supported until 2027-11) — 3.20 is EOL and its package repos
-# are frozen/being phased out, which broke the build.
-FROM alpine:3.23
-
-LABEL description="Blog Material You — standalone blog system (OpenResty + external MariaDB, S3/MinIO image hosting)"
+LABEL description="Blog Material You — Node.js + TypeScript SSR blog with local Markdown storage"
 LABEL maintainer="Hermes-bot"
 
-# Install dependencies.
-# NOTE: no explicit --repository flag — the base image already enables the
-# main and community repos over HTTPS in /etc/apk/repositories. The previous
-# hard-coded http://dl-cdn... URL was redundant, insecure, and a build
-# failure point on networks that block/redirect plain HTTP.
-# NOTE: only the MariaDB CLIENT is installed (used by the entrypoint and the
-# Lua db module to initialize/migrate the schema on the external database).
-# The MariaDB server is intentionally NOT included — the container always
-# connects to a database provided by the host.
-RUN apk add --no-cache \
-    openresty \
-    mariadb-client \
-    tzdata \
-    curl
-
-# Python + boto3 — used by the imghost module for S3 uploads (MinIO, AWS S3
-# and any S3-compatible store). Supports TLS with custom CA and mutual TLS
-# (client certificates), which the MinIO Client (mc) cannot do.
-RUN apk add --no-cache python3 py3-boto3
-
-# Create project directories
 WORKDIR /app
 
-# Copy everything
+# Install dependencies first so the layer is cached across source changes.
+# sharp ships prebuilt musl binaries, so no compiler is needed.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --no-audit --no-fund
+
+# Application source.
 COPY . .
 
-# Create required runtime directories
-RUN mkdir -p \
-    backend/logs \
-    backend/tmp/body \
-    backend/tmp/proxy \
-    backend/tmp/fastcgi \
-    backend/tmp/uwsgi \
-    backend/tmp/scgi
+# Vendor mdui / KaTeX / highlight.js from node_modules into the static tree so
+# the image never needs a public CDN at runtime.
+RUN node scripts/sync-assets.mjs
 
-# Avatar upload directory — nginx worker must be able to write here
-RUN mkdir -p blog/public/avatars && \
-    chown :nginx blog/public/avatars && \
-    chmod 775 blog/public/avatars
+# Runtime directories. The container runs as the unprivileged `node` user, so
+# the writable paths must be owned by it.
+RUN mkdir -p /app/blog/data/comments /app/blog/data/sessions \
+             /app/blog/public/avatars /app/blog/public/uploads \
+    && chown -R node:node /app/blog/data /app/blog/public/avatars /app/blog/public/uploads
 
-# S3 helper script must be readable/executable
-RUN chmod 755 /app/backend/s3.py
+USER node
 
-# Make entrypoint executable
-RUN chmod +x /app/docker/docker-entrypoint.sh
+ENV NODE_ENV=production \
+    BMY_BLOG_DIR=/app/blog \
+    BMY_PORT=30999 \
+    BMY_HOST=0.0.0.0
 
-# Make all Lua files readable by nginx worker
-RUN find /app/backend/lua -name '*.lua' -exec chmod 644 {} \;
+EXPOSE 30999
 
-# nginx workers drop container-level supplementary groups when switching to
-# the nginx user (initgroups), so host-mounted TLS certs owned by the host's
-# ssl-cert group (gid 963 on the deployment host) must be readable through an
-# in-image group membership. If your host uses a different gid for the certs'
-# group, adjust 963 accordingly.
-RUN addgroup -S -g 963 ssl-cert && addgroup nginx ssl-cert
+# Persist credentials, comments, visitor data and settings.
+VOLUME ["/app/blog/data"]
 
-# Install ImageMagick for avatar resize
-RUN apk add --no-cache imagemagick
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:'+(process.env.BMY_PORT||30999)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
-EXPOSE 30999 31000
-
-ENTRYPOINT ["/app/docker/docker-entrypoint.sh"]
+CMD ["node", "src/index.ts"]

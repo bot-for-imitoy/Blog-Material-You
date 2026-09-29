@@ -1,0 +1,19 @@
+<div class="game-overlay" id="game-overlay">
+  <button class="game-close-btn" data-action="close-game" aria-label="关闭">✕</button>
+  <div class="game-container">
+    <div class="game-title">2048</div>
+    <div class="game-subtitle">Swipe / Arrow keys to merge tiles, reach 2048 to win!</div>
+    <div class="game-header">
+      <div class="game-score-box"><%= t('game_score') %><span id="game-score">0</span></div>
+      <div class="game-score-box"><%= t('game_best') %><span id="game-best">0</span></div>
+    </div>
+    <div class="game-grid-wrap">
+      <div class="grid-2048" id="grid-2048"></div>
+    </div>
+    <div class="game-controls">
+      <mdui-button variant="filled" data-action="new-game"><%= t('game_new_game') %></mdui-button>
+      <mdui-button variant="text" data-action="close-game"><%= t('back') %></mdui-button>
+    </div>
+    <div class="game-hint">← ↑ → ↓ / WASD</div>
+  </div>
+</div>
