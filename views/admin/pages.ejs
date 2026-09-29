@@ -7,34 +7,46 @@
 %>
 <div class="page-header">
   <h1>📑 页面</h1>
-  <mdui-button variant="filled" icon="add" href="/admin/pages/new/" data-action="new-page">➕ 新建页面</mdui-button>
+  <a class="btn btn-primary" href="/admin/pages/new/" data-action="new-page">➕ 新建页面</a>
 </div>
 
 <% if (pages.length === 0) { %>
-  <div class="empty-state">暂无页面</div>
+  <p class="empty-state">暂无页面</p>
 <% } else { %>
-  <mdui-card>
-    <% pages.forEach((page) => { %>
-      <div class="post-item" data-slug="<%= page.slug %>">
-        <div class="post-info">
-          <h3><%= page.title || page.slug %></h3>
-          <span><%= page.slug %></span>
-        </div>
-        <div class="post-actions">
-          <mdui-button
-            variant="text"
-            href="/admin/pages/<%= encodeURIComponent(page.slug) %>/edit/"
-            data-action="edit-page"
-            data-slug="<%= page.slug %>"
-          >✏️ 编辑</mdui-button>
-          <mdui-button
-            variant="text"
-            data-action="delete-page"
-            data-slug="<%= page.slug %>"
-            data-title="<%= page.title || page.slug %>"
-          >🗑️ 删除</mdui-button>
-        </div>
-      </div>
-    <% }); %>
-  </mdui-card>
+  <section class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>标题</th>
+            <th>标识</th>
+            <th class="col-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% pages.forEach((page) => { %>
+            <tr data-slug="<%= page.slug %>">
+              <td><%= page.title || page.slug %></td>
+              <td><code><%= page.slug %></code></td>
+              <td class="col-actions">
+                <a
+                  class="btn btn-outline"
+                  href="/admin/pages/<%= encodeURIComponent(page.slug) %>/edit/"
+                  data-action="edit-page"
+                  data-slug="<%= page.slug %>"
+                >✏️ 编辑</a>
+                <button
+                  type="button"
+                  class="btn btn-danger"
+                  data-action="delete-page"
+                  data-slug="<%= page.slug %>"
+                  data-title="<%= page.title || page.slug %>"
+                >🗑️ 删除</button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </section>
 <% } %>

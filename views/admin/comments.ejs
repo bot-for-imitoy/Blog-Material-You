@@ -9,31 +9,39 @@
 </div>
 
 <% if (comments.length === 0) { %>
-  <div class="empty-state">暂无评论</div>
+  <p class="empty-state">暂无评论</p>
 <% } else { %>
-  <mdui-card>
-    <% comments.forEach((comment) => { %>
-      <div class="post-item" data-id="<%= comment.id %>">
-        <div class="post-info">
-          <h3>
-            <%= comment.nick || '匿名' %>
-            <% if (comment.mail) { %><span class="comment-mail">&lt;<%= comment.mail %>&gt;</span><% } %>
-          </h3>
-          <div class="talk-content"><%= comment.comment %></div>
-          <span>
-            <%= formatDateTime(comment.createTime) %>
-            <% if (comment.url) { %> · <a href="<%= comment.url %>"><%= comment.url %></a><% } %>
-            <% if (comment.link) { %> · <a href="<%= comment.link %>" target="_blank" rel="noopener noreferrer nofollow"><%= comment.link %></a><% } %>
-          </span>
-        </div>
-        <div class="post-actions">
-          <mdui-button
-            variant="text"
-            data-action="delete-comment"
-            data-id="<%= comment.id %>"
-          >🗑️ 删除</mdui-button>
-        </div>
-      </div>
-    <% }); %>
-  </mdui-card>
+  <section class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>作者</th>
+            <th>内容</th>
+            <th>时间 / 来源</th>
+            <th class="col-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% comments.forEach((comment) => { %>
+            <tr data-id="<%= comment.id %>">
+              <td>
+                <%= comment.nick || '匿名' %>
+                <% if (comment.mail) { %><span class="comment-mail">&lt;<%= comment.mail %>&gt;</span><% } %>
+              </td>
+              <td class="talk-content"><%= comment.comment %></td>
+              <td class="muted">
+                <%= formatDateTime(comment.createTime) %>
+                <% if (comment.url) { %> · <a href="<%= comment.url %>"><%= comment.url %></a><% } %>
+                <% if (comment.link) { %> · <a href="<%= comment.link %>" target="_blank" rel="noopener noreferrer nofollow"><%= comment.link %></a><% } %>
+              </td>
+              <td class="col-actions">
+                <button type="button" class="btn btn-danger" data-action="delete-comment" data-id="<%= comment.id %>">🗑️ 删除</button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </section>
 <% } %>

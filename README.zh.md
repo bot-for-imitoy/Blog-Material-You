@@ -399,6 +399,8 @@ strings: {}                   # 覆盖任意界面文案，例如 {page_posts: �
 - **无需重启**——文件按修改时间缓存，改完下一次请求即生效。
 - **功能开关在请求时生效**：关掉 `search`、`rss`、`sitemap`、`easterEgg` 会移除对应路由与界面入口，`calendar: false` 会隐藏状态页的日历卡片。
 - **`strings`** 可覆盖内置词典中的任意键（见 `src/site-config.ts` 的 `DEFAULT_STRINGS`）；未覆盖的键保持内置值。
+- **可在后台修改**——`/admin/settings/` 会把改动写回本文件。写入是逐行修改并带校验的（先重新解析再原子替换），所以上面的注释会保留，非法值会被拒绝而不是把文件写坏。
+- **`theme.color`** 是站点**主题色**：既作为 mdui 的 Material You 配色种子，也以 `<meta name="theme-color">` 输出给浏览器界面。任意 CSS 颜色均可（`#ff006a`、`rgb(255,0,106)`、`tomato`）。
 - **`BMY_CONFIG_FILE`** 可让服务读取另一个配置文件，便于把每套部署的配置放在检出目录之外。
 - `url` 是唯一允许被环境变量覆盖的值：显式设置了 **`BMY_SITE_URL`** 时它优先于 `_config.yml`，这样容器无需改动受版本控制的文件就能改指向。
 - YAML 写错时会大声报错并回退到默认值，而不是让站点挂掉，便于你先进后台把它修好。
@@ -714,6 +716,8 @@ curl -b admin-cookies.txt -X POST http://localhost:30999/api/admin/import \
 docker compose up -d --build
 docker compose logs -f blog
 ```
+
+镜像会把 `_config.yml` 的属主改成 `node`，以便后台设置页能写回配置。如果你想在容器外管理配置，可以把它以只读方式挂载进去——此时保存会给出明确报错，而不是静默失败。
 
 ### 数据卷布局
 

@@ -9,10 +9,9 @@
 <div class="page-header">
   <h1><%= isNew ? '✏️ 新建页面' : '✏️ 编辑页面' %></h1>
   <div class="page-header-actions">
-    <mdui-button variant="text" href="/admin/pages/">取消</mdui-button>
-    <mdui-button variant="filled" data-action="save-page">💾 保存</mdui-button>
+    <a class="btn btn-outline" href="/admin/pages/">取消</a>
     <% if (!isNew) { %>
-      <mdui-button variant="text" data-action="delete-page" data-slug="<%= page.slug %>">🗑️ 删除</mdui-button>
+      <button type="button" class="btn btn-danger" data-action="delete-page" data-slug="<%= page.slug %>">🗑️ 删除</button>
     <% } %>
   </div>
 </div>
@@ -20,42 +19,43 @@
 <% if (missing) { %>
   <div class="form-warning">页面未找到：<%= missing %></div>
 <% } %>
-<div id="page-error" class="form-error" hidden></div>
+<div id="page-error" class="form-error" role="alert" hidden></div>
 
-<mdui-card class="card">
-  <div class="form-row">
-    <mdui-text-field
-      id="ed-slug"
-      label="标识（Slug）"
-      placeholder="about"
-      value="<%= page.slug %>"
-      helper="仅限字母、数字、点、下划线或短横线"
-    ></mdui-text-field>
-    <mdui-text-field id="ed-title" label="标题 (中文)" value="<%= page.title %>"></mdui-text-field>
-    <mdui-text-field id="ed-title-en" label="标题 (English)" value="<%= page.titleEn %>"></mdui-text-field>
-  </div>
-</mdui-card>
+<form id="page-form">
+  <section class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="ed-slug">标识（Slug）</label>
+        <input type="text" id="ed-slug" name="slug" placeholder="about" value="<%= page.slug %>">
+        <p class="field-help">仅限字母、数字、点、下划线或短横线</p>
+      </div>
+      <div class="form-group">
+        <label for="ed-title">标题 (中文)</label>
+        <input type="text" id="ed-title" name="title" value="<%= page.title %>">
+      </div>
+      <div class="form-group">
+        <label for="ed-title-en">标题 (English)</label>
+        <input type="text" id="ed-title-en" name="titleEn" value="<%= page.titleEn %>">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" data-action="save-page">💾 保存</button>
+    </div>
+  </section>
 
-<mdui-card class="card">
-  <h2>内容 (中文)</h2>
-  <mdui-text-field
-    id="ed-content"
-    label="内容 (中文)"
-    rows="16"
-    variant="outlined"
-    placeholder="使用 Markdown 编写内容..."
-    value="<%= page.content %>"
-  ></mdui-text-field>
-</mdui-card>
+  <section class="card">
+    <h2>内容 (中文)</h2>
+    <div class="form-group">
+      <label for="ed-content">内容 (中文)</label>
+      <textarea id="ed-content" name="content" rows="16" placeholder="使用 Markdown 编写内容..."><%= page.content %></textarea>
+    </div>
+  </section>
 
-<mdui-card class="card">
-  <h2>内容 (English)</h2>
-  <mdui-text-field
-    id="ed-content-en"
-    label="Content (English)"
-    rows="16"
-    variant="outlined"
-    placeholder="English content in Markdown..."
-    value="<%= page.contentEn %>"
-  ></mdui-text-field>
-</mdui-card>
+  <section class="card">
+    <h2>内容 (English)</h2>
+    <div class="form-group">
+      <label for="ed-content-en">Content (English)</label>
+      <textarea id="ed-content-en" name="contentEn" rows="16" placeholder="English content in Markdown..."><%= page.contentEn %></textarea>
+    </div>
+  </section>
+</form>

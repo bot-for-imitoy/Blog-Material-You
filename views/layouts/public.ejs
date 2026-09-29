@@ -8,6 +8,11 @@
   <meta property="og:title" content="<%= seo.title %>">
   <meta property="og:description" content="<%= seo.desc %>">
   <meta property="og:type" content="website">
+  <% if (site.themeColor) { %>
+  <!-- Colours the browser UI (mobile address bar, PWA splash) to match the
+       site's Material You seed colour. -->
+  <meta name="theme-color" content="<%= site.themeColor %>">
+  <% } %>
   <% if (site.keywords && site.keywords.length > 0) { %>
   <meta name="keywords" content="<%= site.keywords.join(', ') %>">
   <% } %>

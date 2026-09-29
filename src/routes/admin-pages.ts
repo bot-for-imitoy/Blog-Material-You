@@ -267,6 +267,19 @@ export function createAdminPagesRouter(): Router {
     );
   });
 
+  // ===================== Site settings =====================
+
+  /**
+   * Site settings editor. The form values come from the `site` template global
+   * (assembled by `templateGlobals()` out of `getSiteSettings()`), so this
+   * route only supplies the SEO block — `currentPath` is added by `baseData`.
+   */
+  router.get('/settings/', requireAdminPage, async (req, res) => {
+    res.type('html').send(
+      await renderPage('admin/settings', baseData(req, adminSeo('站点设置', '/admin/settings/')), 'layouts/admin'),
+    );
+  });
+
   // ===================== Security =====================
 
   router.get('/security/', requireAdminPage, async (req, res) => {

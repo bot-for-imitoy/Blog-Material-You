@@ -33,6 +33,8 @@ import { addFriend, deleteFriend, listFriends, parseFriendId, publicFriend, publ
 import { invalidateAll, isSafeSlug } from '../content/markdown-files.ts';
 import { deleteComment, listAllComments } from '../store/comments.ts';
 import { invalidateSearchIndex } from '../lib/search.ts';
+import { patchConfigFile } from '../lib/config-write.ts';
+import { getSiteSettings } from '../site-config.ts';
 import { PERMISSIONS, approvePending, isValidEmail, listPending, listVisitors, normaliseEmail, removePending, removeVisitor, setVisitor } from '../store/visitors.ts';
 import { maskImghostConfig, readImghostConfig, saveImghostConfig, type ImghostConfig } from '../store/imghost-config.ts';
 import { testConnection, upload, uploadKey } from '../media/imghost.ts';
@@ -858,6 +860,124 @@ export function createAdminApiRouter(): Router {
       friends: listFriends().length,
       comments: listAllComments().length,
     });
+  }));
+
+  // ===================== Site settings =====================
+
+  /**
+   * The subset of `_config.yml` the admin console can edit.
+   * Every entry maps a request field to a key path in the YAML file.
+   */
+  const EDITABLE_SETTINGS: Array<{ key: string; path: string[]; kind: 'text' | 'list' | 'color' | 'url' | 'language' }> = [
+    { key: 'title', path: ['title'], kind: 'text' },
+    { key: 'subtitle', path: ['subtitle'], kind: 'text' },
+    { key: 'description', path: ['description'], kind: 'text' },
+    { key: 'keywords', path: ['keywords'], kind: 'list' },
+    { key: 'author', path: ['author'], kind: 'text' },
+    { key: 'language', path: ['language'], kind: 'language' },
+    { key: 'url', path: ['url'], kind: 'url' },
+    { key: 'avatar', path: ['avatar'], kind: 'text' },
+    { key: 'copyright', path: ['copyright'], kind: 'text' },
+    { key: 'github', path: ['github'], kind: 'url' },
+    { key: 'themeColor', path: ['theme', 'color'], kind: 'color' },
+  ];
+
+  /** Accept `#rgb`/`#rrggbb`/`#rrggbbaa`, a CSS colour function, or a name. */
+  const COLOR_PATTERN = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\([0-9a-zA-Z%.,\s/+-]*\))$/;
+  const LANGUAGE_PATTERN = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
+
+  function coerceSetting(
+    field: (typeof EDITABLE_SETTINGS)[number],
+    raw: unknown,
+  ): { ok: true; value: string | string[] } | { ok: false; error: string } {
+    if (field.kind === 'list') {
+      const list = Array.isArray(raw)
+        ? raw.map((v) => str(v)).filter(Boolean)
+        : str(raw).split(',').map((v) => v.trim()).filter(Boolean);
+      return { ok: true, value: list };
+    }
+
+    const value = str(raw);
+    switch (field.kind) {
+      case 'color':
+        if (!COLOR_PATTERN.test(value)) {
+          return { ok: false, error: `${field.key} 不是有效的颜色值（示例：#ff006a、rgb(255,0,106)、tomato）` };
+        }
+        return { ok: true, value };
+      case 'url':
+        if (value !== '' && !/^https?:\/\/\S+$/i.test(value)) {
+          return { ok: false, error: `${field.key} 必须以 http:// 或 https:// 开头` };
+        }
+        return { ok: true, value };
+      case 'language':
+        if (!LANGUAGE_PATTERN.test(value)) {
+          return { ok: false, error: `${field.key} 不是有效的语言标签（示例：zh-CN、en）` };
+        }
+        return { ok: true, value };
+      default:
+        return { ok: true, value };
+    }
+  }
+
+  /** GET /settings — the current, editable site configuration. */
+  router.get('/settings', requireAdmin, adminApiHandler((_req, res) => {
+    const settings = getSiteSettings();
+    ok(res, {
+      values: {
+        title: settings.title,
+        subtitle: settings.subtitle,
+        description: settings.description,
+        keywords: settings.keywords,
+        author: settings.author,
+        language: settings.language,
+        url: settings.url,
+        avatar: settings.avatar,
+        copyright: settings.copyright,
+        github: settings.github,
+        themeColor: settings.themeColor,
+      },
+      // Feature switches and list lengths are editable in the file but not on
+      // the settings form, so surface them read-only for context.
+      features: settings.features,
+      excerpt: settings.excerpt,
+      rssLimit: settings.rssLimit,
+    });
+  }));
+
+  /**
+   * PUT /settings — persist a subset of the site configuration.
+   *
+   * The change is written back into `_config.yml` itself (comments preserved,
+   * validated before writing) so the file stays the single source of truth
+   * rather than an admin-only override store appearing next to it.
+   */
+  router.put('/settings', requireAdmin, adminApiHandler((req, res) => {
+    const body = bodyOf(req);
+    const updates: Array<{ path: string[]; value: string | string[] }> = [];
+
+    for (const field of EDITABLE_SETTINGS) {
+      if (!(field.key in body)) continue;
+      const coerced = coerceSetting(field, body[field.key]);
+      if (!coerced.ok) {
+        fail(res, 400, coerced.error);
+        return;
+      }
+      updates.push({ path: field.path, value: coerced.value });
+    }
+
+    if (updates.length === 0) {
+      fail(res, 400, '没有需要保存的配置项');
+      return;
+    }
+
+    try {
+      const changed = patchConfigFile(updates);
+      ok(res, { changed, message: '配置已保存到 _config.yml' });
+    } catch (err) {
+      // patchConfigFile refuses to write anything it cannot round-trip, so the
+      // file on disk is still intact when this branch runs.
+      fail(res, 500, `保存失败：${err instanceof Error ? err.message : String(err)}`);
+    }
   }));
 
   return router;

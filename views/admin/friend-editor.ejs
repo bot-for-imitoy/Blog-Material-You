@@ -9,30 +9,55 @@
 <div class="page-header">
   <h1><%= isNew ? '➕ 添加友链' : '✏️ 编辑友链' %></h1>
   <div class="page-header-actions">
-    <mdui-button variant="text" href="/admin/friends/">取消</mdui-button>
-    <mdui-button variant="filled" data-action="save-friend">💾 保存</mdui-button>
+    <a class="btn btn-outline" href="/admin/friends/">取消</a>
   </div>
 </div>
 
 <% if (missing) { %>
   <div class="form-warning">友链未找到：<%= missing %></div>
 <% } %>
-<div id="friend-error" class="form-error" hidden></div>
+<div id="friend-error" class="form-error" role="alert" hidden></div>
 
-<mdui-card class="card">
-  <div class="form-row">
-    <mdui-text-field id="f-title" label="标题 *" placeholder="站点名称" value="<%= friend.title %>"></mdui-text-field>
-    <mdui-text-field id="f-url" label="链接 *" placeholder="https://example.com" value="<%= friend.url %>"></mdui-text-field>
-  </div>
-  <div class="form-row">
-    <mdui-text-field id="f-title-en" label="标题 (English)" placeholder="Site name" value="<%= friend.titleEn %>"></mdui-text-field>
-    <mdui-text-field id="f-avatar" label="头像 URL" placeholder="https://..." value="<%= friend.avatar %>"></mdui-text-field>
-    <mdui-text-field id="f-sort" label="排序" type="number" value="<%= friend.sortOrder %>"></mdui-text-field>
-  </div>
-  <div class="form-row">
-    <mdui-text-field id="f-descr" label="描述" rows="3" value="<%= friend.descr %>"></mdui-text-field>
-    <mdui-text-field id="f-descr-en" label="描述 (English)" rows="3" value="<%= friend.descrEn %>"></mdui-text-field>
-  </div>
-  <%# The id is carried by the URL when editing; the API needs it in the body. %>
-  <input type="hidden" id="f-id" value="<%= friend.id %>">
-</mdui-card>
+<form id="friend-form">
+  <section class="card">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="f-title">标题 *</label>
+        <input type="text" id="f-title" name="title" placeholder="站点名称" value="<%= friend.title %>">
+      </div>
+      <div class="form-group">
+        <label for="f-url">链接 *</label>
+        <input type="text" id="f-url" name="url" placeholder="https://example.com" value="<%= friend.url %>">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="f-title-en">标题 (English)</label>
+        <input type="text" id="f-title-en" name="titleEn" placeholder="Site name" value="<%= friend.titleEn %>">
+      </div>
+      <div class="form-group">
+        <label for="f-avatar">头像 URL</label>
+        <input type="text" id="f-avatar" name="avatar" placeholder="https://..." value="<%= friend.avatar %>">
+      </div>
+      <div class="form-group">
+        <label for="f-sort">排序</label>
+        <input type="number" id="f-sort" name="sortOrder" value="<%= friend.sortOrder %>">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="f-descr">描述</label>
+        <textarea id="f-descr" name="descr" rows="3"><%= friend.descr %></textarea>
+      </div>
+      <div class="form-group">
+        <label for="f-descr-en">描述 (English)</label>
+        <textarea id="f-descr-en" name="descrEn" rows="3"><%= friend.descrEn %></textarea>
+      </div>
+    </div>
+    <%# The id is carried by the URL when editing; the API needs it in the body. %>
+    <input type="hidden" id="f-id" name="id" value="<%= friend.id %>">
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" data-action="save-friend">💾 保存</button>
+    </div>
+  </section>
+</form>

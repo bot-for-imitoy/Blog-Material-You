@@ -1,6 +1,7 @@
 <%
   /**
-   * admin/setup.ejs — first-run admin creation.
+   * admin/setup.ejs — first-run admin creation (plain semantic HTML).
+   *
    * Only reachable while no credentials file exists (the route redirects to
    * /admin/login/ once setup is done).
    */
@@ -9,32 +10,23 @@
   <h1>🚀 初始化博客</h1>
   <p class="desc">首次使用，请设置管理员账号</p>
 
-  <div id="setup-error" class="form-error" hidden></div>
-  <div id="setup-warning" class="form-warning" hidden></div>
+  <div id="setup-error" class="form-error" role="alert" hidden></div>
+  <div id="setup-warning" class="form-warning" role="alert" hidden></div>
 
-  <mdui-text-field
-    id="su-user"
-    label="用户名"
-    placeholder="设置管理员用户名"
-    autocomplete="username"
-  ></mdui-text-field>
-  <mdui-text-field
-    id="su-pass"
-    label="密码"
-    type="password"
-    toggle-password
-    helper="密码长度不少于 6 位，避免使用常见弱密码"
-    placeholder="设置密码（至少6位）"
-    autocomplete="new-password"
-  ></mdui-text-field>
-  <mdui-text-field
-    id="su-pass2"
-    label="确认密码"
-    type="password"
-    toggle-password
-    placeholder="再次输入密码"
-    autocomplete="new-password"
-  ></mdui-text-field>
-
-  <mdui-button id="setup-btn" variant="filled" full-width data-action="setup-init">初始化</mdui-button>
+  <form id="setup-form">
+    <div class="form-group">
+      <label for="su-user">用户名</label>
+      <input type="text" id="su-user" name="username" placeholder="设置管理员用户名" autocomplete="username" autofocus>
+    </div>
+    <div class="form-group">
+      <label for="su-pass">密码</label>
+      <input type="password" id="su-pass" name="password" placeholder="设置密码（至少6位）" autocomplete="new-password">
+      <p class="field-help">密码长度不少于 6 位，避免使用常见弱密码</p>
+    </div>
+    <div class="form-group">
+      <label for="su-pass2">确认密码</label>
+      <input type="password" id="su-pass2" name="password2" placeholder="再次输入密码" autocomplete="new-password">
+    </div>
+    <button type="submit" id="setup-btn" class="btn btn-primary btn-block" data-action="setup-init">初始化</button>
+  </form>
 </div>

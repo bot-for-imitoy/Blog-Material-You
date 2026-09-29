@@ -1,69 +1,211 @@
 /**
- * admin.css — styles for the admin console (/admin/**).
+ * admin.css — the admin console stylesheet (/admin/**).
  *
- * The console shares the Material You palette with the public site: every colour
- * comes from an mdui design token, so the theme follows the seed colour set by
- * the shell and `mdui-theme-auto` handles light/dark automatically. Only a few
- * neutral surfaces need an explicit dark-scheme nudge (see the bottom).
+ * Deliberately plain and self-contained: no component library, no design tokens from the
+ * public site, no build step. Colours come from the custom properties below,
+ * so the whole console can be re-themed from one place — and `--admin-accent`
+ * is overridden at runtime by /js/admin.js from the configured `theme.color`
+ * (and live from the settings page).
  *
- * Layout: `mdui-layout` docks the drawer on wide screens and turns it into an
- * overlay on narrow ones; admin.js keeps the drawer's open state in sync.
+ * Layout is a boring two-column block flexbox: a sticky sidebar and a content
+ * column. Below 800px the sidebar stacks above the content and the link list
+ * is toggled by the `nav-open` class on `.admin-shell`.
  */
 
 /* ==========================================================================
-   Shell
+   Tokens (light scheme)
    ======================================================================== */
+
+:root {
+    --admin-accent: #ff006a;
+    --admin-bg: #f5f6f8;
+    --admin-surface: #ffffff;
+    --admin-surface-2: #eceef1;
+    --admin-text: #1b1b1f;
+    --admin-muted: #5b6068;
+    --admin-border: #d6d9de;
+    --admin-danger: #b3261e;
+    --admin-danger-bg: #fdecea;
+    --admin-success: #14653c;
+    --admin-success-bg: #e7f5ec;
+    --admin-warning-bg: #fdf3d7;
+    --admin-warning-text: #6b4d00;
+    --admin-radius: 10px;
+    --admin-sidebar-width: 220px;
+    --admin-font: system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    --admin-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+}
+
+/* Dark scheme: only the surfaces flip; --admin-accent keeps its meaning. */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --admin-bg: #141518;
+        --admin-surface: #1e1f23;
+        --admin-surface-2: #2a2c31;
+        --admin-text: #e6e6e9;
+        --admin-muted: #a6abb3;
+        --admin-border: #3a3d43;
+        --admin-danger: #ff9a92;
+        --admin-danger-bg: #3d1f1c;
+        --admin-success: #7ed6a4;
+        --admin-success-bg: #173425;
+        --admin-warning-bg: #3a2f10;
+        --admin-warning-text: #f0d493;
+    }
+}
+
+/* ==========================================================================
+   Base
+   ======================================================================== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* The `hidden` attribute must win over any display rule below (cards,
+   fieldsets and table rows are all toggled with it). */
+[hidden] {
+    display: none !important;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
 
 body {
     margin: 0;
-    background-color: rgb(var(--mdui-color-surface));
-    color: rgb(var(--mdui-color-on-surface));
-    font-family: 'Google Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-family: var(--admin-font);
+    font-size: 15px;
+    line-height: 1.55;
+    color: var(--admin-text);
+    background-color: var(--admin-bg);
 }
 
-/* The drawer is a layout child; these keep its content scrollable. */
+h1 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 600;
+    color: var(--admin-accent);
+}
+
+h2 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+h3 {
+    margin: 16px 0 8px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--admin-muted);
+}
+
+p {
+    margin: 0 0 12px 0;
+}
+
+a {
+    color: var(--admin-accent);
+}
+
+code {
+    font-family: var(--admin-mono);
+    font-size: 0.92em;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background-color: var(--admin-surface-2);
+}
+
+::selection {
+    background-color: var(--admin-accent);
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Shell: sidebar + content column
+   ======================================================================== */
+
+.admin-shell {
+    display: flex;
+    align-items: flex-start;
+    min-height: 100vh;
+    width: 100%;
+}
+
+.admin-sidebar {
+    position: sticky;
+    top: 0;
+    flex: 0 0 var(--admin-sidebar-width);
+    width: var(--admin-sidebar-width);
+    min-height: 100vh;
+    padding: 20px 12px;
+    background-color: var(--admin-surface);
+    border-right: 1px solid var(--admin-border);
+}
+
+.admin-sidebar-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 8px 16px 8px;
+}
+
 .admin-brand {
-    padding: 24px 24px 8px 24px;
-    font-size: 20px;
-    font-weight: 500;
-    color: rgb(var(--mdui-color-primary));
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--admin-accent);
 }
 
-.admin-layout mdui-navigation-drawer {
-    --shape-corner: 0 16px 16px 0;
+/* The navigation toggle only exists below the 800px breakpoint, where the
+   link list is collapsed (see the responsive section at the bottom). */
+.admin-nav-toggle {
+    display: none;
 }
 
-.admin-layout mdui-list {
-    margin: 0 8px;
+.admin-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
-/* Content column: `mdui-layout-main` already reserves the drawer width, this
-   only adds the page padding and a maximum reading width. */
-.admin-main {
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 88px 24px 48px 24px;
+.admin-nav-link {
+    display: block;
+    padding: 8px 10px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--admin-text);
+    text-decoration: none;
 }
 
-/* Login / setup shell: no drawer, just a centred card.
-   (`main` is the requested generic name for the content column.) */
-.main {
-    box-sizing: border-box;
-    width: 100%;
-    padding: 24px;
+.admin-nav-link:hover {
+    background-color: var(--admin-surface-2);
 }
 
-.admin-auth {
-    box-sizing: border-box;
+.admin-nav-link.is-active {
+    background-color: var(--admin-accent);
+    color: #ffffff;
+    font-weight: 600;
+}
+
+.admin-sidebar-footer {
+    margin-top: 20px;
+    padding-top: 14px;
+    border-top: 1px solid var(--admin-border);
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    min-height: 100vh;
-    padding: 24px;
+    gap: 8px;
+}
+
+.admin-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    /* Generous bottom padding keeps the last action reachable on short pages. */
+    padding: 24px 24px 64px 24px;
 }
 
 /* ==========================================================================
@@ -76,14 +218,7 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 24px;
-}
-
-.page-header h1 {
-    margin: 0;
-    font-size: 32px;
-    font-weight: 400;
-    color: rgb(var(--mdui-color-primary));
+    margin-bottom: 20px;
 }
 
 .page-header-actions {
@@ -93,217 +228,267 @@ body {
 }
 
 .section-title {
-    margin: 24px 0 12px 0;
-    font-size: 18px;
-    font-weight: 500;
-    color: rgb(var(--mdui-color-on-surface-variant));
+    margin: 20px 0 10px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--admin-muted);
+}
+
+.note {
+    margin-top: 16px;
+    font-size: 13px;
 }
 
 /* ==========================================================================
-   Cards
+   Buttons
+   ======================================================================== */
+
+.btn {
+    display: inline-block;
+    padding: 8px 14px;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.2;
+    color: var(--admin-text);
+    background-color: var(--admin-surface);
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.btn:hover {
+    background-color: var(--admin-surface-2);
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 2px;
+}
+
+.btn[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.btn-primary {
+    color: #ffffff;
+    background-color: var(--admin-accent);
+    border-color: var(--admin-accent);
+}
+
+.btn-primary:hover {
+    /* A translucent veil keeps the hover state visible for any accent colour. */
+    background-color: var(--admin-accent);
+    filter: brightness(0.92);
+}
+
+.btn-danger {
+    color: var(--admin-danger);
+    border-color: var(--admin-danger);
+    background-color: transparent;
+}
+
+.btn-danger:hover {
+    background-color: var(--admin-danger-bg);
+}
+
+.btn-block {
+    display: block;
+    width: 100%;
+}
+
+.btn-icon {
+    padding: 6px 10px;
+    font-size: 18px;
+    line-height: 1;
+}
+
+/* ==========================================================================
+   Cards, stats, empty states
    ======================================================================== */
 
 .card {
     display: block;
-    box-sizing: border-box;
     width: 100%;
-    margin-bottom: 20px;
-    padding: 20px 24px;
-    background-color: rgb(var(--mdui-color-surface-container-low));
+    margin: 0 0 18px 0;
+    padding: 20px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background-color: var(--admin-surface);
 }
 
-.card h2 {
-    margin: 0 0 12px 0;
-    font-size: 20px;
-    font-weight: 500;
-    color: rgb(var(--mdui-color-on-surface));
-}
-
-.card h3 {
-    margin: 16px 0 8px 0;
+fieldset.card > legend {
+    padding: 0 6px;
     font-size: 16px;
-    font-weight: 500;
-    color: rgb(var(--mdui-color-on-surface-variant));
+    font-weight: 600;
 }
 
 .card-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 20px 12px;
+    padding: 18px 12px;
+    border: 1px solid var(--admin-border);
+    border-radius: var(--admin-radius);
+    background-color: var(--admin-surface);
     text-align: center;
-    background-color: rgb(var(--mdui-color-secondary-container));
 }
 
 .stat-number {
-    font-size: 36px;
-    font-weight: 500;
-    color: rgb(var(--mdui-color-primary));
+    font-size: 32px;
+    font-weight: 600;
+    color: var(--admin-accent);
+    line-height: 1.1;
 }
 
 .stat-label {
     font-size: 13px;
-    color: rgb(var(--mdui-color-on-secondary-container));
+    color: var(--admin-muted);
 }
 
 .empty-state {
-    padding: 32px 16px;
+    margin: 0;
+    padding: 28px 12px;
     text-align: center;
-    font-size: 15px;
-    color: rgb(var(--mdui-color-outline));
+    color: var(--admin-muted);
+}
+
+.desc {
+    font-size: 14px;
+    color: var(--admin-muted);
+}
+
+.muted {
+    color: var(--admin-muted);
+    font-size: 13px;
+}
+
+.warn {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--admin-warning-text);
+    background-color: var(--admin-warning-bg);
 }
 
 /* ==========================================================================
-   List rows (post / comment / talk / friend / page / visitor)
+   Tables (every list page)
    ======================================================================== */
 
-.post-item {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 8px;
-    border-bottom: 1px solid rgba(var(--mdui-color-outline), 0.2);
+.table-wrap {
+    width: 100%;
+    overflow-x: auto;
 }
 
-.post-item:last-child {
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.data-table th,
+.data-table td {
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--admin-border);
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.data-table th {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--admin-muted);
+    white-space: nowrap;
+}
+
+.data-table tbody tr:last-child td {
     border-bottom: none;
 }
 
-/* Alias kept for templates that name the row after its content type. */
-.comment-item {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 16px 8px;
-    border-bottom: 1px solid rgba(var(--mdui-color-outline), 0.2);
+.data-table tbody tr:hover {
+    background-color: var(--admin-surface-2);
 }
 
-.post-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex: 1 1 320px;
-    min-width: 0;
+.col-actions {
+    text-align: right;
+    white-space: nowrap;
 }
 
-.post-info h3 {
-    margin: 0;
-    font-size: 17px;
-    font-weight: 500;
-    color: rgb(var(--mdui-color-on-surface));
-    overflow-wrap: anywhere;
+.col-actions .btn {
+    margin-left: 4px;
 }
 
-.post-info h3 a {
-    color: rgb(var(--mdui-color-primary));
-    text-decoration: none;
-}
-
-.post-info > span {
-    font-size: 13px;
-    color: rgb(var(--mdui-color-outline));
-    overflow-wrap: anywhere;
-}
-
-.post-info a {
-    color: rgb(var(--mdui-color-primary));
-}
-
-.post-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-/* Friend rows place an avatar next to the text. */
-.friend-info {
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
+.friend-avatar {
+    width: 32px;
+    height: 32px;
+    margin-right: 6px;
+    border-radius: 50%;
+    vertical-align: middle;
+    object-fit: cover;
 }
 
 /* Plain-text content of a talk or a comment; whitespace is meaningful. */
 .talk-content {
-    font-size: 15px;
-    line-height: 1.5;
     white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    color: rgb(var(--mdui-color-on-surface));
+    min-width: 200px;
 }
 
 .comment-mail {
-    margin-left: 6px;
     font-size: 13px;
-    font-weight: 400;
-    color: rgb(var(--mdui-color-outline));
+    color: var(--admin-muted);
 }
 
 /* ==========================================================================
    Badges
    ======================================================================== */
 
-.badge {
+.badge,
+.status-badge {
     display: inline-block;
-    margin-left: 8px;
-    padding: 2px 10px;
+    margin-left: 6px;
+    padding: 1px 9px;
     border-radius: 999px;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     vertical-align: middle;
+    white-space: nowrap;
 }
 
 .badge-archived {
-    background-color: rgb(var(--mdui-color-tertiary-container));
-    color: rgb(var(--mdui-color-on-tertiary-container));
+    color: var(--admin-warning-text);
+    background-color: var(--admin-warning-bg);
 }
 
 .badge-published {
-    background-color: rgb(var(--mdui-color-primary-container));
-    color: rgb(var(--mdui-color-on-primary-container));
-}
-
-.status-badge {
-    display: inline-block;
-    margin-left: 8px;
-    padding: 2px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 500;
-    vertical-align: middle;
+    color: var(--admin-success);
+    background-color: var(--admin-success-bg);
 }
 
 .status-enabled {
-    background-color: rgb(var(--mdui-color-primary-container));
-    color: rgb(var(--mdui-color-on-primary-container));
+    color: var(--admin-success);
+    background-color: var(--admin-success-bg);
 }
 
 .status-disabled {
-    background-color: rgb(var(--mdui-color-surface-container-highest));
-    color: rgb(var(--mdui-color-on-surface-variant));
+    color: var(--admin-muted);
+    background-color: var(--admin-surface-2);
+}
+
+.status-pending {
+    color: var(--admin-warning-text);
+    background-color: var(--admin-warning-bg);
 }
 
 /* ==========================================================================
    Forms
    ======================================================================== */
-
-.card mdui-text-field,
-.card mdui-select,
-.card mdui-switch {
-    display: block;
-    margin-bottom: 16px;
-}
 
 .form-row {
     display: flex;
@@ -311,123 +496,168 @@ body {
     gap: 16px;
 }
 
-/* Fields inside a row share the width instead of stacking. */
-.form-row > * {
-    flex: 1 1 240px;
+.form-row > .form-group {
+    flex: 1 1 220px;
     min-width: 0;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 16px;
+    gap: 5px;
+    margin-bottom: 14px;
 }
 
-.form-group > label {
+.form-group > label,
+.field-label {
     font-size: 13px;
-    color: rgb(var(--mdui-color-on-surface-variant));
+    font-weight: 600;
+    color: var(--admin-muted);
+}
+
+input[type='text'],
+input[type='password'],
+input[type='email'],
+input[type='number'],
+input[type='date'],
+input[type='color'],
+textarea,
+select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--admin-text);
+    background-color: var(--admin-surface);
+}
+
+input[type='color'] {
+    height: 40px;
+    padding: 2px;
+}
+
+textarea {
+    min-height: 90px;
+    resize: vertical;
+    line-height: 1.5;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--admin-accent);
+    outline-offset: 1px;
+}
+
+input[readonly] {
+    color: var(--admin-muted);
+    background-color: var(--admin-surface-2);
+}
+
+input[type='checkbox'] {
+    width: auto;
+    margin: 0;
+}
+
+/* Checkbox + label on one line. */
+.form-check {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-check > label {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--admin-text);
+}
+
+.field-help {
+    margin: 0;
+    font-size: 12px;
+    color: var(--admin-muted);
+}
+
+.perm-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+
+.check-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
 }
 
 .form-actions {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 8px;
-}
-
-/* Permission checkboxes (visitors page). */
-.perm-group {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    gap: 10px;
+    margin-top: 6px;
 }
 
 .form-error,
 .form-warning {
-    margin-bottom: 16px;
-    padding: 12px 16px;
-    border-radius: 12px;
+    margin-bottom: 14px;
+    padding: 10px 14px;
+    border-radius: 8px;
     font-size: 14px;
-    background-color: rgb(var(--mdui-color-error-container));
-    color: rgb(var(--mdui-color-on-error-container));
+    color: #ffffff;
+    background-color: var(--admin-danger);
 }
 
 .form-warning {
-    background-color: rgb(var(--mdui-color-tertiary-container));
-    color: rgb(var(--mdui-color-on-tertiary-container));
-}
-
-.desc {
-    margin: 0 0 16px 0;
-    font-size: 14px;
-    line-height: 1.5;
-    color: rgb(var(--mdui-color-on-surface-variant));
-}
-
-.warn {
-    margin: 0 0 16px 0;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-size: 14px;
-    line-height: 1.5;
-    background-color: rgb(var(--mdui-color-tertiary-container));
-    color: rgb(var(--mdui-color-on-tertiary-container));
+    color: var(--admin-warning-text);
+    background-color: var(--admin-warning-bg);
 }
 
 /* ==========================================================================
    Markdown editor toolbar
    ======================================================================== */
 
-/* The view calls it `.md-toolbar`; `.editor-toolbar` is the generic alias. */
-.md-toolbar,
-.editor-toolbar {
+.md-toolbar {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(var(--mdui-color-outline), 0.2);
+    gap: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--admin-border);
 }
 
 /* ==========================================================================
    Login / first-run setup
    ======================================================================== */
 
-.login-card {
-    box-sizing: border-box;
+.admin-auth {
     display: flex;
     flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    min-height: 100vh;
+    padding: 24px;
+}
+
+.login-card {
     width: 100%;
     max-width: 420px;
-    padding: 32px;
-    border-radius: 28px;
-    background-color: rgb(var(--mdui-color-surface-container-low));
-    box-shadow: var(--mdui-elevation-level2, 0 2px 8px rgba(0, 0, 0, 0.15));
+    padding: 28px;
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    background-color: var(--admin-surface);
 }
 
 .login-card h1 {
-    margin: 0 0 8px 0;
-    font-size: 26px;
-    font-weight: 500;
-    color: rgb(var(--mdui-color-primary));
+    margin-bottom: 6px;
+    font-size: 22px;
 }
 
 .login-card .desc {
-    margin-bottom: 24px;
-}
-
-.login-card mdui-text-field {
-    display: block;
-    margin-bottom: 16px;
-}
-
-.login-card mdui-button {
-    margin-top: 8px;
-}
-
-.login-card section[hidden] {
-    display: none;
+    margin-bottom: 20px;
 }
 
 /* ==========================================================================
@@ -436,40 +666,37 @@ body {
 
 .totp-qr {
     display: block;
-    width: 200px;
-    height: 200px;
-    margin: 16px auto;
+    width: 180px;
+    height: 180px;
+    margin: 14px auto;
     padding: 8px;
-    border-radius: 12px;
-    background-color: #fff; /* QR codes need a light quiet zone to scan */
+    /* QR codes need a light quiet zone to scan, in both schemes. */
+    background-color: #ffffff;
+    border: 1px solid var(--admin-border);
+    border-radius: 10px;
 }
 
-/* `.totp-secret` is the generic alias of the rendered secret box. */
-.totp-secret,
-.totp-secret-display {
+.totp-secret-display,
+.totp-uri {
     display: block;
-    margin: 12px 0;
-    padding: 12px 16px;
-    border-radius: 12px;
-    font-family: 'Maple Mono NF CN', 'Fira Code', Consolas, monospace;
-    font-size: 15px;
-    letter-spacing: 0.08em;
+    margin: 10px 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: var(--admin-mono);
+    font-size: 14px;
     word-break: break-all;
-    text-align: center;
-    background-color: rgb(var(--mdui-color-surface-container-high));
-    color: rgb(var(--mdui-color-on-surface));
+    background-color: var(--admin-surface-2);
     user-select: all;
+}
+
+.totp-secret-display {
+    text-align: center;
+    letter-spacing: 0.08em;
 }
 
 .totp-uri {
-    display: block;
-    padding: 8px 12px;
-    border-radius: 8px;
     font-size: 12px;
-    word-break: break-all;
-    background-color: rgb(var(--mdui-color-surface-container-high));
-    color: rgb(var(--mdui-color-on-surface-variant));
-    user-select: all;
+    color: var(--admin-muted);
 }
 
 /* ==========================================================================
@@ -480,26 +707,26 @@ body {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    margin-top: 16px;
-    padding: 12px 16px;
-    border-radius: 12px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--admin-border);
+    border-radius: 8px;
     font-size: 14px;
-    background-color: rgb(var(--mdui-color-surface-container-high));
-    color: rgb(var(--mdui-color-on-surface));
+    background-color: var(--admin-surface-2);
     overflow-wrap: anywhere;
 }
 
 .result-box.result-error {
-    background-color: rgb(var(--mdui-color-error-container));
-    color: rgb(var(--mdui-color-on-error-container));
+    color: var(--admin-danger);
+    background-color: var(--admin-danger-bg);
 }
 
 .result-label {
-    color: rgb(var(--mdui-color-on-surface-variant));
+    color: var(--admin-muted);
 }
 
 .result-value {
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .file-row {
@@ -513,138 +740,186 @@ body {
     flex: 1 1 240px;
     min-width: 0;
     padding: 8px;
+    border: 1px solid var(--admin-border);
     border-radius: 8px;
     font-size: 14px;
-    color: rgb(var(--mdui-color-on-surface));
-    background-color: rgb(var(--mdui-color-surface-container-high));
+    color: var(--admin-text);
+    background-color: var(--admin-surface-2);
+}
+
+.file-row .form-group {
+    flex: 1 1 200px;
+    margin-bottom: 0;
 }
 
 .file-name {
     font-size: 13px;
-    color: rgb(var(--mdui-color-outline));
+    color: var(--admin-muted);
     overflow-wrap: anywhere;
 }
 
 /* ==========================================================================
-   Feedback: flash banner and toast
+   Settings page
+   ======================================================================== */
+
+.settings-status {
+    min-height: 0;
+    margin: 0 0 14px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--admin-success);
+}
+
+.settings-status.is-error {
+    color: var(--admin-danger);
+}
+
+/* An empty status line must not reserve space. */
+.settings-status:empty {
+    display: none;
+}
+
+.theme-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    /* Overwritten by /js/admin.js as the colour changes. */
+    background-color: var(--admin-accent);
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Feedback: flash / toast
    ======================================================================== */
 
 .admin-flash {
     margin-bottom: 16px;
-    padding: 12px 16px;
-    border-radius: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
     font-size: 14px;
-    background-color: rgb(var(--mdui-color-primary-container));
-    color: rgb(var(--mdui-color-on-primary-container));
+    color: var(--admin-success);
+    background-color: var(--admin-success-bg);
+    opacity: 1;
+    transition: opacity 0.4s ease;
 }
 
-.admin-flash-error {
-    background-color: rgb(var(--mdui-color-error-container));
-    color: rgb(var(--mdui-color-on-error-container));
+.admin-flash.is-error {
+    color: var(--admin-danger);
+    background-color: var(--admin-danger-bg);
 }
 
-.admin-flash[hidden] {
+.admin-flash.is-fading {
+    opacity: 0;
+}
+
+/* Nothing to say: stay out of the layout entirely. */
+.admin-flash:empty {
     display: none;
 }
 
-/* Bottom toast: the fallback used when no snackbar element exists. */
-#toast {
-    position: fixed;
-    left: 50%;
-    bottom: 24px;
-    z-index: 4000;
-    max-width: min(90vw, 480px);
-    padding: 12px 20px;
-    border-radius: 12px;
+/* ==========================================================================
+   Confirmation dialog
+   ======================================================================== */
+
+.admin-dialog {
+    width: min(90vw, 420px);
+    padding: 20px;
+    border: 1px solid var(--admin-border);
+    border-radius: 14px;
+    color: var(--admin-text);
+    background-color: var(--admin-surface);
+}
+
+.admin-dialog::backdrop {
+    background-color: rgba(0, 0, 0, 0.45);
+}
+
+.admin-dialog-title {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+}
+
+.admin-dialog-text {
+    margin: 0 0 18px 0;
     font-size: 14px;
-    text-align: center;
-    color: rgb(var(--mdui-color-inverse-on-surface));
-    background-color: rgb(var(--mdui-color-inverse-surface));
-    box-shadow: var(--mdui-elevation-level3, 0 4px 16px rgba(0, 0, 0, 0.2));
-    opacity: 0;
-    transform: translate(-50%, 16px);
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
+    color: var(--admin-text);
+    overflow-wrap: anywhere;
 }
 
-#toast.toast-visible {
-    opacity: 1;
-    transform: translate(-50%, 0);
-}
-
-#toast.toast-error {
-    color: rgb(var(--mdui-color-on-error-container));
-    background-color: rgb(var(--mdui-color-error-container));
-}
-
-/* `mdui-snackbar` is a custom element; nothing to style beyond placement. */
-#admin-snackbar {
-    --z-index: 4000;
+.admin-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 /* ==========================================================================
-   Responsive
+   Responsive: sidebar stacks above the content below 800px
    ======================================================================== */
 
-@media (max-width: 900px) {
-    .admin-main {
-        padding: 80px 16px 40px 16px;
+@media (max-width: 800px) {
+    .admin-shell {
+        display: block;
     }
 
-    .page-header h1 {
-        font-size: 26px;
+    .admin-sidebar {
+        position: static;
+        width: auto;
+        min-height: 0;
+        padding: 14px;
+        border-right: none;
+        border-bottom: 1px solid var(--admin-border);
+    }
+
+    /* The sidebar header carries the toggle; the link list is what it opens. */
+    .admin-nav-toggle {
+        display: inline-block;
+    }
+
+    .admin-nav,
+    .admin-sidebar-footer {
+        display: none;
+    }
+
+    .admin-shell.nav-open .admin-nav,
+    .admin-shell.nav-open .admin-sidebar-footer {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .admin-main {
+        padding: 16px 14px 48px 14px;
+    }
+
+    .page-header h1,
+    h1 {
+        font-size: 22px;
+    }
+
+    .col-actions {
+        text-align: left;
+    }
+
+    .col-actions .btn {
+        margin: 0 4px 4px 0;
+    }
+}
+
+@media (max-width: 520px) {
+    .card {
+        padding: 14px;
     }
 
     .stat-number {
-        font-size: 30px;
-    }
-}
-
-@media (max-width: 600px) {
-    .admin-main {
-        padding: 76px 12px 32px 12px;
+        font-size: 26px;
     }
 
-    .card {
-        padding: 16px;
-    }
-
-    .post-item {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .post-actions {
-        justify-content: flex-end;
-    }
-
-    .login-card {
-        padding: 24px;
-        border-radius: 20px;
-    }
-}
-
-/* ==========================================================================
-   Dark scheme
-   ======================================================================== */
-
-@media (prefers-color-scheme: dark) {
-    /* Token-driven surfaces already flip; these are the spots where a
-       translucent border or shadow needs re-balancing. */
-    .post-item,
-    .comment-item,
-    .md-toolbar,
-    .editor-toolbar {
-        border-bottom-color: rgba(var(--mdui-color-outline), 0.3);
-    }
-
-    .login-card {
-        box-shadow: none;
-        border: 1px solid rgba(var(--mdui-color-outline), 0.25);
-    }
-
-    .totp-qr {
-        /* Keep the quiet zone light even in dark mode; QR scanning needs it. */
-        background-color: #fff;
+    .data-table th,
+    .data-table td {
+        padding: 8px 6px;
     }
 }

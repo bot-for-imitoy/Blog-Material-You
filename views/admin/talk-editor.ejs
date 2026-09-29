@@ -7,19 +7,20 @@
 <div class="page-header">
   <h1>✏️ 发布动态</h1>
   <div class="page-header-actions">
-    <mdui-button variant="text" href="/admin/talks/">取消</mdui-button>
-    <mdui-button variant="filled" data-action="save-talk">📤 发布</mdui-button>
+    <a class="btn btn-outline" href="/admin/talks/">取消</a>
   </div>
 </div>
 
-<div id="talk-error" class="form-error" hidden></div>
+<div id="talk-error" class="form-error" role="alert" hidden></div>
 
-<mdui-card class="card">
-  <mdui-text-field
-    id="talk-content"
-    label="内容"
-    rows="6"
-    variant="outlined"
-    placeholder="写点什么呢..."
-  ></mdui-text-field>
-</mdui-card>
+<form id="talk-form">
+  <section class="card">
+    <div class="form-group">
+      <label for="talk-content">内容</label>
+      <textarea id="talk-content" name="content" rows="6" placeholder="写点什么呢..."></textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" data-action="save-talk">📤 发布</button>
+    </div>
+  </section>
+</form>

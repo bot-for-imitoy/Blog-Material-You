@@ -1,58 +1,75 @@
 <%
   /**
-   * admin/posts.ejs — post list.
+   * admin/posts.ejs — post list (plain HTML table).
    *
    * Rows carry data-slug so /js/admin.js can act on the right file; the
-   * 归档/发布 button flips its label and the badge is server-rendered, so the
-   * page is meaningful before any JavaScript runs.
+   * 归档/发布 button label and the badge are server-rendered, so the page is
+   * meaningful before any JavaScript runs.
    */
 %>
 <div class="page-header">
   <h1>📄 文章</h1>
-  <mdui-button variant="filled" icon="add" href="/admin/posts/new/" data-action="new-post">✏️ 新建</mdui-button>
+  <a class="btn btn-primary" href="/admin/posts/new/" data-action="new-post">✏️ 新建</a>
 </div>
 
 <% if (posts.length === 0) { %>
-  <div class="empty-state">暂无文章，点击右上角按钮创建第一篇</div>
+  <p class="empty-state">暂无文章，点击右上角按钮创建第一篇</p>
 <% } else { %>
-  <mdui-card>
-    <% posts.forEach((post) => { %>
-      <div class="post-item" data-slug="<%= post.slug %>">
-        <div class="post-info">
-          <h3>
-            <%= post.title || post.slug %>
-            <% if (post.archived) { %>
-              <span class="badge badge-archived">📦 归档</span>
-            <% } else { %>
-              <span class="badge badge-published">📝 已发布</span>
-            <% } %>
-          </h3>
-          <span>
-            <%= post.date %> · <%= post.slug %>
-            <% if (post.categories.length > 0) { %> · <%= post.categories.join(', ') %><% } %>
-            <% if (post.tags.length > 0) { %> · <%= post.tags.join(', ') %><% } %>
-          </span>
-        </div>
-        <div class="post-actions">
-          <mdui-button
-            variant="text"
-            href="/admin/posts/<%= encodeURIComponent(post.slug) %>/edit/"
-            data-action="edit-post"
-            data-slug="<%= post.slug %>"
-          >✏️ 编辑</mdui-button>
-          <mdui-button
-            variant="text"
-            data-action="toggle-archive"
-            data-slug="<%= post.slug %>"
-          ><%= post.archived ? '📤 发布' : '📦 归档' %></mdui-button>
-          <mdui-button
-            variant="text"
-            data-action="delete-post"
-            data-slug="<%= post.slug %>"
-            data-title="<%= post.title || post.slug %>"
-          >🗑️ 删除</mdui-button>
-        </div>
-      </div>
-    <% }); %>
-  </mdui-card>
+  <section class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>标题</th>
+            <th>日期</th>
+            <th>标识</th>
+            <th>分类 / 标签</th>
+            <th class="col-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% posts.forEach((post) => { %>
+            <tr data-slug="<%= post.slug %>">
+              <td>
+                <%= post.title || post.slug %>
+                <% if (post.archived) { %>
+                  <span class="badge badge-archived">📦 已归档</span>
+                <% } else { %>
+                  <span class="badge badge-published">📝 已发布</span>
+                <% } %>
+              </td>
+              <td><%= post.date %></td>
+              <td><code><%= post.slug %></code></td>
+              <td class="muted">
+                <% if (post.categories.length > 0) { %><%= post.categories.join(', ') %><% } %>
+                <% if (post.categories.length > 0 && post.tags.length > 0) { %> · <% } %>
+                <% if (post.tags.length > 0) { %><%= post.tags.join(', ') %><% } %>
+              </td>
+              <td class="col-actions">
+                <a
+                  class="btn btn-outline"
+                  href="/admin/posts/<%= encodeURIComponent(post.slug) %>/edit/"
+                  data-action="edit-post"
+                  data-slug="<%= post.slug %>"
+                >✏️ 编辑</a>
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  data-action="toggle-archive"
+                  data-slug="<%= post.slug %>"
+                ><%= post.archived ? '📤 发布' : '📦 归档' %></button>
+                <button
+                  type="button"
+                  class="btn btn-danger"
+                  data-action="delete-post"
+                  data-slug="<%= post.slug %>"
+                  data-title="<%= post.title || post.slug %>"
+                >🗑️ 删除</button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </section>
 <% } %>

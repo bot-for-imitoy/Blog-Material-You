@@ -1,100 +1,105 @@
 <%
   /**
-   * layouts/admin.ejs — the admin console shell.
+   * layouts/admin.ejs — the admin console shell (plain semantic HTML).
    *
-   * Wraps every admin page: a navigation drawer with the console sections, a
-   * top app bar for narrow screens, and the page body rendered unescaped.
+   * Deliberately boring: a two-column block layout (a <nav> sidebar and a
+   * <main> content column) that cannot collapse, plus one hand-written
+   * stylesheet and one ES module. Below ~800px the sidebar stacks above the
+   * content and its link list is toggled by `data-action="toggle-nav"`.
    *
-   * There is deliberately NO inline <script> and NO onclick= handler anywhere:
-   * the app runs under a CSP with `script-src 'self'`, and all behaviour lives
-   * in /js/admin.js, bound through data-action attributes.
+   * There is no inline script, no inline style block and no inline event
+   * handler attribute: the app runs under a CSP with `script-src 'self'` and
+   * all behaviour lives in /js/admin.js, bound through data-action attributes.
    *
-   * `adminShell: false` (login/setup) renders only the centred card.
+   * `adminShell: false` (login/setup) renders only the centred card — those two
+   * routes pass the flag, every other admin route leaves it undefined.
+   *
+   * `data-accent` carries the configured `theme.color` to the client, which
+   * mirrors it onto the `--admin-accent` custom property on every page.
    */
   const shell = typeof adminShell === 'undefined' ? true : adminShell;
   const nav = [
-    { href: '/admin/dashboard/', label: '控制台', icon: 'dashboard' },
-    { href: '/admin/posts/', label: '文章', icon: 'article' },
-    { href: '/admin/comments/', label: '评论', icon: 'comment' },
-    { href: '/admin/talks/', label: '动态', icon: 'chat' },
-    { href: '/admin/friends/', label: '友链', icon: 'link' },
-    { href: '/admin/pages/', label: '页面', icon: 'description' },
-    { href: '/admin/visitors/', label: '访客', icon: 'people' },
-    { href: '/admin/security/', label: '安全', icon: 'security' },
-    { href: '/admin/imghost/', label: '图床', icon: 'image' },
-    { href: '/admin/backup/', label: '数据备份', icon: 'backup' },
+    { href: '/admin/dashboard/', label: '控制台' },
+    { href: '/admin/posts/', label: '文章' },
+    { href: '/admin/comments/', label: '评论' },
+    { href: '/admin/talks/', label: '动态' },
+    { href: '/admin/friends/', label: '友链' },
+    { href: '/admin/pages/', label: '页面' },
+    { href: '/admin/visitors/', label: '访客' },
+    { href: '/admin/settings/', label: '站点设置' },
+    { href: '/admin/security/', label: '安全' },
+    { href: '/admin/imghost/', label: '图床' },
+    { href: '/admin/backup/', label: '数据备份' },
   ];
   // `currentPath` is set by every admin route; fall back to '/' defensively.
   const here = typeof currentPath === 'undefined' ? '/' : currentPath;
-  const isActive = (href) => here.startsWith(href);
+  // A prefix match keeps the section highlighted on its sub-pages
+  // (e.g. /admin/posts/new/ highlights 文章).
+  const isActive = (href) => here === href || here.startsWith(href);
 %><!DOCTYPE html>
-<html lang="zh-CN" class="mdui-theme-auto">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow">
   <title><%= seo.title %></title>
   <meta name="description" content="<%= seo.desc %>">
-  <link rel="stylesheet" href="/vendor/mdui/mdui.css">
   <link rel="stylesheet" href="/css/admin.css">
-  <script src="/vendor/mdui/mdui.global.js"></script>
   <script type="module" src="/js/admin.js"></script>
 </head>
-<body>
+<body class="admin-body" data-accent="<%= site.themeColor %>">
 <% if (!shell) { %>
   <%# Login / first-run setup: no navigation, just the centred card. %>
   <main class="admin-auth">
-    <div id="admin-flash" class="admin-flash" role="status" hidden></div>
+    <div id="admin-flash" class="admin-flash" role="status" aria-live="polite"></div>
     <%- body %>
   </main>
-  <div id="toast" aria-live="polite"></div>
-  <mdui-snackbar id="admin-snackbar"></mdui-snackbar>
 <% } else { %>
-  <mdui-layout class="admin-layout">
-    <mdui-top-app-bar>
-      <mdui-button-icon icon="menu" data-action="toggle-nav" aria-label="打开导航"></mdui-button-icon>
-      <mdui-top-app-bar-title>博客后台</mdui-top-app-bar-title>
-      <div style="flex-grow:1"></div>
-      <mdui-button-icon icon="open_in_new" href="/" target="_blank" aria-label="查看站点"></mdui-button-icon>
-    </mdui-top-app-bar>
-
-    <mdui-navigation-drawer open>
-      <div class="admin-brand">📝 博客管理</div>
-      <mdui-list>
-        <% nav.forEach((item) => { %>
-          <mdui-list-item
-            rounded
-            icon="<%= item.icon %>"
-            href="<%= item.href %>"
-            <%= isActive(item.href) ? 'active' : '' %>
-          ><%= item.label %></mdui-list-item>
-        <% }); %>
-      </mdui-list>
-      <mdui-divider></mdui-divider>
-      <mdui-list>
-        <mdui-list-item rounded icon="logout" data-action="logout">退出登录</mdui-list-item>
-      </mdui-list>
-    </mdui-navigation-drawer>
-
-    <mdui-layout-main>
-      <div class="admin-main">
-        <%# Flash area filled by /js/admin.js after an action. %>
-        <div id="admin-flash" class="admin-flash" role="status" hidden></div>
-        <%- body %>
+  <div class="admin-shell" id="admin-shell">
+    <nav class="admin-sidebar" aria-label="后台导航">
+      <div class="admin-sidebar-head">
+        <span class="admin-brand">📝 博客管理</span>
+        <%# Only visible below ~800px, where the link list is collapsed. %>
+        <button type="button" class="btn btn-icon admin-nav-toggle" data-action="toggle-nav" aria-label="打开导航">☰</button>
       </div>
-    </mdui-layout-main>
-  </mdui-layout>
+      <ul class="admin-nav">
+        <% nav.forEach((item) => { %>
+          <% const active = isActive(item.href); %>
+          <li>
+            <a
+              class="admin-nav-link<%= active ? ' is-active' : '' %>"
+              href="<%= item.href %>"
+              <%= active ? 'aria-current="page"' : '' %>
+            ><%= item.label %></a>
+          </li>
+        <% }); %>
+      </ul>
+      <div class="admin-sidebar-footer">
+        <a class="admin-nav-link" href="/" target="_blank" rel="noopener noreferrer">查看站点 ↗</a>
+        <button type="button" class="btn btn-outline" data-action="logout">退出登录</button>
+      </div>
+    </nav>
 
-  <div id="toast" aria-live="polite"></div>
-  <mdui-snackbar id="admin-snackbar"></mdui-snackbar>
+    <main class="admin-main" id="admin-content">
+      <%# Flash area filled by /js/admin.js after an action. %>
+      <div id="admin-flash" class="admin-flash" role="status" aria-live="polite"></div>
 
-  <%# Generic confirmation dialog: /js/admin.js opens it, data-action buttons
-      answer it, so destructive actions never need an inline handler. %>
-  <mdui-dialog id="admin-confirm" headline="确认操作">
-    <div id="admin-confirm-text">确定要执行此操作吗？</div>
-    <mdui-button slot="action" variant="text" data-action="dialog-cancel">取消</mdui-button>
-    <mdui-button slot="action" variant="filled" data-action="dialog-confirm">确定</mdui-button>
-  </mdui-dialog>
+      <%- body %>
+    </main>
+  </div>
 <% } %>
+
+<%# Generic confirmation dialog: /js/admin.js opens it with showModal(), the two
+    buttons below resolve the pending promise, so destructive actions never
+    need an inline handler. It is rendered on every admin page (including
+    login/setup) so the client always has a dialog to fall back on. %>
+<dialog id="admin-confirm" class="admin-dialog" aria-labelledby="admin-confirm-title">
+  <h2 id="admin-confirm-title" class="admin-dialog-title">确认操作</h2>
+  <p id="admin-confirm-text" class="admin-dialog-text">确定要执行此操作吗？</p>
+  <div class="admin-dialog-actions">
+    <button type="button" class="btn btn-outline" data-action="dialog-cancel">取消</button>
+    <button type="button" class="btn btn-primary" data-action="dialog-confirm">确定</button>
+  </div>
+</dialog>
 </body>
 </html>

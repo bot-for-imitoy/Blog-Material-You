@@ -1,33 +1,35 @@
 <%
   /**
    * admin/backup.ejs — export/import the whole site as one JSON document.
-   * The file picker is a plain <input type="file"> (mdui has no file control);
-   * /js/admin.js reads it as text and POSTs the raw JSON to /api/admin/import.
+   * /js/admin.js reads the picked file as text and POSTs the raw JSON to
+   * /api/admin/import.
    */
 %>
 <div class="page-header">
   <h1>💾 数据备份</h1>
-  <mdui-button variant="outlined" data-action="reload-site">🔄 重新加载数据</mdui-button>
+  <button type="button" class="btn btn-outline" data-action="reload-site">🔄 重新加载数据</button>
 </div>
 
-<div id="backup-error" class="form-error" hidden></div>
+<div id="backup-error" class="form-error" role="alert" hidden></div>
 
-<mdui-card class="card">
+<section class="card">
   <h2>⬇️ 一键导出数据</h2>
   <p class="desc">将博客的全部数据（文章、页面、评论、动态、友链、访客权限、站点配置等）导出为单个 JSON 文件。可在更换服务器前备份数据，或用于日常归档。</p>
   <div class="form-actions">
-    <mdui-button id="export-btn" variant="filled" data-action="export-backup">⬇️ 一键导出数据</mdui-button>
+    <button type="button" id="export-btn" class="btn btn-primary" data-action="export-backup">⬇️ 一键导出数据</button>
   </div>
-</mdui-card>
+</section>
 
-<mdui-card class="card">
+<section class="card">
   <h2>⬆️ 一键导入数据</h2>
   <p class="warn">⚠️ 导入会先清空当前全部数据再写入备份内容，操作不可撤销，请确认备份文件无误。</p>
   <p class="desc">选择此前导出的备份文件，一键恢复全部数据。</p>
-  <div class="file-row">
-    <input type="file" id="import-file" accept="application/json,.json">
-    <span id="file-name" class="file-name">未选择文件</span>
-    <mdui-button id="import-btn" variant="filled" data-action="import-backup">⬆️ 一键导入数据</mdui-button>
-  </div>
+  <form id="import-form">
+    <div class="file-row">
+      <input type="file" id="import-file" accept="application/json,.json">
+      <span id="file-name" class="file-name">未选择文件</span>
+      <button type="submit" id="import-btn" class="btn btn-primary" data-action="import-backup">⬆️ 一键导入数据</button>
+    </div>
+  </form>
   <div id="result-box" class="result-box" hidden></div>
-</mdui-card>
+</section>

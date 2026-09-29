@@ -1,0 +1,111 @@
+<%
+  /**
+   * admin/settings.ejs — edit the site configuration (_config.yml).
+   *
+   * The values are prefilled from the `site` template global, which
+   * `templateGlobals()` builds out of `getSiteSettings()` — so this view needs
+   * no extra route data.
+   *
+   * The theme colour has two controls on purpose: `theme.color` accepts any CSS
+   * colour (not just hex), so <input type="color"> is paired with a free-text
+   * field. The picker drives the text field and the live preview;
+   * /js/admin.js mirrors the value onto `--admin-accent` so the whole console
+   * visibly reflects the choice before it is even saved.
+   */
+  // <input type="color"> only understands #rrggbb; other CSS colours (or a
+  // named colour) leave the text field authoritative.
+  const themeHex = /^#[0-9a-fA-F]{6}$/.test(site.themeColor) ? site.themeColor : '#ff006a';
+%>
+<div class="page-header">
+  <h1>⚙️ 站点设置</h1>
+</div>
+
+<%# Result / error line written by /js/admin.js after a save. %>
+<p id="settings-status" class="settings-status" role="status" aria-live="polite"></p>
+
+<form id="settings-form">
+  <section class="card">
+    <h2>🎨 主题颜色</h2>
+    <p class="desc">选择站点主题色。保存后写入 <code>_config.yml</code> 的 <code>theme.color</code>，前台会据此重新生成整套配色。</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="set-theme-color">主题色（取色器）</label>
+        <input type="color" id="set-theme-color" value="<%= themeHex %>">
+      </div>
+      <div class="form-group">
+        <label for="set-theme-color-text">主题色（CSS 颜色值）</label>
+        <input type="text" id="set-theme-color-text" value="<%= site.themeColor %>" placeholder="#ff006a">
+        <p class="field-help">支持 #rgb、#rrggbb、rgb(...)、hsl(...) 或颜色名（如 tomato）。</p>
+      </div>
+      <div class="form-group">
+        <span class="field-label">预览</span>
+        <div id="theme-preview" class="theme-preview">主题色预览</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📝 站点信息</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="set-title">站点名称</label>
+        <input type="text" id="set-title" value="<%= site.title %>">
+      </div>
+      <div class="form-group">
+        <label for="set-subtitle">副标题</label>
+        <input type="text" id="set-subtitle" value="<%= site.subtitle %>">
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="set-description">站点描述</label>
+      <textarea id="set-description" rows="3"><%= site.description %></textarea>
+      <p class="field-help">用于页面的 meta description 与 Open Graph；留空则沿用副标题。</p>
+    </div>
+    <div class="form-group">
+      <label for="set-keywords">关键词（逗号分隔）</label>
+      <input type="text" id="set-keywords" value="<%= site.keywords.join(', ') %>" placeholder="博客, Node.js, Material You">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="set-author">作者</label>
+        <input type="text" id="set-author" value="<%= site.author %>">
+      </div>
+      <div class="form-group">
+        <label for="set-language">页面语言</label>
+        <input type="text" id="set-language" value="<%= site.language %>" placeholder="zh-CN">
+        <p class="field-help">写入 &lt;html lang="…"&gt;，例如 zh-CN、en。</p>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="set-url">站点地址</label>
+        <input type="text" id="set-url" value="<%= site.url %>" placeholder="https://blog.example.com">
+        <p class="field-help">用于 canonical、sitemap.xml 与 rss.xml；需以 http:// 或 https:// 开头。</p>
+      </div>
+      <div class="form-group">
+        <label for="set-github">GitHub 地址</label>
+        <input type="text" id="set-github" value="<%= site.github %>" placeholder="https://github.com/...">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label for="set-avatar">头像地址</label>
+        <input type="text" id="set-avatar" value="<%= site.avatar %>" placeholder="/img/avatar.jpg">
+      </div>
+      <div class="form-group">
+        <label for="set-copyright">版权文字</label>
+        <input type="text" id="set-copyright" value="<%= site.copyright %>" placeholder="© 2025 Your Name">
+      </div>
+    </div>
+  </section>
+
+  <div class="form-actions">
+    <button type="submit" class="btn btn-primary" data-action="save-settings">💾 保存设置</button>
+    <button type="reset" class="btn btn-outline">重置表单</button>
+  </div>
+</form>
+
+<p class="desc note">
+  保存会直接写入 <code>_config.yml</code>（本站唯一的配置文件，注释会被保留），并立即生效、无需重启服务。
+  “重置表单”只会把输入框恢复到本次页面加载时的值；若要重新读取磁盘上的当前配置，请刷新本页面。
+</p>

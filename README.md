@@ -401,6 +401,8 @@ strings: {}                   # override any UI string, e.g. {page_posts: 博客
 - **No restart needed** — the file is read with an mtime cache, so an edit takes effect on the next request.
 - **Feature switches are honoured at request time**: turning `search`, `rss`, `sitemap` or `easterEgg` off removes the corresponding route/UI, and `calendar: false` hides the status-page calendar card.
 - **`strings`** overrides any key from the built-in dictionary (see `DEFAULT_STRINGS` in `src/site-config.ts`); a key you do not override keeps its built-in value.
+- **Editable from the admin console** — `/admin/settings/` writes back into this file. The edit is line-based and validated (re-parsed before writing, atomic rename), so the comments above survive and a bad value is rejected instead of corrupting the file.
+- **`theme.color`** is the site's **theme colour**: it seeds mdui's Material You palette *and* is emitted as `<meta name="theme-color">` for the browser UI. Any CSS colour works (`#ff006a`, `rgb(255,0,106)`, `tomato`).
 - **`BMY_CONFIG_FILE`** points the server at a different file, which is handy for keeping per-deployment config outside the checkout.
 - `url` is the one value an environment variable may override: an explicitly set **`BMY_SITE_URL`** wins over `_config.yml`, so a container can be re-pointed without editing a tracked file.
 - A malformed YAML file is logged loudly and falls back to defaults rather than taking the site down, so you can still reach the admin area and fix it.
@@ -716,6 +718,8 @@ The image is a single self-contained container: `node:24-alpine`, dependencies i
 docker compose up -d --build
 docker compose logs -f blog
 ```
+
+The image `chown`s `_config.yml` to the `node` user so the admin settings page can write to it. If you would rather manage the configuration outside the container, bind-mount it read-only — saving then reports a clear error instead of silently doing nothing.
 
 ### Volume layout
 

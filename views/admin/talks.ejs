@@ -6,27 +6,34 @@
 %>
 <div class="page-header">
   <h1>💭 动态</h1>
-  <mdui-button variant="filled" icon="add" href="/admin/talks/new/" data-action="new-talk">✏️ 发动态</mdui-button>
+  <a class="btn btn-primary" href="/admin/talks/new/" data-action="new-talk">✏️ 发动态</a>
 </div>
 
 <% if (talks.length === 0) { %>
-  <div class="empty-state">暂无动态，点击右上角按钮发布第一条</div>
+  <p class="empty-state">暂无动态，点击右上角按钮发布第一条</p>
 <% } else { %>
-  <mdui-card>
-    <% talks.forEach((talk) => { %>
-      <div class="post-item" data-id="<%= talk.id %>">
-        <div class="post-info">
-          <div class="talk-content"><%= talk.content %></div>
-          <span><%= formatDateTime(talk.createTime) %></span>
-        </div>
-        <div class="post-actions">
-          <mdui-button
-            variant="text"
-            data-action="delete-talk"
-            data-id="<%= talk.id %>"
-          >🗑️ 删除</mdui-button>
-        </div>
-      </div>
-    <% }); %>
-  </mdui-card>
+  <section class="card">
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>内容</th>
+            <th>时间</th>
+            <th class="col-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% talks.forEach((talk) => { %>
+            <tr data-id="<%= talk.id %>">
+              <td class="talk-content"><%= talk.content %></td>
+              <td class="muted"><%= formatDateTime(talk.createTime) %></td>
+              <td class="col-actions">
+                <button type="button" class="btn btn-danger" data-action="delete-talk" data-id="<%= talk.id %>">🗑️ 删除</button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </section>
 <% } %>

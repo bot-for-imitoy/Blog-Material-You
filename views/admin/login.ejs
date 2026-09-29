@@ -1,10 +1,13 @@
 <%
   /**
-   * admin/login.ejs — admin sign-in.
+   * admin/login.ejs — admin sign-in (plain semantic HTML).
    *
-   * Two mutually exclusive sections: the password step, and (when 2FA is on)
-   * the TOTP step revealed by /js/admin.js after a successful password check.
-   * Never render secrets here — this page is public.
+   * Two mutually exclusive steps, each in its own <form> so that pressing
+   * Enter is always unambiguous (the browser submits the form the focused
+   * field belongs to): the password step, and — when 2FA is enabled — the TOTP
+   * step revealed by /js/admin.js after a successful password check.
+   *
+   * Never render secrets here: this page is public.
    */
 %>
 <div class="login-card">
@@ -12,36 +15,34 @@
   <p class="desc">请登录以管理您的博客</p>
 
   <%# Filled by /js/admin.js with the API error message. %>
-  <div id="login-error" class="form-error" hidden></div>
+  <div id="login-error" class="form-error" role="alert" hidden></div>
 
-  <section id="login-step1">
-    <mdui-text-field
-      id="lf-user"
-      label="用户名"
-      placeholder="输入用户名"
-      autocomplete="username"
-    ></mdui-text-field>
-    <mdui-text-field
-      id="lf-pass"
-      label="密码"
-      type="password"
-      toggle-password
-      placeholder="输入密码"
-      autocomplete="current-password"
-    ></mdui-text-field>
-    <mdui-button id="login-btn" variant="filled" full-width data-action="login">登录</mdui-button>
-  </section>
+  <form id="login-step1">
+    <div class="form-group">
+      <label for="lf-user">用户名</label>
+      <input type="text" id="lf-user" name="username" placeholder="输入用户名" autocomplete="username" autofocus>
+    </div>
+    <div class="form-group">
+      <label for="lf-pass">密码</label>
+      <input type="password" id="lf-pass" name="password" placeholder="输入密码" autocomplete="current-password">
+    </div>
+    <button type="submit" id="login-btn" class="btn btn-primary btn-block" data-action="login">登录</button>
+  </form>
 
-  <section id="login-step2" hidden>
+  <form id="login-step2" hidden>
     <p class="desc">请输入身份验证器中的 6 位验证码</p>
-    <mdui-text-field
-      id="lf-totp"
-      label="验证码"
-      placeholder="000000"
-      maxlength="6"
-      inputmode="numeric"
-      autocomplete="one-time-code"
-    ></mdui-text-field>
-    <mdui-button id="totp-btn" variant="filled" full-width data-action="login-totp">验证</mdui-button>
-  </section>
+    <div class="form-group">
+      <label for="lf-totp">验证码</label>
+      <input
+        type="text"
+        id="lf-totp"
+        name="totp"
+        placeholder="000000"
+        maxlength="6"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+      >
+    </div>
+    <button type="submit" id="totp-btn" class="btn btn-primary btn-block" data-action="login-totp">验证</button>
+  </form>
 </div>

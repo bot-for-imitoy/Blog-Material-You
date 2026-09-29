@@ -18,86 +18,134 @@
   <h1>👥 访客</h1>
 </div>
 
-<mdui-card class="card">
+<section class="card">
   <h2>添加 / 更新访客</h2>
   <p class="desc">为指定邮箱授予权限；已存在的邮箱会被更新。</p>
-  <div class="form-row">
-    <mdui-text-field id="visitor-email" label="邮箱" type="email" placeholder="visitor@example.com"></mdui-text-field>
-    <mdui-text-field id="visitor-name" label="名称（可选）" placeholder="昵称"></mdui-text-field>
-  </div>
-  <div class="form-group">
-    <label>权限</label>
-    <div id="visitor-perms" class="perm-group">
-      <% permissions.forEach((perm) => { %>
-        <mdui-checkbox value="<%= perm %>"><%= labelOf(perm) %></mdui-checkbox>
-      <% }); %>
+  <div id="visitor-error" class="form-error" role="alert" hidden></div>
+  <form id="visitor-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label for="visitor-email">邮箱</label>
+        <input type="email" id="visitor-email" name="email" placeholder="visitor@example.com">
+      </div>
+      <div class="form-group">
+        <label for="visitor-name">名称（可选）</label>
+        <input type="text" id="visitor-name" name="name" placeholder="昵称">
+      </div>
     </div>
-  </div>
-  <div class="form-actions">
-    <mdui-button variant="filled" data-action="save-visitor">💾 保存访客</mdui-button>
-  </div>
-</mdui-card>
+    <div class="form-group">
+      <span class="field-label">权限</span>
+      <div id="visitor-perms" class="perm-group">
+        <% permissions.forEach((perm) => { %>
+          <label class="check-inline">
+            <input type="checkbox" name="permissions" value="<%= perm %>">
+            <span><%= labelOf(perm) %></span>
+          </label>
+        <% }); %>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary" data-action="save-visitor">💾 保存访客</button>
+    </div>
+  </form>
+</section>
 
-<mdui-card class="card">
+<section class="card">
   <h2>已通过验证的访客</h2>
   <% if (visitors.length === 0) { %>
-    <div class="empty-state">暂无已注册访客</div>
+    <p class="empty-state">暂无已注册访客</p>
   <% } else { %>
-    <% visitors.forEach((visitor) => { %>
-      <div class="post-item" data-email="<%= visitor.email %>">
-        <div class="post-info">
-          <h3><%= visitor.name || visitor.email %></h3>
-          <span>
-            <%= visitor.email %>
-            · 权限：
-            <% if (visitor.permissions.length === 0) { %>
-              无
-            <% } else { %>
-              <%= visitor.permissions.map(labelOf).join('、') %>
-            <% } %>
-          </span>
-        </div>
-        <div class="post-actions">
-          <mdui-button
-            variant="text"
-            data-action="delete-visitor"
-            data-email="<%= visitor.email %>"
-          >🗑️ 删除</mdui-button>
-        </div>
-      </div>
-    <% }); %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>邮箱</th>
+            <th>权限</th>
+            <th class="col-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% visitors.forEach((visitor) => { %>
+            <tr data-email="<%= visitor.email %>">
+              <td><%= visitor.name || visitor.email %></td>
+              <td><%= visitor.email %></td>
+              <td class="muted">
+                <% if (visitor.permissions.length === 0) { %>
+                  无
+                <% } else { %>
+                  <%= visitor.permissions.map(labelOf).join('、') %>
+                <% } %>
+              </td>
+              <td class="col-actions">
+                <button
+                  type="button"
+                  class="btn btn-danger"
+                  data-action="delete-visitor"
+                  data-email="<%= visitor.email %>"
+                >🗑️ 删除</button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
-</mdui-card>
+</section>
 
-<mdui-card class="card">
+<section class="card">
   <h2>待审核申请</h2>
   <% if (pending.length === 0) { %>
-    <div class="empty-state">暂无待审核的申请</div>
+    <p class="empty-state">暂无待审核的申请</p>
   <% } else { %>
-    <% pending.forEach((item) => { %>
-      <div class="post-item" data-email="<%= item.email %>">
-        <div class="post-info">
-          <h3><%= item.name || item.email %></h3>
-          <span><%= item.email %> · <%= formatDateTime(item.createdAt) %></span>
-          <div class="perm-group">
-            <% permissions.forEach((perm) => { %>
-              <mdui-checkbox class="pending-perm" data-email="<%= item.email %>" value="<%= perm %>"><%= labelOf(perm) %></mdui-checkbox>
-            <% }); %>
-          </div>
-        </div>
-        <div class="post-actions">
-          <mdui-button
-            variant="filled"
-            data-action="approve-visitor"
-            data-email="<%= item.email %>"
-          >✅ 通过</mdui-button>
-          <mdui-button
-            variant="text"
-            data-action="reject-visitor"
-            data-email="<%= item.email %>"
-          >🚫 拒绝</mdui-button>
-        </div>
-      </div>
-    <% }); %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>名称</th>
+            <th>邮箱 / 时间</th>
+            <th>权限</th>
+            <th class="col-actions">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% pending.forEach((item) => { %>
+            <tr data-email="<%= item.email %>">
+              <td><%= item.name || item.email %></td>
+              <td class="muted"><%= item.email %> · <%= formatDateTime(item.createdAt) %></td>
+              <td>
+                <div class="perm-group">
+                  <% permissions.forEach((perm) => { %>
+                    <label class="check-inline">
+                      <input
+                        type="checkbox"
+                        class="pending-perm"
+                        data-email="<%= item.email %>"
+                        value="<%= perm %>"
+                      >
+                      <span><%= labelOf(perm) %></span>
+                    </label>
+                  <% }); %>
+                </div>
+              </td>
+              <td class="col-actions">
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  data-action="approve-visitor"
+                  data-email="<%= item.email %>"
+                >✅ 通过</button>
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  data-action="reject-visitor"
+                  data-email="<%= item.email %>"
+                >🚫 拒绝</button>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
-</mdui-card>
+</section>

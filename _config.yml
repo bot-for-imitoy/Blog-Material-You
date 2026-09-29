@@ -49,8 +49,10 @@ copyright: © 2025 Blog Material You
 github: https://github.com/imitoy/Blog
 
 theme:
-  # 动态配色种子色。mdui 会据此生成整套 Material You 配色方案。
-  # 想跟随头像主色，可改成图片地址并在前台调用 getColorFromImage。
+  # 主题色。mdui 会据此生成整套 Material You 配色方案，同时作为浏览器地址栏
+  # 配色（<meta name="theme-color">）输出。
+  # 也可以在后台「站点设置」页面直接修改并实时预览——保存时会写回本文件。
+  # 取值可以是任意 CSS 颜色：#ff006a、rgb(255,0,106)、tomato 等。
   color: '#ff006a'
 
 # ===== 导航菜单 =====
