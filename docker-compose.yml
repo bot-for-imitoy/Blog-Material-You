@@ -20,11 +20,10 @@ services:
       - BMY_SESSION_SECRET=${BMY_SESSION_SECRET:-}
       # First-run admin bootstrap. Only applied while no admin account exists,
       # so a password changed in the UI is never reverted on restart.
+      # Forgotten password? There is deliberately no reset env var — run:
+      #   docker compose exec blog npm run passwd-reset -- --clear
       - BMY_ADMIN_USER=${BMY_ADMIN_USER:-admin}
       - BMY_ADMIN_PASS=${BMY_ADMIN_PASS:-}
-      # Forgotten password? Set BMY_ADMIN_RESET=1 together with BMY_ADMIN_PASS to
-      # force a reset on the next start, then remove both again.
-      - BMY_ADMIN_RESET=${BMY_ADMIN_RESET:-}
       # ===== Image hosting (optional) =====
       # Set BMY_IMGHOST_PROVIDER=s3 plus the BMY_S3_* values to store uploaded
       # images on MinIO / AWS S3 / Cloudflare R2 instead of the local disk.

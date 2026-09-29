@@ -142,3 +142,48 @@ export function randomPassword(length = 16): string {
   for (const byte of bytes) out += alphabet[byte % alphabet.length];
   return out;
 }
+
+// ===================== Password / username policy =====================
+
+/** Minimum accepted password length. */
+export const MIN_PASSWORD_LENGTH = 6;
+
+/**
+ * Passwords rejected outright at setup and by `npm run passwd-reset`.
+ * These are the values a fresh install is likely to be given (and the ones the
+ * previous implementation shipped as documented defaults), so they must never
+ * work.
+ */
+export const WEAK_PASSWORDS = [
+  'bmy2025',
+  'admin',
+  'password',
+  '123456',
+  'admin123',
+  '12345678',
+  'qwerty',
+];
+
+/**
+ * Admin usernames are embedded in session tokens
+ * (`username:timestamp:signature`), so `:` is excluded and the charset is kept
+ * narrow. Without this a username containing `:` silently breaks every token.
+ */
+export const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/;
+
+/** Returns a problem description, or null when the password is acceptable. */
+export function passwordProblem(password: string): string | null {
+  if (!password) return '密码不能为空';
+  if (password.length < MIN_PASSWORD_LENGTH) return `密码长度不少于${MIN_PASSWORD_LENGTH}位`;
+  if (WEAK_PASSWORDS.includes(password.toLowerCase())) return '密码过于简单，请使用更安全的密码';
+  return null;
+}
+
+/** Returns a problem description, or null when the username is acceptable. */
+export function usernameProblem(user: string): string | null {
+  if (!user) return '用户名不能为空';
+  if (!USERNAME_PATTERN.test(user)) {
+    return '用户名只能包含字母、数字、下划线、点或短横线（1-64 位）';
+  }
+  return null;
+}

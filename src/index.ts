@@ -39,14 +39,14 @@ async function main(): Promise<void> {
   ensureRuntimeDirs();
   ensureVendoredAssets();
 
-  // `BMY_ADMIN_PASS` bootstraps the first admin account on an uninitialised
-  // install (and acts as a recovery path if the password is lost).
+  // `BMY_ADMIN_PASS` creates the first admin account on an uninitialised
+  // install. It never overwrites an existing one — use `npm run passwd-reset`.
   bootstrapFromEnv();
   if (credentialFormat() === 'legacy') {
     console.log(
       '[credentials] a pre-rewrite (AES-256-CBC) admin record was found — your existing\n' +
         '              password still works and is upgraded to scrypt on the next login.\n' +
-        '              If login fails, restart with BMY_ADMIN_PASS=… BMY_ADMIN_RESET=1.',
+        '              If login fails, run `npm run passwd-reset` to start over.',
     );
   }
   startSessionJanitor();

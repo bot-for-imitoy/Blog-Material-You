@@ -23,6 +23,7 @@ import { rateLimit } from '../lib/ratelimit.ts';
 import { safeFilename, str } from '../lib/text.ts';
 import { getSessionToken, consumeTempToken, createSession, createTempToken, destroyAllSessions, destroySession, setSessionCookie, clearSessionCookie } from '../auth/session.ts';
 import { generateSecret, provisioningUri, verifyTotp } from '../auth/totp.ts';
+import { MIN_PASSWORD_LENGTH, USERNAME_PATTERN, WEAK_PASSWORDS } from '../auth/password.ts';
 import { getUser, isSetupDone, setCredentials, verifyCredentials } from '../store/credentials.ts';
 import { confirmEnable, disable, getActiveSecret, getPendingSecret, isTotpEnabled, startEnable } from '../store/totp-state.ts';
 import { createPost, deletePost, listPosts, toggleArchive, updatePost } from '../content/posts.ts';
@@ -41,13 +42,9 @@ import { adminApiHandler, requireAdmin, resolveAdminUser } from '../middleware/a
 /** Issuer shown in authenticator apps; kept stable so existing entries match. */
 const TOTP_ISSUER = 'BlogMaterialYou';
 
-/** Passwords leaked from the old repository's git history. */
-const WEAK_PASSWORDS = ['bmy2025', 'admin', 'password', '123456', 'admin123', '12345678', 'qwerty'];
+// The password/username policy lives in src/auth/password.ts so the setup API,
+// the password-change API and `npm run passwd-reset` cannot drift apart.
 
-/** Local-part charset for admin usernames. `:` is excluded because the session
- * token payload is written as `user:...` in the legacy token format and a colon
- * inside the username corrupted it. */
-const ADMIN_USER_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 
 // ===================== Response helpers =====================
 
@@ -93,7 +90,7 @@ function takeSlug(res: Response, value: unknown): string | null {
  * never be verified again.
  */
 function validateAdminUser(user: string): string | null {
-  if (user.includes(':') || !ADMIN_USER_RE.test(user)) {
+  if (user.includes(':') || !USERNAME_PATTERN.test(user)) {
     return '用户名只能包含字母、数字、下划线、点或短横线（1-64 位）';
   }
   return null;
@@ -210,7 +207,7 @@ export function createAdminApiRouter(): Router {
         fail(res, 400, '用户名和密码不能为空');
         return;
       }
-      if (password.length < 6) {
+      if (password.length < MIN_PASSWORD_LENGTH) {
         fail(res, 400, '密码长度不少于6位');
         return;
       }

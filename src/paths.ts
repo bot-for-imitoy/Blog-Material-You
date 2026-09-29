@@ -64,13 +64,16 @@ export const SITE_URL = envStr('BMY_SITE_URL', '');
 export const SESSION_SECRET = envStr('BMY_SESSION_SECRET', '');
 export const SESSION_TTL = envInt('BMY_SESSION_TTL', 7 * 24 * 3600);
 export const ADMIN_USER = envStr('BMY_ADMIN_USER', 'admin');
-export const ADMIN_PASS = envStr('BMY_ADMIN_PASS', '');
 /**
- * Force `BMY_ADMIN_PASS` to overwrite an existing admin account.
- * Without this, the environment bootstrap only applies to an uninitialised
- * install, so a forgotten password needs an explicit opt-in reset.
+ * First-run admin password.
+ *
+ * Only used while no admin account exists, so a password changed in the UI is
+ * never silently reverted on restart. Resetting a *forgotten* password is
+ * deliberately NOT an environment switch — it is the explicit, one-off
+ * `npm run passwd-reset` command, so nothing in a deployment config can
+ * overwrite credentials behind your back.
  */
-export const ADMIN_RESET = envBool('BMY_ADMIN_RESET', false);
+export const ADMIN_PASS = envStr('BMY_ADMIN_PASS', '');
 export const TRUST_PROXY = envBool('BMY_TRUST_PROXY', false);
 export const MAX_UPLOAD_MB = envInt('BMY_MAX_UPLOAD_MB', 100);
 export const DEV = envStr('NODE_ENV', 'development') !== 'production';

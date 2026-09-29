@@ -11,7 +11,7 @@
  * first-run setup wizard.
  */
 import path from 'node:path';
-import { ADMIN_PASS, ADMIN_RESET, ADMIN_USER, DATA_DIR } from '../paths.ts';
+import { ADMIN_PASS, ADMIN_USER, DATA_DIR } from '../paths.ts';
 import { JsonStore } from './json-store.ts';
 import { hashPassword, verifyPassword, verifyLegacy, type PasswordRecord } from '../auth/password.ts';
 
@@ -162,23 +162,17 @@ export function credentialFormat(): 'scrypt' | 'legacy' | 'none' {
 /**
  * Bootstrap from the environment on startup.
  *
- * - `BMY_ADMIN_PASS` alone creates the account only when none exists, so a
- *   password changed through the admin UI is never silently reverted on restart.
- * - `BMY_ADMIN_RESET=1` additionally forces an overwrite, which is the
- *   documented way to recover from a forgotten password.
+ * `BMY_ADMIN_PASS` only creates the account when none exists, so a password
+ * changed through the admin UI is never silently reverted on restart. There is
+ * intentionally no environment switch that overwrites an existing account —
+ * use `npm run passwd-reset` for that.
  */
 export function bootstrapFromEnv(): void {
   if (!ADMIN_PASS) return;
-
-  const exists = isSetupDone();
-  if (exists && !ADMIN_RESET) return;
+  if (isSetupDone()) return;
 
   setCredentials(ADMIN_USER, ADMIN_PASS);
-  console.log(
-    exists
-      ? `[credentials] admin account "${ADMIN_USER}" reset from BMY_ADMIN_PASS (BMY_ADMIN_RESET=1)`
-      : `[credentials] initialised admin account "${ADMIN_USER}" from BMY_ADMIN_PASS`,
-  );
+  console.log(`[credentials] initialised admin account "${ADMIN_USER}" from BMY_ADMIN_PASS`);
 }
 
 export { store as credentialsStore };

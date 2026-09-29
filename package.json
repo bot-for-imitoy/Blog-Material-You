@@ -12,6 +12,7 @@
     "dev": "node --watch src/index.ts",
     "typecheck": "tsc --noEmit",
     "assets": "node scripts/sync-assets.mjs",
+    "passwd-reset": "node scripts/passwd-reset.mjs",
     "postinstall": "node scripts/sync-assets.mjs"
   },
   "dependencies": {

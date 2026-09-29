@@ -60,11 +60,12 @@ Blog-Material-You/
 │       └── vendor/           # GENERATED: mdui, KaTeX, highlight.js copied from node_modules
 ├── scripts/
 │   ├── sync-assets.mjs       # Vendors mdui/KaTeX/highlight.js into blog/public/vendor
-│   └── import-legacy-mariadb.mjs  # One-time migration from the old MariaDB install
+│   ├── import-legacy-mariadb.mjs  # One-time migration from the old MariaDB install
+│   └── passwd-reset.mjs      # Offline admin-credential recovery (npm run passwd-reset)
 ├── Dockerfile                # node:24-alpine, non-root, HEALTHCHECK
 ├── docker-compose.yml        # Single container + volumes
 ├── .env.example              # Every supported environment variable, documented
-├── package.json              # npm start / dev / typecheck / assets
+├── package.json              # npm start / dev / typecheck / assets / passwd-reset
 ├── tsconfig.json             # strict, NodeNext, noEmit (Node runs the .ts files directly)
 └── README.md / README.zh.md
 ```
@@ -127,7 +128,7 @@ docker compose up -d --build
 
 The first time you open the site there is **no admin account**. Visit **`/admin/setup/`** and choose a username and password (≥ 6 characters; a few well-known passwords are rejected). The account is written to `blog/data/admin.json` with a scrypt hash, and `/admin/setup/` then redirects to the login page.
 
-For unattended deployments you can create the account from the environment instead: set `BMY_ADMIN_USER` / `BMY_ADMIN_PASS` and start the server. This only applies **while no admin account exists**, so a password you change later in the UI is never silently reverted on restart. To force an overwrite — the recovery path for a forgotten password — set `BMY_ADMIN_PASS` together with **`BMY_ADMIN_RESET=1`** and restart, then remove both variables again.
+For unattended deployments you can create the account from the environment instead: set `BMY_ADMIN_USER` / `BMY_ADMIN_PASS` and start the server. This only applies **while no admin account exists**, so a password you change later in the UI is never silently reverted on restart. Resetting a *forgotten* password is deliberately **not** an environment switch — use `npm run passwd-reset` (see [Operations](#operations)), so nothing in a deployment config can overwrite credentials behind your back.
 
 ---
 
@@ -425,7 +426,6 @@ Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker
 |----------|---------|---------|
 | `BMY_ADMIN_USER` | `admin` | Admin username used when bootstrapping from the environment |
 | `BMY_ADMIN_PASS` | *(empty)* | When set **and no admin account exists**, creates the account at startup. It never overwrites a password you changed in the UI |
-| `BMY_ADMIN_RESET` | `0` | Together with `BMY_ADMIN_PASS`, forces the admin account to be overwritten on the next start — the documented recovery path for a forgotten password. Remove both variables again afterwards |
 | `BMY_SESSION_SECRET` | *(empty)* | HMAC key for admin session tokens. When empty, a random 32-byte secret is generated once and stored in `blog/data/secret.json` |
 | `BMY_SESSION_TTL` | `604800` | Session lifetime in seconds (7 days) |
 
@@ -660,7 +660,7 @@ Missing tables are simply skipped, so a partial old install still migrates. Run 
 
 `admin_creds` holds the legacy AES-256-CBC verifier and is copied across unchanged. `src/store/credentials.ts` detects that format, still verifies the old password, and **re-hashes it with scrypt on the first successful login** (`[credentials] legacy password record upgraded to scrypt`). You do not need to reset anything.
 
-If the legacy login fails for any reason, the recovery path is `BMY_ADMIN_PASS` **plus `BMY_ADMIN_RESET=1`**: set both and restart to overwrite the admin account (the bare `BMY_ADMIN_PASS` is ignored once an account exists, so the old record would otherwise stay in place). Alternatively delete `blog/data/admin.json` and go through `/admin/setup/` again.
+If the legacy login fails for any reason, run `npm run passwd-reset -- --clear` and create a fresh account at `/admin/setup/`. The original record is backed up next to itself first, so a mistaken reset is recoverable.
 
 > Legacy visitor data is also imported automatically: the first time `blog/data/visitors.json` is read, the old `blog/data/auth/emails.json` and `blog/data/auth/pending.json` files are folded in if they exist.
 
@@ -765,7 +765,18 @@ The app is stateless with respect to in-process caches (Markdown parses and JSON
 
 ### Operations
 
-- **Reset a lost admin password** — set `BMY_ADMIN_PASS` together with `BMY_ADMIN_RESET=1` and restart (remove both afterwards), or delete `blog/data/admin.json` and reopen `/admin/setup/`.
+- **Reset a lost admin password** — `npm run passwd-reset`. Passwords are stored as one-way verifiers (scrypt, or the legacy AES record), so they can never be read back out of `blog/data/admin.json` — only replaced. The command runs offline against the same data directory the server uses:
+
+  ```bash
+  npm run passwd-reset                        # interactive: set a new password
+  npm run passwd-reset -- --clear             # delete the account, then use /admin/setup/
+  npm run passwd-reset -- --password '…' --user admin
+  npm run passwd-reset -- --clear --keep-totp # keep 2FA instead of switching it off
+  # inside Docker:
+  docker compose exec blog npm run passwd-reset -- --clear
+  ```
+
+  `--clear` switches 2FA off by default, because a fresh account would otherwise still demand a code from the old authenticator. The existing credential file is copied to `blog/data/admin.json.bak-<timestamp>` (mode `0600`) before anything changes.
 - **Reset 2FA** — delete the `totp` section (or `blog/data/totp.json`); the login goes back to password-only.
 - **Health** — `GET /api/health` for liveness, `GET /api/status` for content counts and process metrics; the `/status/` page renders the same data.
 - **Content updates** — copying `.md` files in is enough; the cache is mtime-based, so no restart is needed.

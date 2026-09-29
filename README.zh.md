@@ -58,11 +58,12 @@ Blog-Material-You/
 │       └── vendor/           # 生成目录：从 node_modules 复制来的 mdui、KaTeX、highlight.js
 ├── scripts/
 │   ├── sync-assets.mjs       # 把 mdui/KaTeX/highlight.js 复制到 blog/public/vendor
-│   └── import-legacy-mariadb.mjs  # 从旧 MariaDB 安装一次性迁移
+│   ├── import-legacy-mariadb.mjs  # 从旧 MariaDB 安装一次性迁移
+│   └── passwd-reset.mjs      # 离线重置管理员凭据（npm run passwd-reset）
 ├── Dockerfile                # node:24-alpine、非 root 用户、HEALTHCHECK
 ├── docker-compose.yml        # 单容器 + 数据卷
 ├── .env.example              # 所有支持的环境变量，均带注释
-├── package.json              # npm start / dev / typecheck / assets
+├── package.json              # npm start / dev / typecheck / assets / passwd-reset
 ├── tsconfig.json             # strict、NodeNext、noEmit（Node 直接运行 .ts 文件）
 └── README.md / README.zh.md
 ```
@@ -125,7 +126,7 @@ docker compose up -d --build
 
 首次打开站点时**并不存在管理员账号**。访问 **`/admin/setup/`** 设置用户名和密码（密码至少 6 位，若干常见弱口令会被拒绝）。账号以 scrypt 哈希写入 `blog/data/admin.json`，之后 `/admin/setup/` 会自动跳转到登录页。
 
-无人值守部署时也可以通过环境变量创建：设置 `BMY_ADMIN_USER` / `BMY_ADMIN_PASS` 后启动服务。该逻辑**只在没有管理员账号时生效**，因此之后在后台改过的密码不会在重启时被悄悄改回去。若需要强制覆盖（忘记密码时的找回方式），请同时设置 `BMY_ADMIN_PASS` 与 **`BMY_ADMIN_RESET=1`** 并重启，随后移除这两个变量。
+无人值守部署时也可以通过环境变量创建：设置 `BMY_ADMIN_USER` / `BMY_ADMIN_PASS` 后启动服务。该逻辑**只在没有管理员账号时生效**，因此之后在后台改过的密码不会在重启时被悄悄改回去。忘记密码时的重置方式**刻意不做成环境变量**——请使用 `npm run passwd-reset`（见[运维](#运维)），这样部署配置里的任何值都不可能在你不知情的情况下覆盖凭据。
 
 ---
 
@@ -423,7 +424,6 @@ strings: {}                   # 覆盖任意界面文案，例如 {page_posts: �
 |------|--------|------|
 | `BMY_ADMIN_USER` | `admin` | 从环境变量初始化时使用的管理员用户名 |
 | `BMY_ADMIN_PASS` | *(空)* | 在**尚未创建管理员账号**时，启动即创建账号。它不会覆盖你在后台改过的密码 |
-| `BMY_ADMIN_RESET` | `0` | 与 `BMY_ADMIN_PASS` 同时设置时，会在下次启动强制覆盖管理员账号——这是官方推荐的忘记密码找回方式。重置完成后请移除这两个变量 |
 | `BMY_SESSION_SECRET` | *(空)* | 管理员会话 Token 的 HMAC 密钥。为空时会随机生成 32 字节密钥并保存到 `blog/data/secret.json` |
 | `BMY_SESSION_TTL` | `604800` | 会话有效期，单位秒（7 天） |
 
@@ -658,7 +658,7 @@ node scripts/import-legacy-mariadb.mjs --skip-config
 
 `admin_creds` 中存放的是旧版 AES-256-CBC 校验值，会被原样复制过去。`src/store/credentials.ts` 能识别这种格式，旧的密码依然可以登录，并会在**首次成功登录时自动重新哈希为 scrypt**（日志输出 `[credentials] legacy password record upgraded to scrypt`），无需重置任何内容。
 
-如果旧密码因故无法登录，恢复方式是 `BMY_ADMIN_PASS` **加上 `BMY_ADMIN_RESET=1`**：同时设置这两个变量并重启，即可覆盖管理员账号（只会单独设置 `BMY_ADMIN_PASS` 时，由于账号已存在会被忽略，旧记录仍会保留）。另一种做法是删除 `blog/data/admin.json`，重新走一遍 `/admin/setup/`。
+如果旧密码因故无法登录，请执行 `npm run passwd-reset -- --clear`，然后重新走一遍 `/admin/setup/` 创建新账号。原凭据会先备份到同目录下，误操作可以找回。
 
 > 旧访客数据也会自动导入：第一次读取 `blog/data/visitors.json` 时，若存在旧的 `blog/data/auth/emails.json` 和 `blog/data/auth/pending.json`，其内容会被合并进来。
 
@@ -763,7 +763,18 @@ volumes:
 
 ### 运维
 
-- **找回管理员密码**——同时设置 `BMY_ADMIN_PASS` 与 `BMY_ADMIN_RESET=1` 并重启（完成后移除这两个变量），或删除 `blog/data/admin.json` 后重新打开 `/admin/setup/`。
+- **找回管理员密码**——执行 `npm run passwd-reset`。密码只以「单向校验值」形式保存（scrypt，或旧版 AES 记录），**无法从 `blog/data/admin.json` 读回原文，只能替换**。该命令离线运行，使用与服务完全相同的数据目录：
+
+  ```bash
+  npm run passwd-reset                        # 交互式设置新密码
+  npm run passwd-reset -- --clear             # 删除账号，之后用 /admin/setup/ 重新创建
+  npm run passwd-reset -- --password '…' --user admin
+  npm run passwd-reset -- --clear --keep-totp # 保留两步验证（默认会关闭）
+  # Docker 内：
+  docker compose exec blog npm run passwd-reset -- --clear
+  ```
+
+  `--clear` 默认会**同时关闭两步验证**，否则新建的账号登录时仍会要求旧验证器上的动态码。改动前会把原凭据文件复制为 `blog/data/admin.json.bak-<时间戳>`（权限 `0600`）。
 - **重置两步验证**——删除 `totp` 分节（或 `blog/data/totp.json`），登录会恢复为仅密码。
 - **健康检查**——`GET /api/health` 用于存活探测，`GET /api/status` 提供内容数量与进程指标；`/status/` 页面展示同样的数据。
 - **更新内容**——直接复制 `.md` 文件即可，缓存基于 mtime，无需重启。
