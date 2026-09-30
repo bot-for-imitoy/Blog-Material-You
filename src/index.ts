@@ -54,6 +54,10 @@ async function main(): Promise<void> {
   const app = await createApp();
 
   const server = app.listen(PORT, HOST, () => {
+    // Node can still invoke this callback when the bind failed (the 'error'
+    // event follows), which would print a success banner right before the
+    // failure. `listening` is only true for a socket that really bound.
+    if (!server.listening) return;
     const shown = HOST === '0.0.0.0' ? 'localhost' : HOST;
     console.log(`Blog Material You v${VERSION} (Node.js ${process.version})`);
     console.log(`  site      http://${shown}:${PORT}/`);
@@ -62,6 +66,29 @@ async function main(): Promise<void> {
     console.log(`  content   ${BLOG_DIR}`);
     console.log(`  data      ${DATA_DIR}`);
     console.log(`  assets    ${PUBLIC_DIR}`);
+  });
+
+  /**
+   * A failed bind must be loud.
+   *
+   * Without this handler Node emits an unhandled 'error' event, and depending on
+   * where the failure lands the process can disappear without any message at
+   * all — which reads as "the server started" while nothing is listening. The
+   * common case is a port already in use, so name it explicitly.
+   */
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `Failed to start: ${HOST}:${PORT} is already in use.\n` +
+          '  Another instance may still be running. Stop it, or start this one on a\n' +
+          '  different port with `BMY_PORT=<port> npm start`.',
+      );
+    } else if (err.code === 'EACCES') {
+      console.error(`Failed to start: not allowed to bind ${HOST}:${PORT} (privileged port?).`);
+    } else {
+      console.error('Failed to start:', err);
+    }
+    process.exit(1);
   });
 
   const shutdown = (signal: string) => {
