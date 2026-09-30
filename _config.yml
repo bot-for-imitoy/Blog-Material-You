@@ -52,8 +52,10 @@ theme:
   # 主题色。mdui 会据此生成整套 Material You 配色方案，同时作为浏览器地址栏
   # 配色（<meta name="theme-color">）输出。
   # 也可以在后台「站点设置」页面直接修改并实时预览——保存时会写回本文件。
-  # 取值可以是任意 CSS 颜色：#ff006a、rgb(255,0,106)、tomato 等。
-  color: '#ff006a'
+  # 必须是十六进制：#rgb、#rrggbb 或 #rrggbbaa。
+  # （mdui 的配色方案由该值生成，只接受十六进制：rgb(...) 会让生成失败，
+  #   颜色名如 tomato 会被当作黑色，导致整站变成灰色。）
+  color: '#8ee37b'
 
 # ===== 导航菜单 =====
 # text    菜单文字
@@ -133,6 +135,10 @@ rssLimit: 20
 profile:
   # 是否启用该页面
   enabled: true
+
+  # 强调色。留空则跟随站点主题色（theme.color），改主题色时本页一起变。
+  # 想固定成别的颜色（例如最初规格里的蓝色）就写死，如 '#4da3ff'。
+  accent: ''
 
   # 圆形头像（带霓虹发光圆环）
   avatar: /img/avatar.jpg

@@ -403,7 +403,8 @@ strings: {}                   # override any UI string, e.g. {page_posts: 博客
 - **Feature switches are honoured at request time**: turning `search`, `rss`, `sitemap` or `easterEgg` off removes the corresponding route/UI, and `calendar: false` hides the status-page calendar card.
 - **`strings`** overrides any key from the built-in dictionary (see `DEFAULT_STRINGS` in `src/site-config.ts`); a key you do not override keeps its built-in value.
 - **Editable from the admin console** — `/admin/settings/` writes back into this file. The edit is line-based and validated (re-parsed before writing, atomic rename), so the comments above survive and a bad value is rejected instead of corrupting the file.
-- **`theme.color`** is the site's **theme colour**: it seeds mdui's Material You palette *and* is emitted as `<meta name="theme-color">` for the browser UI. Any CSS colour works (`#ff006a`, `rgb(255,0,106)`, `tomato`).
+- **`theme.color`** is the site's **theme colour**. It must be **hex** (`#rgb`, `#rrggbb` or `#rrggbbaa`) — that is the only input mdui's palette generator accepts, and the admin form rejects anything else rather than letting it fail quietly. It seeds the Material You palette *and* is emitted as `<meta name="theme-color">` for the browser UI.
+- The Material You palette is generated **on the server** (`src/lib/color-scheme.ts`) and inlined into each page, mirroring what mdui's `setColorScheme()` does in the browser. That means the correct colours are present in the first paint — no flash of the default purple — and the site stays themed with JavaScript disabled.
 - **`BMY_CONFIG_FILE`** points the server at a different file, which is handy for keeping per-deployment config outside the checkout.
 - `url` is the one value an environment variable may override: an explicitly set **`BMY_SITE_URL`** wins over `_config.yml`, so a container can be re-pointed without editing a tracked file.
 - A malformed YAML file is logged loudly and falls back to defaults rather than taking the site down, so you can still reach the admin area and fix it.
@@ -415,6 +416,7 @@ strings: {}                   # override any UI string, e.g. {page_posts: 博客
 ```yaml
 profile:
   enabled: true               # the only switch for this page
+  accent: ''                  # empty = follow theme.color; set a hex to pin it
   avatar: /img/avatar.jpg
   greeting: Hi, I am
   name: X-LeeHe
@@ -441,6 +443,7 @@ profile:
 - Icons are inline SVG, so no icon font or CDN is involved: `github` (`<>`), `blog`, `more` (branch), `music`, `link`, `mail`, `rss`.
 - **No JavaScript**: the panels are `<details>` (with the `name` attribute for a native accordion where supported).
 - Setting `music.embed` or `music.audio` also adds exactly that origin to the page's CSP `frame-src` / `media-src`, so the strict policy does not have to be loosened globally.
+- `accent` defaults to the site theme colour, so changing `theme.color` re-themes this page too. Set it to a hex value (e.g. `'#4da3ff'`) to pin the card's neon ring, badges and icons to a fixed colour regardless of the theme.
 - To surface the page in the sidebar, add it to `menu:` — it is deliberately not there by default.
 
 ### Deployment configuration — environment variables

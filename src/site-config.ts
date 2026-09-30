@@ -20,6 +20,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import yaml from 'js-yaml';
+import { buildColorScheme, type ColorScheme } from './lib/color-scheme.ts';
 import { ROOT, SITE_URL } from './paths.ts';
 
 /** One sidebar / navigation entry. */
@@ -82,6 +83,11 @@ export interface ProfileMusic {
 
 export interface ProfileSettings {
   enabled: boolean;
+  /**
+   * Accent colour for the card. Empty string follows the site `theme.color`, so
+   * changing the theme colour also re-themes this page.
+   */
+  accent: string;
   avatar: string;
   greeting: string;
   name: string;
@@ -354,6 +360,7 @@ export const CONFIG_FILE = process.env.BMY_CONFIG_FILE
  */
 export const DEFAULT_PROFILE: ProfileSettings = {
   enabled: true,
+  accent: '',
   avatar: DEFAULT_STRINGS.avatar!,
   greeting: 'Hi, I am',
   name: 'X-LeeHe',
@@ -561,6 +568,7 @@ function normaliseProfile(raw: Record<string, unknown>, base: ProfileSettings): 
     : [];
   return {
     enabled: bool(raw.enabled, base.enabled),
+    accent: text(raw.accent, base.accent),
     avatar: text(raw.avatar, base.avatar),
     greeting: text(raw.greeting, base.greeting),
     name: text(raw.name, base.name),
@@ -671,6 +679,12 @@ export interface TemplateGlobals {
   features: SiteFeatures;
   /** Content for the standalone personal card at `/profile/`. */
   profile: ProfileSettings;
+  /**
+   * Material You palette generated from `theme.color`, plus the class that
+   * applies it. Rendered server-side so pages are correctly themed on first
+   * paint and without JavaScript.
+   */
+  colorScheme: ColorScheme;
   t: (key: string) => string;
   strings: Record<string, string>;
 }
@@ -694,6 +708,7 @@ export function templateGlobals(): TemplateGlobals {
     menu: settings.menu,
     features: settings.features,
     profile: settings.profile,
+    colorScheme: buildColorScheme(settings.themeColor),
     t,
     strings: { ...DEFAULT_STRINGS, ...settings.strings },
   };

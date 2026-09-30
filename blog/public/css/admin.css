@@ -17,6 +17,10 @@
    ======================================================================== */
 
 :root {
+    /* Fallback only: the layout emits the configured `theme.color` as an inline
+       `--admin-accent` after this stylesheet, so that value wins. This keeps the
+       console coherent if the inline style is ever stripped or the template is
+       rendered standalone. */
     --admin-accent: #ff006a;
     --admin-bg: #f5f6f8;
     --admin-surface: #ffffff;

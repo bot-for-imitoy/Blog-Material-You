@@ -401,7 +401,8 @@ strings: {}                   # 覆盖任意界面文案，例如 {page_posts: �
 - **功能开关在请求时生效**：关掉 `search`、`rss`、`sitemap`、`easterEgg` 会移除对应路由与界面入口，`calendar: false` 会隐藏状态页的日历卡片。
 - **`strings`** 可覆盖内置词典中的任意键（见 `src/site-config.ts` 的 `DEFAULT_STRINGS`）；未覆盖的键保持内置值。
 - **可在后台修改**——`/admin/settings/` 会把改动写回本文件。写入是逐行修改并带校验的（先重新解析再原子替换），所以上面的注释会保留，非法值会被拒绝而不是把文件写坏。
-- **`theme.color`** 是站点**主题色**：既作为 mdui 的 Material You 配色种子，也以 `<meta name="theme-color">` 输出给浏览器界面。任意 CSS 颜色均可（`#ff006a`、`rgb(255,0,106)`、`tomato`）。
+- **`theme.color`** 是站点**主题色**，必须是**十六进制**（`#rgb`、`#rrggbb` 或 `#rrggbbaa`）——这是 mdui 配色生成器唯一接受的输入，后台表单也会直接拒绝其他写法，而不是让它在浏览器里静默失败。它既作为 Material You 配色种子，也以 `<meta name="theme-color">` 输出给浏览器界面。
+- 配色方案由**服务端**生成（`src/lib/color-scheme.ts`）并内联进每个页面，等价于 mdui 的 `setColorScheme()` 在浏览器里做的事。好处是首次绘制就是正确颜色（不会先闪一下默认紫色），并且在**禁用 JavaScript** 时站点依然保持主题配色。
 - **`BMY_CONFIG_FILE`** 可让服务读取另一个配置文件，便于把每套部署的配置放在检出目录之外。
 - `url` 是唯一允许被环境变量覆盖的值：显式设置了 **`BMY_SITE_URL`** 时它优先于 `_config.yml`，这样容器无需改动受版本控制的文件就能改指向。
 - YAML 写错时会大声报错并回退到默认值，而不是让站点挂掉，便于你先进后台把它修好。
@@ -413,6 +414,7 @@ strings: {}                   # 覆盖任意界面文案，例如 {page_posts: �
 ```yaml
 profile:
   enabled: true               # 该页面唯一的开关
+  accent: ''                  # 留空跟随 theme.color；填十六进制则固定
   avatar: /img/avatar.jpg
   greeting: Hi, I am
   name: X-LeeHe
@@ -439,6 +441,7 @@ profile:
 - 图标是内联 SVG，不依赖图标字体或 CDN：`github`（`<>`）、`blog`、`more`（分支）、`music`、`link`、`mail`、`rss`。
 - **完全不需要 JavaScript**：面板是 `<details>`（带 `name` 属性，在支持的浏览器里就是原生手风琴）。
 - 配置了 `music.embed` 或 `music.audio` 时，只会把该来源加入页面的 CSP `frame-src` / `media-src`，不需要全局放宽策略。
+- `accent` 默认跟随站点主题色，所以改 `theme.color` 时本页会一起变。填一个十六进制值（如 `'#4da3ff'`）可把卡片的霓虹圆环、徽章和图标固定成该颜色，不受主题色影响。
 - 想让它出现在侧边栏，把它加进 `menu:` 即可——默认刻意不加入。
 
 ### 部署配置 —— 环境变量

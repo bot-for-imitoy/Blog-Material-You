@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="<%= site.language %>" class="mdui-theme-auto" data-theme-color="<%= site.themeColor %>">
+<html lang="<%= site.language %>" class="mdui-theme-auto <%= colorScheme.className %>" data-theme-color="<%= colorScheme.seed %>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,6 +28,14 @@
   <!-- mdui 2 (Material Design 3 Web Components) is vendored from npm, so the
        site never depends on a public CDN and the CSP can stay strict. -->
   <link rel="stylesheet" href="/vendor/mdui/mdui.css">
+
+  <!-- The Material You palette, generated from `theme.color` at request time.
+       mdui's own `setColorScheme()` would do this in the browser, but doing it
+       here means the right colours are in the first paint (no flash of the
+       default purple), it still works with JavaScript disabled, and the seed is
+       validated on the server instead of silently failing in the browser. -->
+  <style><%- colorScheme.css %></style>
+
   <script src="/vendor/mdui/mdui.global.js"></script>
 
   <link rel="stylesheet" href="/css/root.css">
@@ -85,7 +93,6 @@
   </mdui-layout>
 
   <script src="/js/navigation-drawer.js"></script>
-  <script type="module" src="/js/color.js"></script>
   <script type="module" src="/js/app.js"></script>
   <% (pageScripts || []).forEach(function (src) { %>
   <script type="module" src="<%= src %>"></script>

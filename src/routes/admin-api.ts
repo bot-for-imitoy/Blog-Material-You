@@ -35,6 +35,7 @@ import { deleteComment, listAllComments } from '../store/comments.ts';
 import { invalidateSearchIndex } from '../lib/search.ts';
 import { patchConfigFile } from '../lib/config-write.ts';
 import { getSiteSettings } from '../site-config.ts';
+import { normaliseHex } from '../lib/color-scheme.ts';
 import { PERMISSIONS, approvePending, isValidEmail, listPending, listVisitors, normaliseEmail, removePending, removeVisitor, setVisitor } from '../store/visitors.ts';
 import { maskImghostConfig, readImghostConfig, saveImghostConfig, type ImghostConfig } from '../store/imghost-config.ts';
 import { testConnection, upload, uploadKey } from '../media/imghost.ts';
@@ -882,8 +883,16 @@ export function createAdminApiRouter(): Router {
     { key: 'themeColor', path: ['theme', 'color'], kind: 'color' },
   ];
 
-  /** Accept `#rgb`/`#rrggbb`/`#rrggbbaa`, a CSS colour function, or a name. */
-  const COLOR_PATTERN = /^(#[0-9a-fA-F]{3,8}|[a-zA-Z]+|(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\([0-9a-zA-Z%.,\s/+-]*\))$/;
+  /**
+   * The theme colour must be a hex value.
+   *
+   * It seeds mdui's Material You palette, and the palette generator is strict
+   * about its input: a CSS colour function like `rgb(…)` throws, while a named
+   * colour like `tomato` is parsed as opaque black — which silently repaints the
+   * entire site in greys derived from black. Accepting "any CSS colour" here was
+   * the bug behind "changing the colour does nothing", so only hex is allowed.
+   */
+  const COLOR_PATTERN = /^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
   const LANGUAGE_PATTERN = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
 
   function coerceSetting(
@@ -899,11 +908,20 @@ export function createAdminApiRouter(): Router {
 
     const value = str(raw);
     switch (field.kind) {
-      case 'color':
+      case 'color': {
         if (!COLOR_PATTERN.test(value)) {
-          return { ok: false, error: `${field.key} 不是有效的颜色值（示例：#ff006a、rgb(255,0,106)、tomato）` };
+          return {
+            ok: false,
+            error:
+              '主题色必须是十六进制颜色值（如 #ff006a、#f06、#ff006aff）。' +
+              'mdui 的配色方案只接受十六进制：#rgb/#rrggbb/#rrggbbaa 之外的值'
+              + '（如 rgb(...)、tomato）会导致配色生成失败或整体变成灰色。',
+          };
         }
-        return { ok: true, value };
+        // Store the canonical `#rrggbb` so the palette generator always gets a
+        // well-formed seed.
+        return { ok: true, value: normaliseHex(value) ?? value };
+      }
       case 'url':
         if (value !== '' && !/^https?:\/\/\S+$/i.test(value)) {
           return { ok: false, error: `${field.key} 必须以 http:// 或 https:// 开头` };

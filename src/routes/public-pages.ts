@@ -27,6 +27,7 @@ import { renderMarkdown } from '../lib/markdown.ts';
 import { searchPosts } from '../lib/search.ts';
 import { renderPage, type PageSeo } from '../render/engine.ts';
 import { seoForNotFound, seoForRoute } from '../render/seo.ts';
+import { buildColorScheme, hexToRgbTriple, normaliseHex } from '../lib/color-scheme.ts';
 import { getVisitorEmail, clearVisitorCookie } from '../auth/visitor.ts';
 import { getVisitor } from '../store/visitors.ts';
 
@@ -301,10 +302,22 @@ export function createPublicPagesRouter(): Router {
         await notFound(res, '/profile/');
         return;
       }
+      const accent =
+        normaliseHex(settings.profile.accent) ?? buildColorScheme(settings.themeColor).seed;
       await page(
         res,
         'pages/profile',
-        { profile: settings.profile, bodyClass: 'pf-body' },
+        {
+          profile: settings.profile,
+          bodyClass: 'pf-body',
+          // The card's accent, handed to the stylesheet as custom properties.
+          // `profile.accent` pins the colour; empty follows the site theme, so
+          // changing `theme.color` re-themes this page too. An inline <style> is
+          // fine here — `style-src` allows 'unsafe-inline' (mdui needs it for
+          // runtime style attributes) while scripts stay locked down.
+          headExtra:
+            `<style>:root{--pf-accent:${accent};--pf-accent-rgb:${hexToRgbTriple(accent)};}</style>`,
+        },
         seoForRoute('/profile/'),
         '/profile/',
         'layouts/blank',

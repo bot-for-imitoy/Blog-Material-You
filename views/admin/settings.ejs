@@ -33,9 +33,9 @@
         <input type="color" id="set-theme-color" value="<%= themeHex %>">
       </div>
       <div class="form-group">
-        <label for="set-theme-color-text">主题色（CSS 颜色值）</label>
+        <label for="set-theme-color-text">主题色（十六进制）</label>
         <input type="text" id="set-theme-color-text" value="<%= site.themeColor %>" placeholder="#ff006a">
-        <p class="field-help">支持 #rgb、#rrggbb、rgb(...)、hsl(...) 或颜色名（如 tomato）。</p>
+        <p class="field-help">只接受十六进制：#rgb、#rrggbb 或 #rrggbbaa。mdui 的配色方案由该值生成，其他写法（rgb(...)、颜色名）无法使用。</p>
       </div>
       <div class="form-group">
         <span class="field-label">预览</span>

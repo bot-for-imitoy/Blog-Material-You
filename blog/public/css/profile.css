@@ -21,10 +21,20 @@
   --pf-glass-border: rgba(255, 255, 255, 0.12);
   --pf-glass-blur: 20px;
 
-  /* Neon blue accent + the blue used by the pills and the nav bars */
-  --pf-neon: #4da3ff;
-  --pf-blue-hi: #3b7bff;
-  --pf-blue-lo: #1b3a8f;
+  /*
+   * The accent. The layout emits `--pf-accent` / `--pf-accent-rgb` from
+   * `profile.accent`, or from the site theme colour when that is left empty —
+   * so these two values below are only fallbacks for a standalone render.
+   * Everything blue in this file derives from them.
+   */
+  --pf-accent: #4da3ff;
+  --pf-accent-rgb: 77, 163, 255;
+  /* Deeper shade of the accent, used as the far end of the pill gradient. */
+  --pf-accent-deep: color-mix(in srgb, var(--pf-accent) 42%, #0b1226);
+
+  --pf-neon: var(--pf-accent);
+  --pf-blue-hi: var(--pf-accent);
+  --pf-blue-lo: var(--pf-accent-deep);
   --pf-bar: rgba(38, 52, 82, 0.88);
   --pf-bar-hi: rgba(52, 72, 112, 0.95);
 }
@@ -96,7 +106,7 @@ body {
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(420px 320px at 22% 28%, rgba(77, 163, 255, 0.28), transparent 70%),
+    radial-gradient(420px 320px at 22% 28%, rgba(var(--pf-accent-rgb), 0.28), transparent 70%),
     radial-gradient(520px 380px at 82% 72%, rgba(150, 80, 220, 0.22), transparent 72%);
   filter: blur(70px);
 }
@@ -198,9 +208,9 @@ body {
   place-items: center;
   /* Neon ring: a crisp inner ring plus a wide outer bloom. */
   box-shadow:
-    0 0 0 3px rgba(122, 190, 255, 0.95),
-    0 0 22px 5px rgba(77, 163, 255, 0.55),
-    0 0 54px 14px rgba(59, 123, 255, 0.28);
+    0 0 0 3px rgba(var(--pf-accent-rgb), 0.95),
+    0 0 22px 5px rgba(var(--pf-accent-rgb), 0.55),
+    0 0 54px 14px rgba(var(--pf-accent-rgb), 0.28);
   animation: pf-ring-pulse 4.5s ease-in-out infinite;
 }
 
@@ -214,8 +224,8 @@ body {
 }
 
 @keyframes pf-ring-pulse {
-  0%, 100% { box-shadow: 0 0 0 3px rgba(122, 190, 255, 0.95), 0 0 22px 5px rgba(77, 163, 255, 0.55), 0 0 54px 14px rgba(59, 123, 255, 0.28); }
-  50%      { box-shadow: 0 0 0 3px rgba(150, 205, 255, 1),    0 0 30px 8px rgba(77, 163, 255, 0.7),  0 0 70px 20px rgba(59, 123, 255, 0.36); }
+  0%, 100% { box-shadow: 0 0 0 3px rgba(var(--pf-accent-rgb), 0.95), 0 0 22px 5px rgba(var(--pf-accent-rgb), 0.55), 0 0 54px 14px rgba(var(--pf-accent-rgb), 0.28); }
+  50%      { box-shadow: 0 0 0 3px rgba(var(--pf-accent-rgb), 1),      0 0 30px 8px rgba(var(--pf-accent-rgb), 0.7),  0 0 70px 20px rgba(var(--pf-accent-rgb), 0.36); }
 }
 
 .pf-greeting {
@@ -236,7 +246,7 @@ body {
   line-height: 1.15;
   color: #fff;
   letter-spacing: -0.01em;
-  text-shadow: 0 2px 18px rgba(77, 163, 255, 0.28);
+  text-shadow: 0 2px 18px rgba(var(--pf-accent-rgb), 0.28);
 }
 
 /* The requested transparent triangle indicator next to the name. */
@@ -287,8 +297,8 @@ body {
   color: #fff;
   white-space: nowrap;
   background: linear-gradient(135deg, var(--pf-blue-hi) 0%, var(--pf-blue-lo) 100%);
-  border: 1px solid rgba(150, 195, 255, 0.28);
-  box-shadow: 0 2px 10px rgba(27, 58, 143, 0.45);
+  border: 1px solid rgba(var(--pf-accent-rgb), 0.3);
+  box-shadow: 0 2px 10px rgba(var(--pf-accent-rgb), 0.35);
 }
 
 /* ----------------------------------------------------------------- right side */
@@ -332,7 +342,7 @@ body {
   font-weight: 500;
 
   background: linear-gradient(135deg, var(--pf-bar) 0%, rgba(28, 40, 66, 0.92) 100%);
-  border: 1px solid rgba(120, 160, 230, 0.18);
+  border: 1px solid rgba(var(--pf-accent-rgb), 0.2);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
   transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
 }
@@ -340,7 +350,7 @@ body {
 .pf-btn:hover,
 .pf-btn:focus-visible {
   background: linear-gradient(135deg, var(--pf-bar-hi) 0%, rgba(38, 54, 88, 0.95) 100%);
-  border-color: rgba(140, 190, 255, 0.42);
+  border-color: rgba(var(--pf-accent-rgb), 0.45);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
   transform: translateY(-1px);
 }
@@ -357,8 +367,8 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(90, 140, 230, 0.18);
-  color: #9ec8ff;
+  background: rgba(var(--pf-accent-rgb), 0.18);
+  color: var(--pf-accent);
 }
 
 .pf-icon {
@@ -427,7 +437,7 @@ body {
 
 .pf-sublink:hover,
 .pf-sublink:focus-visible {
-  background: rgba(90, 140, 230, 0.14);
+  background: rgba(var(--pf-accent-rgb), 0.14);
   color: var(--pf-ink);
 }
 

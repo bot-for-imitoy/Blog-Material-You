@@ -14,8 +14,9 @@
    * `adminShell: false` (login/setup) renders only the centred card — those two
    * routes pass the flag, every other admin route leaves it undefined.
    *
-   * `data-accent` carries the configured `theme.color` to the client, which
-   * mirrors it onto the `--admin-accent` custom property on every page.
+   * `data-accent` mirrors `theme.color` for admin.js, which reads it to drive the
+   * live colour preview after a save. The value that actually themes the console
+   * is emitted as `--admin-accent` in <head> (see below).
    */
   const shell = typeof adminShell === 'undefined' ? true : adminShell;
   const nav = [
@@ -45,9 +46,17 @@
   <title><%= seo.title %></title>
   <meta name="description" content="<%= seo.desc %>">
   <link rel="stylesheet" href="/css/admin.css">
+
+  <!-- The theme colour, applied before the first paint. `admin.css` used to
+       hard-code `--admin-accent` and rely on admin.js to overwrite it after a
+       save, so the console reverted to the built-in pink on every reload and the
+       setting looked like it had no effect. Emitting it here makes the colour
+       authoritative on load, and it works with JavaScript disabled. -->
+  <style>:root { --admin-accent: <%= colorScheme.seed %>; }</style>
+
   <script type="module" src="/js/admin.js"></script>
 </head>
-<body class="admin-body" data-accent="<%= site.themeColor %>">
+<body class="admin-body" data-accent="<%= colorScheme.seed %>">
 <% if (!shell) { %>
   <%# Login / first-run setup: no navigation, just the centred card. %>
   <main class="admin-auth">
