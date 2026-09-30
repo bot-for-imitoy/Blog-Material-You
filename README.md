@@ -281,6 +281,58 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - **Bilingual content** — per-post and per-page English title/body; the public UI strings have built-in defaults in `src/site-config.ts` and can be overridden per key under `strings:` in `_config.yml`.
 - **SEO** — per-route `<title>`, meta description and canonical link, plus `/sitemap.xml` and `/rss.xml` (`rssLimit` newest posts). Set `url` in `_config.yml` (or `BMY_SITE_URL`) so the canonical URLs and feed links are absolute.
 
+## Seamless navigation
+
+Clicking an internal link does not reload the page. The document is fetched in
+the background and only the parts that actually differ are replaced — the
+content region, the page's own stylesheet, `<title>` and the description /
+Open Graph / canonical tags, and the sidebar's active highlight. The top app
+bar, the navigation drawer (including its scroll position and open state), the
+inline Material You palette and mdui's already-upgraded custom elements are
+left exactly as they were.
+
+That is `blog/public/js/pjax.js`. It is **progressive enhancement, not a
+rewrite of the rendering model**:
+
+- Every URL still returns a complete document. Crawlers, `curl` and browsers
+  with JavaScript disabled get everything, because the server does not know or
+  care whether the client will patch the page afterwards. (An earlier version
+  of this project was a client-rendered shell that fetched fragments; it was
+  replaced for exactly this reason, and this feature deliberately does not
+  reintroduce it.)
+- Any failure — network error, non-HTML response, a page without the content
+  container — falls back to a normal navigation.
+- Links to `/admin` (its own shell), `/profile/` (a standalone document),
+  feeds, images, downloads, cross-origin URLs, `target="_blank"` and modified
+  clicks (Ctrl/Cmd/Shift/middle) are all left to the browser.
+
+### The page-script contract
+
+Because the content region is discarded and rebuilt on every navigation, a page
+script cannot capture elements at module scope — an ES module is evaluated only
+once, so a second visit would leave it bound to deleted nodes. Each page script
+in `blog/public/js/` therefore exports:
+
+```js
+export function init() {}    // query the DOM *here*, every time
+export function destroy() {} // release listeners, timers and observers
+```
+
+`init()` is re-entrant, `destroy()` is safe when `init()` never ran, and
+anything bound outside the page's own subtree (`document`, `window`, timers,
+observers) is registered in `init()` and released in `destroy()`.
+
+`pjax.js` reads the list of scripts a page needs from the content container's
+`data-pjax-scripts` attribute (emitted by the layout), calls `destroy()` on the
+outgoing set, swaps the DOM, then imports and initialises the incoming set.
+`window.__pjax.importing` is set around each import so a module that has not
+been evaluated yet skips its own auto-init — that keeps a plain page load (where
+the layout's `<script type="module">` tags do the initialising) and a pjax
+navigation from initialising anything twice.
+
+Back and forward are handled too: history entries carry their scroll offset, and
+the parsed documents are cached briefly so going back is instant.
+
 ### Comments
 
 - One JSON file per page URL under `blog/data/comments/`; writes are atomic and the reader is mtime-cached.

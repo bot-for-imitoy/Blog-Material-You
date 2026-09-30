@@ -55,7 +55,7 @@ theme:
   # 必须是十六进制：#rgb、#rrggbb 或 #rrggbbaa。
   # （mdui 的配色方案由该值生成，只接受十六进制：rgb(...) 会让生成失败，
   #   颜色名如 tomato 会被当作黑色，导致整站变成灰色。）
-  color: '#8ee37b'
+  color: '#fcfaa9'
 
 # ===== 导航菜单 =====
 # text    菜单文字

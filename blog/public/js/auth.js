@@ -11,6 +11,9 @@
  *
  * A successful check also sets the signed visitor cookie, which is why the page
  * is simply reloaded: the server then renders the authenticated state.
+ *
+ * The module body is evaluated once, so the form fields are acquired by init()
+ * (once per swapped-in page) and released by destroy().
  */
 
 const AUTH_CHECK_API = '/api/auth/check';
@@ -18,9 +21,13 @@ const AUTH_REGISTER_API = '/api/auth/register';
 /** Same shape the server validates against. */
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-const emailInput = document.getElementById('auth-email-input');
-const submitButton = document.getElementById('auth-submit-btn');
-const resultElement = document.getElementById('auth-result');
+/* ==========================================================================
+ * Instance state
+ * ======================================================================== */
+
+let emailInput = null;
+let submitButton = null;
+let resultElement = null;
 
 /**
  * Text node holder inside #auth-result. The container also carries the
@@ -28,6 +35,14 @@ const resultElement = document.getElementById('auth-result');
  * the element's children.
  */
 let resultText = null;
+
+/** Whether the current instance acquired state (used to stay re-entrant). */
+let initialised = false;
+/**
+ * Monotonic instance id: a reply that arrives after the page was swapped must
+ * not write into the next instance's #auth-result.
+ */
+let instance = 0;
 
 /* ==========================================================================
  * Result rendering
@@ -60,6 +75,7 @@ function setBusy(busy) {
 
 /** POST a registration request and report the outcome in place. */
 async function requestRegistration(email, button) {
+  const token = instance;
   button.disabled = true;
   button.loading = true;
 
@@ -70,6 +86,7 @@ async function requestRegistration(email, button) {
       body: JSON.stringify({ email }),
     });
     const result = await response.json();
+    if (token !== instance) return;
 
     if (result.errno === 0) {
       setResult((result.data && result.data.message) || '注册请求已提交，请等待管理员审核。');
@@ -79,9 +96,11 @@ async function requestRegistration(email, button) {
 
     setResult(result.errmsg || '提交失败，请稍后重试。', true);
   } catch (error) {
-    setResult('网络错误，请检查连接后重试。', true);
+    if (token === instance) setResult('网络错误，请检查连接后重试。', true);
     console.error('Registration request failed:', error);
   }
+
+  if (token !== instance) return;
 
   // Only reached on failure: give the visitor another chance.
   button.disabled = false;
@@ -101,12 +120,18 @@ function showRegisterButton(email) {
   resultElement.append(button);
 }
 
+/** Enter submits the single-field form, matching `<form>` behaviour. */
+function onEmailKeydown(event) {
+  if (event.key === 'Enter') checkEmail();
+}
+
 /* ==========================================================================
  * Email check
  * ======================================================================== */
 
 /** Validate the address, ask the server and branch on the answer. */
 async function checkEmail() {
+  const token = instance;
   const email = emailInput && typeof emailInput.value === 'string' ? emailInput.value.trim() : '';
 
   if (!EMAIL_PATTERN.test(email)) {
@@ -124,6 +149,7 @@ async function checkEmail() {
       body: JSON.stringify({ email }),
     });
     const result = await response.json();
+    if (token !== instance) return;
 
     if (result.errno !== 0) {
       setResult(result.errmsg || '验证失败，请稍后重试。', true);
@@ -142,10 +168,10 @@ async function checkEmail() {
     setResult('该邮箱尚未注册，可发送注册申请等待管理员审核。');
     showRegisterButton(email);
   } catch (error) {
-    setResult('网络错误，请检查连接后重试。', true);
+    if (token === instance) setResult('网络错误，请检查连接后重试。', true);
     console.error('Auth check failed:', error);
   } finally {
-    setBusy(false);
+    if (token === instance) setBusy(false);
   }
 }
 
@@ -153,14 +179,66 @@ async function checkEmail() {
  * Wiring
  * ======================================================================== */
 
-// The form only exists for unauthenticated visitors; the authenticated card has
-// no #auth-submit-btn, so the module stays dormant there.
-if (submitButton) {
-  submitButton.addEventListener('click', checkEmail);
+/**
+ * Acquire the current /auth/ page and wire it up. Re-entrant: a second call
+ * tears the previous instance down first, so the button can never carry two
+ * click handlers.
+ */
+export function init() {
+  if (initialised) destroy();
+  instance += 1;
+
+  // Both states of the page render an #auth-card; on any other page pjax may
+  // still call this defensively, and there is nothing to wire there.
+  if (!document.getElementById('auth-card')) return;
+
+  emailInput = document.getElementById('auth-email-input');
+  submitButton = document.getElementById('auth-submit-btn');
+  resultElement = document.getElementById('auth-result');
+  // The result container is a fresh node on every navigation, so the cached
+  // text span must not leak from the previous instance.
+  resultText = null;
+  initialised = true;
+
+  // The form only exists for unauthenticated visitors; the authenticated card
+  // has no #auth-submit-btn, so the module stays dormant there.
+  if (submitButton) {
+    submitButton.addEventListener('click', checkEmail);
+  }
+
+  if (emailInput) {
+    emailInput.addEventListener('keydown', onEmailKeydown);
+  }
 }
 
-if (emailInput) {
-  emailInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') checkEmail();
-  });
+/**
+ * Release everything init() acquired. Safe before init() and safe twice.
+ *
+ * The two listeners sit inside `#content-container` and would be discarded with
+ * the swapped subtree, but they are unbound explicitly so init() stays
+ * idempotent even if it is called twice without a swap in between. Bumping the
+ * instance id makes any reply still in flight a no-op.
+ */
+export function destroy() {
+  if (submitButton) submitButton.removeEventListener('click', checkEmail);
+  if (emailInput) emailInput.removeEventListener('keydown', onEmailKeydown);
+
+  instance += 1;
+  initialised = false;
+  emailInput = null;
+  submitButton = null;
+  resultElement = null;
+  resultText = null;
+}
+
+// Loaded from a full page load: initialise immediately. When the pjax
+// controller imports this module to hand it a freshly swapped page it sets
+// `window.__pjax.importing` first, and the call to init() below must be skipped
+// so the module body does not initialise twice.
+if (!(window.__pjax && window.__pjax.importing)) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 }

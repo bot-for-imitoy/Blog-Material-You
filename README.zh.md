@@ -279,6 +279,32 @@ sort_order: 0
 - **双语内容**——文章与页面各自支持英文标题/正文；前台 UI 文案的内置默认值位于 `src/site-config.ts`，可在 `_config.yml` 的 `strings:` 下按键覆盖。
 - **SEO**——逐路由的 `<title>`、meta description 与 canonical 链接，以及 `/sitemap.xml` 和 `/rss.xml`（最新 `rssLimit` 篇文章）。在 `_config.yml` 中设置 `url`（或设置 `BMY_SITE_URL`）后，canonical 与订阅链接为绝对地址。
 
+## 无缝导航
+
+点击站内链接不再整页重载。页面在后台取回，只替换真正变化的部分——内容区、该页自己的样式表、`<title>` 与描述 / Open Graph / canonical 标签，以及侧边栏的当前项高亮。顶栏、导航抽屉（包括它的滚动位置与展开状态）、内联的 Material You 配色、以及 mdui 已升级的自定义元素，全都原样保留。
+
+实现位于 `blog/public/js/pjax.js`。它是**渐进增强，而不是把渲染模型改回去**：
+
+- 每个 URL 依然返回完整文档。爬虫、`curl`、禁用 JavaScript 的浏览器都能拿到全部内容，因为服务端并不关心客户端之后是否会打补丁。（本项目早期版本是客户端渲染的外壳 + 片段接口，正是因为这个原因被替换掉，本功能刻意不再走回那条路。）
+- 任何失败——网络错误、非 HTML 响应、响应里没有内容容器——都会回退为普通跳转。
+- 指向 `/admin`（独立外壳）、`/profile/`（独立文档）、订阅源、图片、下载、跨域地址、`target="_blank"` 以及带修饰键的点击（Ctrl/Cmd/Shift/中键）都交给浏览器处理。
+
+### 页面脚本契约
+
+由于内容区每次导航都会被丢弃重建，页面脚本不能在模块顶层捕获元素——ES 模块只求值一次，第二次访问就会绑定在已删除的节点上。因此 `blog/public/js/` 下的页面脚本都要导出：
+
+```js
+export function init() {}    // 每次都在这里重新查询 DOM
+export function destroy() {} // 释放监听、定时器与观察器
+```
+
+`init()` 可重复调用，`destroy()` 在 `init()` 从未执行过时也能安全调用；凡是绑定在页面自身子树之外的东西（`document`、`window`、定时器、观察器），都要在 `init()` 里注册、在 `destroy()` 里释放。
+
+`pjax.js` 从内容容器的 `data-pjax-scripts` 属性（由布局输出）读取该页需要哪些脚本，先对即将离开的模块调用 `destroy()`，替换 DOM，再导入并初始化新的一组。每次导入前后会设置 `window.__pjax.importing`，让尚未求值过的模块跳过自己的自动初始化——这样「整页加载」（由布局的 `<script type="module">` 标签初始化）和「pjax 导航」都不会重复初始化。
+
+前进/后退也已处理：历史条目会记录滚动偏移，解析后的文档会短暂缓存，因此返回是瞬时的。
+
+
 ### 评论
 
 - 每个页面 URL 对应 `blog/data/comments/` 下的一个 JSON 文件；写入原子化，读取按 mtime 缓存。

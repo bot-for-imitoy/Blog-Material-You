@@ -275,12 +275,38 @@ function pulseAboutAvatar() {
   avatar.classList.add('pulse');
 }
 
+/** The avatar currently carrying the pulse bookkeeping listener, if any. */
+let easterEggAvatar = null;
+
+/** Drop the `pulse` class once the animation has played. */
+function onAboutAvatarAnimationEnd(event) {
+  const avatar = event.currentTarget;
+  if (avatar) avatar.classList.remove('pulse');
+}
+
+/** Detach the avatar bookkeeping listener, if one is attached. */
+function releaseEasterEggAvatar() {
+  if (!easterEggAvatar) return;
+  easterEggAvatar.removeEventListener('animationend', onAboutAvatarAnimationEnd);
+  easterEggAvatar = null;
+}
+
 /** Wire the click counter (only on the about page). */
 function initEasterEgg() {
+  // A freshly swapped-in page starts counting from zero, exactly like a full
+  // page load would (the module body only runs once, so the counter has to be
+  // reset here instead).
+  aboutClickCount = 0;
+
+  // Detach from the outgoing page's avatar; the listener is re-added below, so
+  // repeated init() calls still leave exactly one listener behind.
+  releaseEasterEggAvatar();
+
   const avatar = document.getElementById('about-avatar');
+  easterEggAvatar = avatar;
   if (avatar) {
     // Drop the class once the animation ends so the element stays clean.
-    avatar.addEventListener('animationend', () => avatar.classList.remove('pulse'));
+    avatar.addEventListener('animationend', onAboutAvatarAnimationEnd);
   }
 }
 
@@ -288,7 +314,15 @@ function initEasterEgg() {
  * Wiring
  * ======================================================================== */
 
-document.addEventListener('click', (event) => {
+/**
+ * Whether the two delegated document listeners are currently installed. They
+ * live on `document`, which outlives `#content-container`, so they are added
+ * once and stay across every swapped page.
+ */
+let documentListenersBound = false;
+
+/** Drawer toggle and the narrow-screen auto-close, via click delegation. */
+function onDocumentClick(event) {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
 
@@ -305,9 +339,10 @@ document.addEventListener('click', (event) => {
   if (isNarrowViewport() && target.closest('#sidebar-list mdui-list-item')) {
     closeDrawer();
   }
-});
+}
 
-document.addEventListener('click', (event) => {
+/** About-page easter egg click counter, via click delegation. */
+function onDocumentClickEasterEgg(event) {
   if (!isEasterEggPage()) return;
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
@@ -323,18 +358,55 @@ document.addEventListener('click', (event) => {
     aboutClickCount = 0;
     window.location.assign(EASTER_EGG_TARGET);
   }
-});
+}
 
-/** Run the enhancements; modules are deferred, so the DOM is ready already. */
-function init() {
+/**
+ * Run the content enhancements for whatever is currently in the DOM. Called
+ * once on a full page load and again by the pjax controller after every swap,
+ * so it must be safe to call repeatedly.
+ */
+export function init() {
+  // The two delegated listeners below sit on `document`, outside the content
+  // region the navigation replaces. They therefore survive a swap and are
+  // installed only once, however many times init() runs.
+  if (!documentListenersBound) {
+    document.addEventListener('click', onDocumentClick);
+    document.addEventListener('click', onDocumentClickEasterEgg);
+    documentListenersBound = true;
+  }
+
   addLazyLoading();
   enhancePostHeaderCover();
   enhanceMarkdownImages();
-  if (isEasterEggPage()) initEasterEgg();
+  if (isEasterEggPage()) {
+    initEasterEgg();
+  } else {
+    // Leaving the about page would otherwise keep the discarded avatar alive.
+    releaseEasterEggAvatar();
+  }
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
+/**
+ * Release the document-level listeners. Optional for a layout script, but
+ * symmetric with the page scripts: init() re-installs them when called again.
+ */
+export function destroy() {
+  releaseEasterEggAvatar();
+
+  if (!documentListenersBound) return;
+  document.removeEventListener('click', onDocumentClick);
+  document.removeEventListener('click', onDocumentClickEasterEgg);
+  documentListenersBound = false;
+}
+
+// Loaded from a full page load: initialise immediately. When the pjax
+// controller imports this module to hand it a freshly swapped page it sets
+// `window.__pjax.importing` first, and the call to init() below must be skipped
+// so the module body does not initialise twice.
+if (!(window.__pjax && window.__pjax.importing)) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 }

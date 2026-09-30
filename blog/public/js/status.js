@@ -9,12 +9,29 @@
  *
  * Nothing here is server-rendered with data, so every value is written through
  * `textContent`; the calendar link is built with createElement.
+ *
+ * The module body runs a single time while pjax re-creates the page on every
+ * navigation, so the two loads are started from init() (which is called again
+ * per page instance) rather than at module scope.
  */
 
 const STATUS_API = '/api/status';
 const CALENDAR_API = '/api/calendar';
 /** Shown when the calendar holds no events that are still ahead of us. */
 const NO_UPCOMING_EVENTS = '暂无即将到来的事件';
+
+/* ==========================================================================
+ * Instance state
+ * ======================================================================== */
+
+/** Whether the current instance is mounted (used to stay re-entrant). */
+let initialised = false;
+/**
+ * Monotonic instance id. The dashboard is a leaf page, but navigating to it
+ * twice in a row still leaves one request pair in flight from the previous
+ * instance; those responses must not overwrite the newer numbers.
+ */
+let instance = 0;
 
 /* ==========================================================================
  * Helpers
@@ -76,9 +93,12 @@ function today() {
  * ======================================================================== */
 
 async function loadStatus() {
+  // Captured before the await so a response for a replaced instance is dropped.
+  const token = instance;
   try {
     const response = await fetch(STATUS_API);
     const result = await response.json();
+    if (token !== instance) return;
     if (result.errno !== 0) throw new Error(result.errmsg || 'status unavailable');
 
     const data = result.data || {};
@@ -93,7 +113,7 @@ async function loadStatus() {
     setText('status-node', data.nodeVersion || '—');
   } catch (error) {
     // The request itself failing is the strongest possible "offline" signal.
-    setText('status-online', '离线');
+    if (token === instance) setText('status-online', '离线');
     console.error('Status request failed:', error);
   }
 }
@@ -187,8 +207,10 @@ function showCalendarAuthRequired() {
 }
 
 async function loadCalendar() {
+  const token = instance;
   try {
     const response = await fetch(CALENDAR_API);
+    if (token !== instance) return;
 
     if (response.status === 401) {
       showCalendarAuthRequired();
@@ -200,6 +222,7 @@ async function loadCalendar() {
     }
 
     const result = await response.json();
+    if (token !== instance) return;
     if (result.errno !== 0) {
       setMessage('status-calendar-body', '日历数据加载失败');
       console.error('Calendar request failed:', result.errmsg);
@@ -210,7 +233,7 @@ async function loadCalendar() {
     // Reaching this point means the visitor cookie carried the permission.
     showAuthGranted();
   } catch (error) {
-    setMessage('status-calendar-body', '日历数据加载失败');
+    if (token === instance) setMessage('status-calendar-body', '日历数据加载失败');
     console.error('Calendar network error:', error);
   }
 }
@@ -219,5 +242,46 @@ async function loadCalendar() {
  * Wiring
  * ======================================================================== */
 
-loadStatus();
-loadCalendar();
+/**
+ * Start the dashboard loads for the current page. Re-entrant: a second call
+ * first releases the previous instance, so a navigation back to /status/ never
+ * leaves two instances racing for the same elements.
+ */
+export function init() {
+  if (initialised) destroy();
+  instance += 1;
+
+  // The dashboard is recognised by its page-scoped wrapper. On any other page
+  // pjax may still call this defensively; there is nothing to load there.
+  if (!document.querySelector('.status-content')) return;
+
+  initialised = true;
+
+  loadStatus();
+  loadCalendar();
+}
+
+/**
+ * Release everything init() acquired. Safe before init() and safe twice.
+ *
+ * status.js binds no listeners, timers, animation frames or observers, and
+ * every DOM write looks its element up by id when the response arrives, so the
+ * only thing left to release is the request pair started by init(): bumping the
+ * instance id turns any later response into a no-op.
+ */
+export function destroy() {
+  instance += 1;
+  initialised = false;
+}
+
+// Loaded from a full page load: initialise immediately. When the pjax
+// controller imports this module to hand it a freshly swapped page it sets
+// `window.__pjax.importing` first, and the call to init() below must be skipped
+// so the module body does not initialise twice.
+if (!(window.__pjax && window.__pjax.importing)) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+}

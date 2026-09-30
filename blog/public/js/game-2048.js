@@ -13,6 +13,10 @@
  *
  * Board values: 0 = empty, otherwise a power of two. The CSS colours tiles via
  * `.cell-<value>` and falls back to `.cell-super` above 2048.
+ *
+ * The module body runs once, but pjax re-creates the board on every navigation
+ * back to /2048/, so the board nodes and the four document-level listeners are
+ * acquired by init() and released by destroy().
  */
 
 const GRID_SIZE = 4;
@@ -26,14 +30,24 @@ const SPAWN_FOUR_PROBABILITY = 0.1;
 /** Where the close button returns to. */
 const CLOSE_TARGET = '/about/';
 
-const gridElement = document.getElementById('grid-2048');
-const scoreElement = document.getElementById('game-score');
-const bestElement = document.getElementById('game-best');
+/** Options of the passive touchstart listener; reused so destroy() can remove it. */
+const PASSIVE = { passive: true };
+
+/* ==========================================================================
+ * Instance state
+ * ======================================================================== */
+
+let gridElement = null;
+let scoreElement = null;
+let bestElement = null;
+
+/** Whether the current instance acquired state (used to stay re-entrant). */
+let initialised = false;
 
 /** `{ grid, score, won, over, keepPlaying }` for the running game. */
 let state = null;
 /** Best score, persisted across visits when storage is available. */
-let bestScore = readBestScore();
+let bestScore = 0;
 
 /** Start position of the current touch gesture, or null between gestures. */
 let swipeStart = null;
@@ -309,7 +323,15 @@ function isTypingTarget(target) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
 }
 
-document.addEventListener('keydown', (event) => {
+/*
+ * The four handlers below are bound to `document` — outside #content-container
+ * — so they outlive the swapped subtree and are named on purpose: init() adds
+ * them and destroy() removes the very same references. The guards (a detached
+ * or absent board, a swipe that started on another page) keep them inert while
+ * the game page is not the current one.
+ */
+
+function onKeydown(event) {
   if (!gridElement || !gridElement.isConnected) return;
   // Never hijack browser shortcuts (Ctrl+A, Cmd+R, …).
   if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -321,19 +343,15 @@ document.addEventListener('keydown', (event) => {
   // Stop the page from scrolling while playing.
   event.preventDefault();
   move(direction);
-});
+}
 
-document.addEventListener(
-  'touchstart',
-  (event) => {
-    const touch = event.touches[0];
-    if (!touch) return;
-    swipeStart = { x: touch.clientX, y: touch.clientY };
-  },
-  { passive: true },
-);
+function onTouchStart(event) {
+  const touch = event.touches[0];
+  if (!touch) return;
+  swipeStart = { x: touch.clientX, y: touch.clientY };
+}
 
-document.addEventListener('touchend', (event) => {
+function onTouchEnd(event) {
   if (!swipeStart) return;
   const start = swipeStart;
   swipeStart = null;
@@ -348,13 +366,9 @@ document.addEventListener('touchend', (event) => {
 
   if (Math.abs(deltaX) > Math.abs(deltaY)) move(deltaX > 0 ? 'right' : 'left');
   else move(deltaY > 0 ? 'down' : 'up');
-});
+}
 
-/* ==========================================================================
- * Wiring
- * ======================================================================== */
-
-document.addEventListener('click', (event) => {
+function onActionClick(event) {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
 
@@ -374,10 +388,73 @@ document.addEventListener('click', (event) => {
     default:
       break;
   }
-});
+}
 
-// The board is server-rendered empty; the first render fills it and two tiles
-// are spawned immediately.
-if (gridElement) {
+/* ==========================================================================
+ * Wiring
+ * ======================================================================== */
+
+/**
+ * Acquire the current board and start a game. Re-entrant: a second call first
+ * tears the previous instance down, so the document listeners never stack up.
+ */
+export function init() {
+  if (initialised) destroy();
+
+  gridElement = document.getElementById('grid-2048');
+  // The board only exists on /2048/. pjax may still call this defensively for
+  // another page, and there is nothing to build there.
+  if (!gridElement) return;
+
+  scoreElement = document.getElementById('game-score');
+  bestElement = document.getElementById('game-best');
+  // Re-read on every instance: the module body only runs once, and the score
+  // may have changed (another tab, or a previous run of this game).
+  bestScore = readBestScore();
+  state = null;
+  swipeStart = null;
+  initialised = true;
+
+  document.addEventListener('keydown', onKeydown);
+  document.addEventListener('touchstart', onTouchStart, PASSIVE);
+  document.addEventListener('touchend', onTouchEnd);
+  document.addEventListener('click', onActionClick);
+
+  // The board is server-rendered empty; the first render fills it and two tiles
+  // are spawned immediately.
   newGame();
+}
+
+/**
+ * Stop the game and release everything init() acquired. Safe before init() and
+ * safe twice: removeEventListener is a no-op for handlers that were never
+ * added, and the state guards tolerate a board that was never created.
+ */
+export function destroy() {
+  document.removeEventListener('keydown', onKeydown);
+  document.removeEventListener('touchstart', onTouchStart, PASSIVE);
+  document.removeEventListener('touchend', onTouchEnd);
+  document.removeEventListener('click', onActionClick);
+
+  // The engine schedules no timers and no animation frames — a move is fully
+  // synchronous and painting is plain DOM — so the listeners above are the only
+  // thing that has to be stopped.
+  state = null;
+  swipeStart = null;
+  gridElement = null;
+  scoreElement = null;
+  bestElement = null;
+  initialised = false;
+}
+
+// Loaded from a full page load: initialise immediately. When the pjax
+// controller imports this module to hand it a freshly swapped page it sets
+// `window.__pjax.importing` first, and the call to init() below must be skipped
+// so the module body does not initialise twice.
+if (!(window.__pjax && window.__pjax.importing)) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 }

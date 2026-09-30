@@ -43,6 +43,9 @@
   <link rel="stylesheet" href="/css/navigation-drawer.css">
   <link rel="stylesheet" href="/css/lists.css">
   <link rel="stylesheet" href="/css/header-card.css">
+  <!-- Loading indicator + content transition for seamless navigation. Shared by
+       every page, so it never churns during a pjax swap. -->
+  <link rel="stylesheet" href="/css/pjax.css">
   <% (styles || []).forEach(function (entry) { %>
     <% if (typeof entry === 'string') { %>
   <link rel="stylesheet" href="<%= entry %>">
@@ -53,6 +56,10 @@
   <%- headExtra || '' %>
 </head>
 <body<% if (bodyClass) { %> class="<%= bodyClass %>"<% } %>>
+  <!-- Revealed only while a pjax navigation is in flight (pjax.js sets
+       data-pjax-loading on <html>); inert and invisible otherwise. -->
+  <div class="pjax-progress" aria-hidden="true"></div>
+
   <mdui-layout class="root">
     <mdui-top-app-bar class="top-app-bar" scroll-behavior="elevate" scroll-target=".content-container">
       <mdui-button-icon class="navigation-drawer-button" variant="text" data-action="toggle-drawer">
@@ -86,7 +93,11 @@
     </mdui-navigation-drawer>
 
     <mdui-layout-main class="layout-main">
-      <div class="content-container" id="content-container">
+      <!-- The only region a pjax navigation replaces. `data-pjax-scripts` tells
+           pjax.js which page modules to tear down and re-initialise for this
+           page; the JSON is HTML-escaped here and decoded by the browser when
+           the attribute is read. -->
+      <div class="content-container" id="content-container" data-pjax-scripts="<%= JSON.stringify(pageScripts || []) %>">
         <%- body %>
       </div>
     </mdui-layout-main>
@@ -94,6 +105,7 @@
 
   <script src="/js/navigation-drawer.js"></script>
   <script type="module" src="/js/app.js"></script>
+  <script type="module" src="/js/pjax.js"></script>
   <% (pageScripts || []).forEach(function (src) { %>
   <script type="module" src="<%= src %>"></script>
   <% }); %>

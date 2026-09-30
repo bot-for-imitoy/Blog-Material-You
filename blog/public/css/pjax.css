@@ -1,0 +1,91 @@
+/*
+ * pjax.css — the loading indicator and content transition for seamless
+ * navigation. Loaded by every public page, so it belongs to the shared base
+ * stylesheet set rather than to any single page.
+ */
+
+/*
+ * A thin bar at the very top of the viewport, revealed only while a pjax
+ * navigation is in flight. `data-pjax-loading` is set on <html> by pjax.js, so
+ * this costs nothing when the module is absent.
+ */
+.pjax-progress {
+  position: fixed;
+  inset: 0 auto auto 0;
+  height: 3px;
+  width: 100%;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(var(--mdui-color-primary)) 45%,
+    rgb(var(--mdui-color-tertiary)) 60%,
+    transparent 100%
+  );
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+[data-pjax-loading] .pjax-progress {
+  opacity: 1;
+  animation: pjax-progress 1.4s ease-out forwards;
+}
+
+/*
+ * No real progress events exist for a single fetch, so the bar sweeps to ~90%
+ * and waits there; the swap removes the attribute and it disappears. It reads
+ * as "working" without ever claiming to be finished.
+ */
+@keyframes pjax-progress {
+  0%   { transform: scaleX(0); }
+  40%  { transform: scaleX(0.55); }
+  100% { transform: scaleX(0.92); }
+}
+
+/*
+ * Cross-fade the content region only. Scoping via `view-transition-name` keeps
+ * the shell (app bar, drawer) from flickering, which is the point of pjax.
+ */
+#content-container {
+  view-transition-name: pjax-content;
+}
+
+/* Suppress the default cross-fade of the whole document. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-old(pjax-content) {
+  animation: 0.16s ease-in both pjax-fade-out;
+}
+
+::view-transition-new(pjax-content) {
+  animation: 0.22s ease-out both pjax-fade-in;
+}
+
+@keyframes pjax-fade-out {
+  to { opacity: 0; }
+}
+
+@keyframes pjax-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Respect the OS setting: swap instantly, keep the loading bar. */
+@media (prefers-reduced-motion: reduce) {
+  [data-pjax-loading] .pjax-progress {
+    animation: none;
+    transform: scaleX(0.9);
+  }
+
+  ::view-transition-old(pjax-content),
+  ::view-transition-new(pjax-content) {
+    animation: none;
+  }
+}

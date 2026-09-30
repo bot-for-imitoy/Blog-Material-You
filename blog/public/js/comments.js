@@ -12,19 +12,39 @@
  *   GET  /api/comments?path=…&type=count → { errno: 0, data: { count } }
  *   POST /api/comments                 → { errno: 0, data: Comment }
  *                                        { errno: -1, errmsg }
+ *
+ * The module is imported once but every post page is a fresh DOM (pjax swaps
+ * `#content-container`), so the nodes and the page path are acquired by init()
+ * each time and dropped by destroy().
  */
 
 const COMMENTS_API = '/api/comments';
-/** Comments are stored per page path, so the path is the storage key. */
-const PAGE_PATH = window.location.pathname;
 
-const submitButton = document.getElementById('comment-submit-button');
-const listContainer = document.getElementById('comments-container');
-const titleElement = document.getElementById('comment-section-title');
-const nickField = document.getElementById('comment-nick');
-const mailField = document.getElementById('comment-email');
-const linkField = document.getElementById('comment-website');
-const contentField = document.getElementById('comment-content');
+/* ==========================================================================
+ * Instance state
+ *
+ * Nothing here may be captured at module scope: the module body runs a single
+ * time while init() runs once per swapped-in page.
+ * ======================================================================== */
+
+/** Comments are stored per page path, so the path is the storage key. */
+let pagePath = '';
+let submitButton = null;
+let listContainer = null;
+let titleElement = null;
+let nickField = null;
+let mailField = null;
+let linkField = null;
+let contentField = null;
+
+/** Whether the current instance acquired state (used to stay re-entrant). */
+let initialised = false;
+/**
+ * Monotonic instance id. `#comments-container` exists on every post page, so a
+ * response from the previous post must be recognised as stale rather than being
+ * rendered into the new post's list.
+ */
+let instance = 0;
 
 /* ==========================================================================
  * Small helpers
@@ -138,11 +158,14 @@ function renderComments(comments) {
 
 /** Update the section heading with the number of comments on this page. */
 async function loadCommentCount() {
+  // Captured before the await: after it, the page may already have been swapped.
+  const token = instance;
   try {
     const response = await fetch(
-      `${COMMENTS_API}?path=${encodeURIComponent(PAGE_PATH)}&type=count`,
+      `${COMMENTS_API}?path=${encodeURIComponent(pagePath)}&type=count`,
     );
     const result = await response.json();
+    if (token !== instance) return;
     if (result.errno !== 0) {
       console.error('Comment count failed:', result.errmsg);
       return;
@@ -159,9 +182,13 @@ async function loadCommentCount() {
 /** Fetch and render the comment list. */
 async function loadComments() {
   if (!listContainer) return;
+  // Captured before the await: a response for the previous post must not be
+  // rendered into this post's list.
+  const token = instance;
   try {
-    const response = await fetch(`${COMMENTS_API}?path=${encodeURIComponent(PAGE_PATH)}`);
+    const response = await fetch(`${COMMENTS_API}?path=${encodeURIComponent(pagePath)}`);
     const result = await response.json();
+    if (token !== instance) return;
     if (result.errno !== 0) {
       console.error('Loading comments failed:', result.errmsg);
       return;
@@ -178,13 +205,14 @@ async function loadComments() {
 
 /** Validate the form, POST the comment and refresh the list on success. */
 async function submitComment() {
+  const token = instance;
   const payload = {
     nick: fieldValue(nickField),
     mail: fieldValue(mailField),
     comment: fieldValue(contentField),
     link: fieldValue(linkField),
     ua: navigator.userAgent,
-    url: PAGE_PATH,
+    url: pagePath,
   };
 
   // The three required fields; the website is optional and the server rejects
@@ -204,18 +232,21 @@ async function submitComment() {
     const result = await response.json();
 
     if (result.errno === 0) {
+      // The visitor may have navigated away while the request was in flight;
+      // the reply then belongs to a page that no longer exists.
+      if (token !== instance) return;
       showSnackbar('snackbar-comment-success');
       clearFields();
       await Promise.all([loadCommentCount(), loadComments()]);
     } else {
-      showSnackbar('snackbar-comment-failure');
+      if (token === instance) showSnackbar('snackbar-comment-failure');
       console.error('Comment rejected:', result.errmsg);
     }
   } catch (error) {
-    showSnackbar('snackbar-network-error');
+    if (token === instance) showSnackbar('snackbar-network-error');
     console.error('Comment request failed:', error);
   } finally {
-    setSubmitting(false);
+    if (token === instance) setSubmitting(false);
   }
 }
 
@@ -223,10 +254,70 @@ async function submitComment() {
  * Wiring
  * ======================================================================== */
 
-if (submitButton) {
-  submitButton.addEventListener('click', submitComment);
+/**
+ * Acquire the current post page and wire it up. Re-entrant: a second call
+ * first tears the previous instance down, so the submit button can never end
+ * up with two handlers.
+ */
+export function init() {
+  if (initialised) destroy();
+  instance += 1;
+
+  // The comment block only exists on a post page (views/pages/post.ejs). On a
+  // navigation to another page this module may still be called defensively, so
+  // bail out unless the article marker is present.
+  if (!document.querySelector('[data-post-slug]')) return;
+
+  pagePath = window.location.pathname;
+  submitButton = document.getElementById('comment-submit-button');
+  listContainer = document.getElementById('comments-container');
+  titleElement = document.getElementById('comment-section-title');
+  nickField = document.getElementById('comment-nick');
+  mailField = document.getElementById('comment-email');
+  linkField = document.getElementById('comment-website');
+  contentField = document.getElementById('comment-content');
+  initialised = true;
+
+  // The submit button lives inside `#content-container` and would be discarded
+  // with it on a swap; it is still unbound explicitly in destroy() so init()
+  // stays idempotent even if it is called twice without a swap in between.
+  if (submitButton) {
+    submitButton.addEventListener('click', submitComment);
+  }
+
+  // Modules are deferred, so the DOM is parsed: load immediately.
+  loadCommentCount();
+  loadComments();
 }
 
-// Modules are deferred, so the DOM is parsed: load immediately.
-loadCommentCount();
-loadComments();
+/**
+ * Release everything init() acquired. Safe before init() and safe twice: it
+ * unsubscribes the form (a no-op when init() never ran), bumps the instance id
+ * so replies still in flight are dropped, and clears the references.
+ */
+export function destroy() {
+  if (submitButton) submitButton.removeEventListener('click', submitComment);
+
+  instance += 1;
+  initialised = false;
+  pagePath = '';
+  submitButton = null;
+  listContainer = null;
+  titleElement = null;
+  nickField = null;
+  mailField = null;
+  linkField = null;
+  contentField = null;
+}
+
+// Loaded from a full page load: initialise immediately. When the pjax
+// controller imports this module to hand it a freshly swapped page it sets
+// `window.__pjax.importing` first, and the call to init() below must be skipped
+// so the module body does not initialise twice.
+if (!(window.__pjax && window.__pjax.importing)) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+}

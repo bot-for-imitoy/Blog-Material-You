@@ -13,22 +13,33 @@
  *    no-JavaScript render, but they are deliberately unused here.)
  *  - `history.replaceState` keeps the URL shareable without adding a history
  *    entry per keystroke.
+ *
+ * The module is imported once (ES modules are evaluated once) but the search
+ * page is re-created on every pjax navigation, so every DOM handle is acquired
+ * by init() and released by destroy() instead of being captured at module scope.
  */
 const DEBOUNCE_MS = 220;
 const RESULT_LIMIT = 20;
 
-const page = document.getElementById('search-page');
-const form = document.getElementById('search-form');
-const input = document.getElementById('search-input');
-const results = document.getElementById('search-results');
-const status = document.getElementById('search-status');
+/* ==========================================================================
+ * Instance state
+ *
+ * The module body runs a single time; the pjax controller calls init() again
+ * for every swapped-in page. Nothing below may therefore cache a node from the
+ * previous page: init() re-reads all of it and destroy() drops it.
+ * ======================================================================== */
 
+/** Root of the search page, or null while that page is not mounted. */
+let page = null;
+let form = null;
+let input = null;
+let results = null;
+let status = null;
+/** Localised strings, re-parsed from the page root on every init(). */
 let strings = {};
-try {
-  strings = JSON.parse(page?.dataset.strings || '{}');
-} catch {
-  strings = {};
-}
+
+/** Whether the current instance acquired state (used to stay re-entrant). */
+let initialised = false;
 
 /** Replace `{n}` / `{q}` placeholders in a template string. */
 function format(template, values) {
@@ -224,31 +235,124 @@ async function runSearch(query, updateUrl) {
   results.replaceChildren(fragment);
 }
 
-if (page && form && input && results && status) {
-  // Debounce keystrokes so a fast typist issues one request, not ten.
-  input.addEventListener('input', () => {
-    if (timer) clearTimeout(timer);
-    timer = setTimeout(() => runSearch(input.value || '', true), DEBOUNCE_MS);
-  });
+/* ==========================================================================
+ * Wiring
+ *
+ * The handlers are named module-level functions (rather than inline closures)
+ * so destroy() can remove the exact same references again. They read the DOM
+ * through the module-level bindings that init() refreshes.
+ * ======================================================================== */
 
-  // Intercept submit so the enhanced path does not reload the page. Without
-  // JavaScript the same form performs a normal GET navigation.
-  form.addEventListener('submit', (event) => {
+/** Debounce keystrokes so a fast typist issues one request, not ten. */
+function onInput() {
+  if (timer) clearTimeout(timer);
+  timer = setTimeout(() => runSearch(input.value || '', true), DEBOUNCE_MS);
+}
+
+/**
+ * Intercept submit so the enhanced path does not reload the page. Without
+ * JavaScript the same form performs a normal GET navigation.
+ */
+function onSubmit(event) {
+  event.preventDefault();
+  if (timer) clearTimeout(timer);
+  runSearch(input.value || '', true);
+}
+
+/** The mdui clear button empties the field and the result list. */
+function onClear() {
+  if (timer) clearTimeout(timer);
+  runSearch('', true);
+}
+
+/** Ctrl/Cmd+K focuses search from anywhere on the page. */
+function onKeydown(event) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault();
-    if (timer) clearTimeout(timer);
-    runSearch(input.value || '', true);
-  });
+    input.focus();
+  }
+}
 
-  input.addEventListener('clear', () => {
-    if (timer) clearTimeout(timer);
-    runSearch('', true);
-  });
+/**
+ * Acquire the current /search/ page and wire it up. Re-entrant: calling it
+ * again (a second navigation back to the page) tears the previous instance
+ * down first, so listeners can never double up.
+ */
+export function init() {
+  // Defensive: pjax is supposed to call destroy() before init(), but a second
+  // live instance would double the debounce and the Ctrl/Cmd+K shortcut.
+  if (initialised) destroy();
 
-  // Ctrl/Cmd+K focuses search from anywhere on the page.
-  document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      input.focus();
-    }
-  });
+  page = document.getElementById('search-page');
+  // On a navigation to another page this module may still be called
+  // defensively; there is nothing to enhance without the search root.
+  if (!page) return;
+
+  form = document.getElementById('search-form');
+  input = document.getElementById('search-input');
+  results = document.getElementById('search-results');
+  status = document.getElementById('search-status');
+
+  strings = {};
+  try {
+    strings = JSON.parse(page.dataset.strings || '{}');
+  } catch {
+    strings = {};
+  }
+
+  initialised = true;
+
+  if (!(form && input && results && status)) return;
+
+  input.addEventListener('input', onInput);
+  form.addEventListener('submit', onSubmit);
+  input.addEventListener('clear', onClear);
+  document.addEventListener('keydown', onKeydown);
+}
+
+/**
+ * Release everything init() acquired. Safe to call before init() and safe to
+ * call twice: every step is individually guarded.
+ */
+export function destroy() {
+  // Stop the pending debounce so it cannot fire against a page that is gone.
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+  // Invalidate an in-flight search, so a response that arrives after the swap
+  // bails out instead of repainting the next page's result list.
+  requestId += 1;
+
+  // The three element listeners would be discarded with the content region on a
+  // pjax swap, but they are removed explicitly so init() stays idempotent even
+  // if it is ever called twice without a swap in between.
+  if (input) {
+    input.removeEventListener('input', onInput);
+    input.removeEventListener('clear', onClear);
+  }
+  if (form) form.removeEventListener('submit', onSubmit);
+  // This one is bound to `document`, outside the content region, so removing it
+  // here is mandatory rather than merely tidy.
+  document.removeEventListener('keydown', onKeydown);
+
+  page = null;
+  form = null;
+  input = null;
+  results = null;
+  status = null;
+  strings = {};
+  initialised = false;
+}
+
+// Loaded from a full page load: initialise immediately. When the pjax
+// controller imports this module to hand it a freshly swapped page it sets
+// `window.__pjax.importing` first, and the call to init() below must be skipped
+// so the module body does not initialise twice.
+if (!(window.__pjax && window.__pjax.importing)) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 }
