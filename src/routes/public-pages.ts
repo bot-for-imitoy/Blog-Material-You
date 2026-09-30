@@ -47,6 +47,7 @@ const VIEW_STYLES: Record<string, Array<string | { href: string; media?: string 
   'pages/talks': [...MARKDOWN_STYLES, '/css/about.css'],
   'pages/page': [...MARKDOWN_STYLES, '/css/about.css'],
   'pages/search': ['/css/search.css'],
+  'pages/profile': ['/css/profile.css'],
   'game/2048': ['/css/game-2048.css'],
 };
 
@@ -65,14 +66,19 @@ async function page(
   data: Record<string, unknown>,
   seo: PageSeo,
   currentPath: string,
+  layout = 'layouts/public',
 ): Promise<void> {
-  const html = await renderPage(view, {
-    ...data,
-    seo,
-    currentPath,
-    styles: VIEW_STYLES[view] ?? [],
-    pageScripts: VIEW_SCRIPTS[view] ?? [],
-  });
+  const html = await renderPage(
+    view,
+    {
+      ...data,
+      seo,
+      currentPath,
+      styles: VIEW_STYLES[view] ?? [],
+      pageScripts: VIEW_SCRIPTS[view] ?? [],
+    },
+    layout,
+  );
   res.type('html').send(html);
 }
 
@@ -279,6 +285,35 @@ export function createPublicPagesRouter(): Router {
     }
   });
 
+  // ===================== Standalone personal card =====================
+
+  /**
+   * `/profile/` renders through the `blank` layout: it owns the whole viewport
+   * (blurred night background + glass card) and deliberately does not inherit
+   * the site shell. Fully static — the expandable panels are `<details>`, so the
+   * page needs no JavaScript at all.
+   */
+  router.get('/profile', async (req, res, next) => {
+    try {
+      const settings = getSiteSettings();
+      // Single switch: `profile.enabled` in _config.yml.
+      if (!settings.profile.enabled) {
+        await notFound(res, '/profile/');
+        return;
+      }
+      await page(
+        res,
+        'pages/profile',
+        { profile: settings.profile, bodyClass: 'pf-body' },
+        seoForRoute('/profile/'),
+        '/profile/',
+        'layouts/blank',
+      );
+    } catch (err) {
+      next(err);
+    }
+  });
+
   // ===================== Search =====================
 
   /**
@@ -374,6 +409,8 @@ export function createPublicPagesRouter(): Router {
       { loc: '/friends/' },
       { loc: '/about/' },
     ];
+    // Only advertise the personal card when it is actually served.
+    if (site.profile.enabled) urls.push({ loc: '/profile/' });
     for (const post of activePosts()) urls.push({ loc: `/post/${encodeURIComponent(post.slug)}`, lastmod: post.date });
     for (const tag of buildTagIndex(activePosts())) urls.push({ loc: `/tags/${encodeURIComponent(tag.name)}` });
     for (const cat of buildCategoryIndex(activePosts())) urls.push({ loc: `/categories/${encodeURIComponent(cat.name)}` });

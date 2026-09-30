@@ -1,0 +1,560 @@
+/*
+ * profile.css — the standalone personal card at /profile/.
+ *
+ * Self-contained: the page renders through `layouts/blank.ejs`, so no other
+ * stylesheet is loaded and nothing here can leak into the rest of the site.
+ *
+ * Layers, back to front:
+ *   1. .pf-bg          night sky — a configured photo (blurred) or a CSS gradient
+ *   2. .pf-glow        soft colour blobs, heavily blurred, for depth
+ *   3. .pf-fireflies   faint drifting points of light
+ *   4. .pf-card        the frosted-glass panel
+ */
+
+:root {
+  --pf-ink: #eaf0ff;
+  --pf-ink-dim: rgba(234, 240, 255, 0.62);
+  --pf-ink-faint: rgba(234, 240, 255, 0.42);
+
+  /* Glass */
+  --pf-glass: rgba(20, 24, 33, 0.65);
+  --pf-glass-border: rgba(255, 255, 255, 0.12);
+  --pf-glass-blur: 20px;
+
+  /* Neon blue accent + the blue used by the pills and the nav bars */
+  --pf-neon: #4da3ff;
+  --pf-blue-hi: #3b7bff;
+  --pf-blue-lo: #1b3a8f;
+  --pf-bar: rgba(38, 52, 82, 0.88);
+  --pf-bar-hi: rgba(52, 72, 112, 0.95);
+}
+
+/*
+ * This page loads no other stylesheet, so it has to neutralise the browser
+ * default body margin itself — otherwise an 8px strip of page background shows
+ * around the full-bleed night scene.
+ */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: #070a12;
+}
+
+.pf-scene {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  overflow: hidden;
+  background-color: #070a12;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--pf-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- 1. night sky */
+
+.pf-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+/*
+ * Built-in night scene. The layered radial gradients stand in for city light
+ * pools; `#070a12` is the horizon so the card always sits on something dark.
+ */
+.pf-bg-gradient {
+  background:
+    radial-gradient(900px 600px at 78% 18%, rgba(60, 92, 200, 0.35), transparent 62%),
+    radial-gradient(700px 520px at 18% 78%, rgba(126, 62, 180, 0.28), transparent 60%),
+    radial-gradient(520px 420px at 62% 88%, rgba(24, 120, 160, 0.22), transparent 65%),
+    linear-gradient(165deg, #0a1024 0%, #0b1226 42%, #070a12 100%);
+}
+
+/*
+ * A configured photo. Scaled slightly past the viewport so the blur does not
+ * expose soft edges, and desaturated so the card stays the focus.
+ */
+.pf-bg-image {
+  background-position: center;
+  background-size: cover;
+  filter: blur(18px) saturate(1.15) brightness(0.6);
+  transform: scale(1.12);
+}
+
+/* Blurred colour blobs: depth without a second image. */
+.pf-glow {
+  position: absolute;
+  inset: -15%;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(420px 320px at 22% 28%, rgba(77, 163, 255, 0.28), transparent 70%),
+    radial-gradient(520px 380px at 82% 72%, rgba(150, 80, 220, 0.22), transparent 72%);
+  filter: blur(70px);
+}
+
+/* ------------------------------------------------------------- 2. fireflies */
+
+.pf-fireflies {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pf-fireflies span {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #cfe6ff;
+  box-shadow: 0 0 6px 1px rgba(160, 210, 255, 0.75);
+  opacity: 0;
+  animation: pf-drift linear infinite;
+}
+
+/* Spread the points out and vary speed/phase so they never pulse in unison. */
+.pf-fireflies span:nth-child(1)  { left: 8%;  top: 22%; animation-duration: 17s; animation-delay: 0s;   }
+.pf-fireflies span:nth-child(2)  { left: 16%; top: 68%; animation-duration: 23s; animation-delay: -3s;  }
+.pf-fireflies span:nth-child(3)  { left: 27%; top: 38%; animation-duration: 19s; animation-delay: -7s;  }
+.pf-fireflies span:nth-child(4)  { left: 34%; top: 82%; animation-duration: 27s; animation-delay: -11s; }
+.pf-fireflies span:nth-child(5)  { left: 44%; top: 16%; animation-duration: 21s; animation-delay: -5s;  }
+.pf-fireflies span:nth-child(6)  { left: 52%; top: 58%; animation-duration: 25s; animation-delay: -14s; }
+.pf-fireflies span:nth-child(7)  { left: 61%; top: 30%; animation-duration: 18s; animation-delay: -2s;  }
+.pf-fireflies span:nth-child(8)  { left: 69%; top: 74%; animation-duration: 29s; animation-delay: -9s;  }
+.pf-fireflies span:nth-child(9)  { left: 76%; top: 44%; animation-duration: 22s; animation-delay: -17s; }
+.pf-fireflies span:nth-child(10) { left: 84%; top: 20%; animation-duration: 26s; animation-delay: -6s;  }
+.pf-fireflies span:nth-child(11) { left: 91%; top: 62%; animation-duration: 20s; animation-delay: -13s; }
+.pf-fireflies span:nth-child(12) { left: 12%; top: 46%; animation-duration: 31s; animation-delay: -19s; }
+.pf-fireflies span:nth-child(13) { left: 38%; top: 8%;  animation-duration: 24s; animation-delay: -8s;  }
+.pf-fireflies span:nth-child(14) { left: 57%; top: 90%; animation-duration: 28s; animation-delay: -21s; }
+.pf-fireflies span:nth-child(15) { left: 73%; top: 12%; animation-duration: 33s; animation-delay: -4s;  }
+.pf-fireflies span:nth-child(16) { left: 88%; top: 84%; animation-duration: 30s; animation-delay: -16s; }
+
+/* Drift upward and flicker; only transform/opacity animate, so this stays on
+   the compositor and never blocks the main thread. */
+@keyframes pf-drift {
+  0%   { transform: translate3d(0, 26px, 0) scale(0.7); opacity: 0; }
+  12%  { opacity: 0.9; }
+  50%  { transform: translate3d(14px, -30px, 0) scale(1); opacity: 0.55; }
+  88%  { opacity: 0.85; }
+  100% { transform: translate3d(-8px, -86px, 0) scale(0.7); opacity: 0; }
+}
+
+/* ----------------------------------------------------------- 3. glass card */
+
+.pf-card {
+  position: relative;
+  z-index: 3;
+  width: 100%;
+  max-width: 1000px;
+  display: flex;
+  gap: 44px;
+  padding: 44px 46px;
+  border-radius: 30px;
+
+  background: var(--pf-glass);
+  border: 1px solid var(--pf-glass-border);
+  backdrop-filter: blur(var(--pf-glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--pf-glass-blur)) saturate(150%);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* Without backdrop-filter the glass turns milky, so lean on opacity instead. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .pf-card {
+    background: rgba(14, 17, 24, 0.92);
+  }
+}
+
+/* ------------------------------------------------------------------ left side */
+
+.pf-left {
+  flex: 0 0 auto;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.pf-avatar-ring {
+  position: relative;
+  width: 144px;
+  height: 144px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  /* Neon ring: a crisp inner ring plus a wide outer bloom. */
+  box-shadow:
+    0 0 0 3px rgba(122, 190, 255, 0.95),
+    0 0 22px 5px rgba(77, 163, 255, 0.55),
+    0 0 54px 14px rgba(59, 123, 255, 0.28);
+  animation: pf-ring-pulse 4.5s ease-in-out infinite;
+}
+
+.pf-avatar {
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  background: #131a2a;
+}
+
+@keyframes pf-ring-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(122, 190, 255, 0.95), 0 0 22px 5px rgba(77, 163, 255, 0.55), 0 0 54px 14px rgba(59, 123, 255, 0.28); }
+  50%      { box-shadow: 0 0 0 3px rgba(150, 205, 255, 1),    0 0 30px 8px rgba(77, 163, 255, 0.7),  0 0 70px 20px rgba(59, 123, 255, 0.36); }
+}
+
+.pf-greeting {
+  margin: 26px 0 4px;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--pf-ink-dim);
+}
+
+.pf-name {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 38px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: #fff;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 18px rgba(77, 163, 255, 0.28);
+}
+
+/* The requested transparent triangle indicator next to the name. */
+.pf-play {
+  display: inline-flex;
+  opacity: 0.5;
+  color: var(--pf-neon);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.pf-play svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.pf-name:hover .pf-play {
+  opacity: 0.95;
+  transform: translateX(2px);
+}
+
+.pf-tagline {
+  margin: 10px 0 0;
+  font-size: 15px;
+  color: var(--pf-ink-dim);
+}
+
+.pf-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 18px 0 0;
+  padding: 0;
+}
+
+.pf-tags + .pf-tags {
+  margin-top: 8px;
+}
+
+/* Blue pill badges: blue → deep blue, white text. */
+.pf-tag {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #fff;
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--pf-blue-hi) 0%, var(--pf-blue-lo) 100%);
+  border: 1px solid rgba(150, 195, 255, 0.28);
+  box-shadow: 0 2px 10px rgba(27, 58, 143, 0.45);
+}
+
+/* ----------------------------------------------------------------- right side */
+
+.pf-right {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pf-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Reset the <details>/<summary> defaults so it looks like the other bars. */
+.pf-expand > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.pf-expand > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pf-expand > summary::marker {
+  content: "";
+}
+
+.pf-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 15px 18px;
+  border-radius: 15px;
+  text-decoration: none;
+  color: var(--pf-ink);
+  font-size: 16px;
+  font-weight: 500;
+
+  background: linear-gradient(135deg, var(--pf-bar) 0%, rgba(28, 40, 66, 0.92) 100%);
+  border: 1px solid rgba(120, 160, 230, 0.18);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  transition: transform 0.16s ease, background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.pf-btn:hover,
+.pf-btn:focus-visible {
+  background: linear-gradient(135deg, var(--pf-bar-hi) 0%, rgba(38, 54, 88, 0.95) 100%);
+  border-color: rgba(140, 190, 255, 0.42);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.38);
+  transform: translateY(-1px);
+}
+
+.pf-btn:focus-visible {
+  outline: 2px solid var(--pf-neon);
+  outline-offset: 2px;
+}
+
+.pf-btn-icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(90, 140, 230, 0.18);
+  color: #9ec8ff;
+}
+
+.pf-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.pf-btn-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.pf-chevron {
+  flex: 0 0 auto;
+  color: var(--pf-ink-faint);
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.pf-btn:hover .pf-chevron {
+  color: var(--pf-ink);
+}
+
+/* Rotate the chevron when the panel is open. */
+.pf-expand[open] > summary .pf-chevron {
+  transform: rotate(180deg);
+}
+
+/* ---------------------------------------------------------------- panels */
+
+.pf-panel {
+  padding: 10px 6px 4px 6px;
+  animation: pf-panel-in 0.18s ease-out;
+}
+
+@keyframes pf-panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.pf-sublist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pf-sublink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 11px;
+  text-decoration: none;
+  color: var(--pf-ink-dim);
+  font-size: 15px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pf-sublink:hover,
+.pf-sublink:focus-visible {
+  background: rgba(90, 140, 230, 0.14);
+  color: var(--pf-ink);
+}
+
+/* ---------------------------------------------------------------- music panel */
+
+.pf-music-embed {
+  display: block;
+  width: 100%;
+  height: 86px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(10, 14, 22, 0.5);
+}
+
+.pf-music-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.pf-music-cover {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+
+.pf-music-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pf-music-title {
+  font-size: 15px;
+  color: var(--pf-ink);
+}
+
+.pf-music-artist {
+  font-size: 13px;
+  color: var(--pf-ink-faint);
+}
+
+/* The native player, tinted to match the card. */
+.pf-audio {
+  width: 100%;
+  height: 40px;
+  border-radius: 10px;
+  filter: invert(0.92) hue-rotate(180deg) saturate(0.8);
+}
+
+.pf-music-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--pf-ink-faint);
+}
+
+.pf-music-empty code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------- responsive */
+
+@media (max-width: 880px) {
+  .pf-card {
+    flex-direction: column;
+    gap: 32px;
+    padding: 32px 24px;
+    border-radius: 24px;
+    max-width: 560px;
+  }
+
+  .pf-left {
+    width: 100%;
+  }
+
+  .pf-avatar-ring {
+    width: 118px;
+    height: 118px;
+  }
+
+  .pf-avatar {
+    width: 108px;
+    height: 108px;
+  }
+
+  .pf-name {
+    font-size: 30px;
+  }
+}
+
+@media (max-width: 420px) {
+  .pf-scene {
+    padding: 20px 12px;
+  }
+
+  .pf-card {
+    padding: 26px 18px;
+  }
+
+  .pf-btn {
+    padding: 13px 14px;
+    font-size: 15px;
+  }
+}
+
+/* Respect the OS "reduce motion" setting: keep the look, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .pf-fireflies span,
+  .pf-avatar-ring {
+    animation: none;
+  }
+
+  .pf-fireflies span {
+    opacity: 0.5;
+  }
+
+  .pf-btn,
+  .pf-chevron,
+  .pf-play {
+    transition: none;
+  }
+}

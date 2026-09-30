@@ -277,6 +277,7 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - **Visitor identity** (`/auth/`) — a reader enters an email address; a registered address receives a signed visitor cookie, an unknown one can submit a registration request that lands in the admin approval queue. Logging out works both as a plain HTML form post (`POST /auth/logout`, no JavaScript required) and as JSON (`POST /api/auth/logout`).
 - **2048** (`/2048/`) — the easter egg, complete with best-score persistence in the browser.
 - **Search** (`/search/`) — full-text search over titles, tags, categories and post bodies, with an in-process index. Works without JavaScript (plain GET form); `js/search.js` upgrades it to live results as you type, and `Ctrl`/`Cmd`+`K` focuses the field.
+- **Personal card** (`/profile/`) — a standalone, full-viewport page: a blurred night background with faint drifting lights, a frosted-glass panel, a neon-ringed avatar, gradient pill badges, and expandable navigation bars. It renders through its own layout (no site chrome) and needs **no JavaScript** — the panels are `<details>`. Content lives in the `profile:` block of `_config.yml`.
 - **Bilingual content** — per-post and per-page English title/body; the public UI strings have built-in defaults in `src/site-config.ts` and can be overridden per key under `strings:` in `_config.yml`.
 - **SEO** — per-route `<title>`, meta description and canonical link, plus `/sitemap.xml` and `/rss.xml` (`rssLimit` newest posts). Set `url` in `_config.yml` (or `BMY_SITE_URL`) so the canonical URLs and feed links are absolute.
 
@@ -406,6 +407,41 @@ strings: {}                   # override any UI string, e.g. {page_posts: 博客
 - **`BMY_CONFIG_FILE`** points the server at a different file, which is handy for keeping per-deployment config outside the checkout.
 - `url` is the one value an environment variable may override: an explicitly set **`BMY_SITE_URL`** wins over `_config.yml`, so a container can be re-pointed without editing a tracked file.
 - A malformed YAML file is logged loudly and falls back to defaults rather than taking the site down, so you can still reach the admin area and fix it.
+
+### Personal card — the `profile:` block
+
+`/profile/` is a standalone page (it does not use the site shell), so its content is configured separately:
+
+```yaml
+profile:
+  enabled: true               # the only switch for this page
+  avatar: /img/avatar.jpg
+  greeting: Hi, I am
+  name: X-LeeHe
+  tagline: 警惕赛博杂食性动物
+  background: ''              # optional photo; blurred by CSS. Empty = built-in night gradient
+  tags:                       # one array per row of pill badges
+    - [ArchLinuxUser, Mild DIY enthusiast]
+    - [Robotics (idiot), Minecraft, Helldivers 2]
+  buttons:                    # the right-hand bars
+    - { text: Github, icon: github, href: https://github.com/imitoy, action: link }
+    - { text: Blog, icon: blog, href: /posts/, action: link }
+    - text: More
+      icon: more
+      action: expand          # expand shows a ⌄ and opens a panel
+      items:
+        - { text: 归档, href: /archives/ }
+    - { text: Music (From NetEase), icon: music, action: expand, music: true }
+  music:
+    audio: ''                 # direct audio URL → native <audio> player
+    embed: ''                 # or an embed URL (NetEase outchain) → <iframe>
+```
+
+- `action: link` renders a `›` chevron and navigates; `action: expand` renders a `⌄` chevron and opens a panel.
+- Icons are inline SVG, so no icon font or CDN is involved: `github` (`<>`), `blog`, `more` (branch), `music`, `link`, `mail`, `rss`.
+- **No JavaScript**: the panels are `<details>` (with the `name` attribute for a native accordion where supported).
+- Setting `music.embed` or `music.audio` also adds exactly that origin to the page's CSP `frame-src` / `media-src`, so the strict policy does not have to be loosened globally.
+- To surface the page in the sidebar, add it to `menu:` — it is deliberately not there by default.
 
 ### Deployment configuration — environment variables
 

@@ -275,6 +275,7 @@ sort_order: 0
 - **访客身份验证**（`/auth/`）——读者输入邮箱：已注册地址会获得签名的访客 Cookie，未注册地址可以提交注册申请，进入管理后台的审核队列。退出登录既支持普通表单提交（`POST /auth/logout`，无需 JavaScript），也支持 JSON 接口（`POST /api/auth/logout`）。
 - **2048**（`/2048/`）——彩蛋小游戏，最高分保存在浏览器本地。
 - **搜索**（`/search/`）——对标题、标签、分类与正文进行全文搜索，索引在进程内构建。无需 JavaScript 即可使用（普通 GET 表单）；`js/search.js` 会把它升级为输入即搜，`Ctrl`/`Cmd`+`K` 可直接聚焦搜索框。
+- **个人名片页**（`/profile/`）——一个独立的整屏页面：高斯模糊的夜景背景 + 缓慢浮动的微光点、毛玻璃卡片、霓虹圆环头像、渐变胶囊标签，以及可展开的导航长条。它使用自己的布局渲染（不带站点外壳），且**完全不需要 JavaScript**——展开面板用的是 `<details>`。内容位于 `_config.yml` 的 `profile:` 块。
 - **双语内容**——文章与页面各自支持英文标题/正文；前台 UI 文案的内置默认值位于 `src/site-config.ts`，可在 `_config.yml` 的 `strings:` 下按键覆盖。
 - **SEO**——逐路由的 `<title>`、meta description 与 canonical 链接，以及 `/sitemap.xml` 和 `/rss.xml`（最新 `rssLimit` 篇文章）。在 `_config.yml` 中设置 `url`（或设置 `BMY_SITE_URL`）后，canonical 与订阅链接为绝对地址。
 
@@ -404,6 +405,41 @@ strings: {}                   # 覆盖任意界面文案，例如 {page_posts: �
 - **`BMY_CONFIG_FILE`** 可让服务读取另一个配置文件，便于把每套部署的配置放在检出目录之外。
 - `url` 是唯一允许被环境变量覆盖的值：显式设置了 **`BMY_SITE_URL`** 时它优先于 `_config.yml`，这样容器无需改动受版本控制的文件就能改指向。
 - YAML 写错时会大声报错并回退到默认值，而不是让站点挂掉，便于你先进后台把它修好。
+
+### 个人名片页 —— `profile:` 块
+
+`/profile/` 是独立页面（不使用站点外壳），因此内容单独配置：
+
+```yaml
+profile:
+  enabled: true               # 该页面唯一的开关
+  avatar: /img/avatar.jpg
+  greeting: Hi, I am
+  name: X-LeeHe
+  tagline: 警惕赛博杂食性动物
+  background: ''              # 可选背景图，会被 CSS 高斯模糊；留空则用内置夜色渐变
+  tags:                       # 每个数组是一行胶囊标签
+    - [ArchLinuxUser, Mild DIY enthusiast]
+    - [Robotics (idiot), Minecraft, Helldivers 2]
+  buttons:                    # 右侧长条
+    - { text: Github, icon: github, href: https://github.com/imitoy, action: link }
+    - { text: Blog, icon: blog, href: /posts/, action: link }
+    - text: More
+      icon: more
+      action: expand          # expand 显示 ⌄ 并展开面板
+      items:
+        - { text: 归档, href: /archives/ }
+    - { text: Music (From NetEase), icon: music, action: expand, music: true }
+  music:
+    audio: ''                 # 音频直链 → 原生 <audio> 播放器
+    embed: ''                 # 或外链播放器地址（网易云 outchain）→ <iframe>
+```
+
+- `action: link` 右侧显示 `›` 并跳转；`action: expand` 右侧显示 `⌄` 并展开面板。
+- 图标是内联 SVG，不依赖图标字体或 CDN：`github`（`<>`）、`blog`、`more`（分支）、`music`、`link`、`mail`、`rss`。
+- **完全不需要 JavaScript**：面板是 `<details>`（带 `name` 属性，在支持的浏览器里就是原生手风琴）。
+- 配置了 `music.embed` 或 `music.audio` 时，只会把该来源加入页面的 CSP `frame-src` / `media-src`，不需要全局放宽策略。
+- 想让它出现在侧边栏，把它加进 `menu:` 即可——默认刻意不加入。
 
 ### 部署配置 —— 环境变量
 

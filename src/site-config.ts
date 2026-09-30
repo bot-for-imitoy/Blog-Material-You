@@ -48,6 +48,52 @@ export interface SiteFeatures {
   sitemap: boolean;
 }
 
+/** One entry inside an expanded profile panel. */
+export interface ProfileSubItem {
+  text: string;
+  href: string;
+}
+
+/**
+ * A bar in the profile card's right-hand column.
+ * `action: 'link'` shows a right chevron and navigates; `action: 'expand'`
+ * shows a down chevron and opens a panel (extra links, or the music player).
+ */
+export interface ProfileButton {
+  text: string;
+  /** Icon key understood by the template: github | blog | more | music | link | mail | rss. */
+  icon: string;
+  href: string;
+  action: 'link' | 'expand';
+  items: ProfileSubItem[];
+  /** True for the single panel that hosts the music player. */
+  music: boolean;
+}
+
+export interface ProfileMusic {
+  title: string;
+  artist: string;
+  cover: string;
+  /** Direct audio URL, played by a native <audio> element. */
+  audio: string;
+  /** Embed URL (e.g. NetEase's outchain player); rendered in an <iframe>. */
+  embed: string;
+}
+
+export interface ProfileSettings {
+  enabled: boolean;
+  avatar: string;
+  greeting: string;
+  name: string;
+  tagline: string;
+  /** Optional background photo. Blurred by CSS; empty uses the built-in night scene. */
+  background: string;
+  /** Rows of pill badges. */
+  tags: string[][];
+  buttons: ProfileButton[];
+  music: ProfileMusic;
+}
+
 export interface SiteSettings {
   // ===== Identity =====
   title: string;
@@ -75,6 +121,9 @@ export interface SiteSettings {
   excerpt: { length: number; lengthWithCover: number };
   /** Number of posts in the RSS feed. */
   rssLimit: number;
+
+  // ===== Standalone personal card (/profile/) =====
+  profile: ProfileSettings;
 
   // ===== UI strings =====
   /** Overrides merged over the built-in dictionary in `DEFAULT_STRINGS`. */
@@ -298,6 +347,43 @@ export const CONFIG_FILE = process.env.BMY_CONFIG_FILE
   ? path.resolve(process.env.BMY_CONFIG_FILE)
   : path.join(ROOT, '_config.yml');
 
+/**
+ * Default content for the standalone personal card at `/profile/`.
+ * These mirror exactly what the site owner asked for, so the page looks right
+ * with an empty `_config.yml` and is then editable key by key.
+ */
+export const DEFAULT_PROFILE: ProfileSettings = {
+  enabled: true,
+  avatar: DEFAULT_STRINGS.avatar!,
+  greeting: 'Hi, I am',
+  name: 'X-LeeHe',
+  tagline: '警惕赛博杂食性动物',
+  background: '',
+  tags: [
+    ['ArchLinuxUser', 'Mild DIY enthusiast'],
+    ['Robotics (idiot)', 'Minecraft', 'Helldivers 2'],
+  ],
+  buttons: [
+    { text: 'Github', icon: 'github', href: 'https://github.com/imitoy', action: 'link', items: [], music: false },
+    { text: 'Blog', icon: 'blog', href: '/posts/', action: 'link', items: [], music: false },
+    {
+      text: 'More',
+      icon: 'more',
+      href: '',
+      action: 'expand',
+      items: [
+        { text: '归档', href: '/archives/' },
+        { text: '标签', href: '/tags/' },
+        { text: '友链', href: '/friends/' },
+        { text: 'RSS', href: '/rss.xml' },
+      ],
+      music: false,
+    },
+    { text: 'Music (From NetEase)', icon: 'music', href: '', action: 'expand', items: [], music: true },
+  ],
+  music: { title: '', artist: '', cover: '', audio: '', embed: '' },
+};
+
 function defaultSettings(): SiteSettings {
   return {
     title: DEFAULT_STRINGS.title!,
@@ -315,6 +401,7 @@ function defaultSettings(): SiteSettings {
     features: { comments: true, calendar: true, search: true, easterEgg: true, rss: true, sitemap: true },
     excerpt: { length: 200, lengthWithCover: 120 },
     rssLimit: 20,
+    profile: DEFAULT_PROFILE,
     strings: {},
   };
 }
@@ -418,6 +505,79 @@ function toMenu(value: unknown, fallback: MenuItem[]): MenuItem[] {
   return items.length > 0 ? items : fallback;
 }
 
+/** Normalise one profile bar; entries without a label are dropped. */
+function toProfileButton(raw: unknown): ProfileButton | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const entry = raw as Record<string, unknown>;
+  const label = text(entry.text, '');
+  if (label === '') return null;
+
+  const action: 'link' | 'expand' =
+    text(entry.action, 'link').toLowerCase() === 'expand' ? 'expand' : 'link';
+
+  const items: ProfileSubItem[] = Array.isArray(entry.items)
+    ? entry.items
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const sub = item as Record<string, unknown>;
+          const subText = text(sub.text, '');
+          const subHref = text(sub.href, '');
+          return subText !== '' ? { text: subText, href: subHref } : null;
+        })
+        .filter((item): item is ProfileSubItem => item !== null)
+    : [];
+
+  return {
+    text: label,
+    icon: text(entry.icon, 'link').toLowerCase(),
+    href: text(entry.href, ''),
+    action,
+    items,
+    music: bool(entry.music, false),
+  };
+}
+
+/** Rows of pill badges; a flat list is wrapped into a single row. */
+function toTagRows(value: unknown, fallback: string[][]): string[][] {
+  if (!Array.isArray(value)) return fallback;
+  const rows: string[][] = [];
+  for (const row of value) {
+    if (Array.isArray(row)) {
+      const items = row.map((item) => text(item, '')).filter((item) => item !== '');
+      if (items.length > 0) rows.push(items);
+    } else {
+      // A flat `tags: [a, b]` list is treated as one row.
+      const single = text(row, '');
+      if (single !== '') rows.push([single]);
+    }
+  }
+  return rows.length > 0 ? rows : fallback;
+}
+
+function normaliseProfile(raw: Record<string, unknown>, base: ProfileSettings): ProfileSettings {
+  const musicRaw = (raw.music && typeof raw.music === 'object' ? raw.music : {}) as Record<string, unknown>;
+  const buttons = Array.isArray(raw.buttons)
+    ? raw.buttons.map(toProfileButton).filter((button): button is ProfileButton => button !== null)
+    : [];
+  return {
+    enabled: bool(raw.enabled, base.enabled),
+    avatar: text(raw.avatar, base.avatar),
+    greeting: text(raw.greeting, base.greeting),
+    name: text(raw.name, base.name),
+    tagline: text(raw.tagline, base.tagline),
+    background: text(raw.background, base.background),
+    tags: toTagRows(raw.tags, base.tags),
+    buttons: buttons.length > 0 ? buttons : base.buttons,
+    music: {
+      title: text(musicRaw.title, base.music.title),
+      artist: text(musicRaw.artist, base.music.artist),
+      cover: text(musicRaw.cover, base.music.cover),
+      audio: text(musicRaw.audio, base.music.audio),
+      embed: text(musicRaw.embed, base.music.embed),
+    },
+  };
+}
+
 /** Merge the YAML file over the defaults. */
 function normalise(raw: Record<string, unknown>): SiteSettings {
   const base = defaultSettings();
@@ -426,6 +586,7 @@ function normalise(raw: Record<string, unknown>): SiteSettings {
   const features = (raw.features && typeof raw.features === 'object' ? raw.features : {}) as Record<string, unknown>;
   const excerpt = (raw.excerpt && typeof raw.excerpt === 'object' ? raw.excerpt : {}) as Record<string, unknown>;
   const strings = (raw.strings && typeof raw.strings === 'object' ? raw.strings : {}) as Record<string, unknown>;
+  const profile = (raw.profile && typeof raw.profile === 'object' ? raw.profile : {}) as Record<string, unknown>;
 
   const subtitle = text(raw.subtitle ?? raw.desc, base.subtitle);
   return {
@@ -460,6 +621,7 @@ function normalise(raw: Record<string, unknown>): SiteSettings {
       lengthWithCover: wholeNumber(excerpt.lengthWithCover, base.excerpt.lengthWithCover, 1, 5000),
     },
     rssLimit: wholeNumber(raw.rssLimit, base.rssLimit, 1, 200),
+    profile: normaliseProfile(profile, base.profile),
     // Only string values are accepted, so a stray nested object cannot leak into
     // a template as "[object Object]".
     strings: Object.fromEntries(
@@ -507,6 +669,8 @@ export interface TemplateGlobals {
   };
   menu: MenuItem[];
   features: SiteFeatures;
+  /** Content for the standalone personal card at `/profile/`. */
+  profile: ProfileSettings;
   t: (key: string) => string;
   strings: Record<string, string>;
 }
@@ -529,6 +693,7 @@ export function templateGlobals(): TemplateGlobals {
     },
     menu: settings.menu,
     features: settings.features,
+    profile: settings.profile,
     t,
     strings: { ...DEFAULT_STRINGS, ...settings.strings },
   };
@@ -557,6 +722,7 @@ export function publicSiteConfig(): Record<string, unknown> {
     features: settings.features,
     excerpt: settings.excerpt,
     rssLimit: settings.rssLimit,
+    profile: settings.profile,
     strings: { ...DEFAULT_STRINGS, ...settings.strings },
   };
 }

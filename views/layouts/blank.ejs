@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="<%= site.language %>">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= seo.title %></title>
+  <meta name="description" content="<%= seo.desc %>">
+  <% if (site.themeColor) { %>
+  <meta name="theme-color" content="<%= site.themeColor %>">
+  <% } %>
+  <link rel="canonical" href="<%= seo.canonicalUrl %>">
+  <% (styles || []).forEach(function (entry) { %>
+    <% if (typeof entry === 'string') { %>
+  <link rel="stylesheet" href="<%= entry %>">
+    <% } else { %>
+  <link rel="stylesheet" href="<%= entry.href %>"<% if (entry.media) { %> media="<%= entry.media %>"<% } %>>
+    <% } %>
+  <% }); %>
+  <%- headExtra || '' %>
+</head>
+<!--
+  `blank` is the standalone document layout: no site shell, no mdui, no shared
+  CSS. Used by pages that own the whole viewport (the /profile/ card), so they
+  are not affected by — and do not have to fight — the site chrome.
+-->
+<body<%= bodyClass ? ' class="' + bodyClass + '"' : '' %>>
+<%- body %>
+<% (pageScripts || []).forEach(function (src) { %>
+<script type="module" src="<%= src %>"></script>
+<% }); %>
+</body>
+</html>

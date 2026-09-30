@@ -123,6 +123,72 @@ excerpt:
 # RSS 订阅源包含的文章数量
 rssLimit: 20
 
+# ===== 个人名片页 /profile/ =====
+# 一个独立的、全屏沉浸式的个人主页：高斯模糊夜景背景 + 毛玻璃卡片。
+# 它不套用站点外壳（没有侧栏和顶栏），因此适合作为个人名片 / 导航页使用。
+# 想让它出现在侧边栏，只需在上面的 menu 里加一项，例如：
+#   - text: 主页
+#     icon: /icon/person.svg
+#     route: /profile/
+profile:
+  # 是否启用该页面
+  enabled: true
+
+  # 圆形头像（带霓虹发光圆环）
+  avatar: /img/avatar.jpg
+
+  # 头像上方的小字、主标题、以及下方的一句签名
+  greeting: Hi, I am
+  name: X-LeeHe
+  tagline: 警惕赛博杂食性动物
+
+  # 背景图（可选）。会施加高斯模糊，建议用夜景照片。
+  # 留空时使用内置的夜色渐变 + 缓慢浮动的光点（萤火虫效果），无需任何图片资源。
+  background: ''
+
+  # 兴趣 / 身份标签，按行分组，每行一个数组，渲染为圆角胶囊徽章
+  tags:
+    - [ArchLinuxUser, Mild DIY enthusiast]
+    - [Robotics (idiot), Minecraft, Helldivers 2]
+
+  # 右侧导航条。action 取值：
+  #   link   —— 右侧显示 › 箭头，点击跳转 href
+  #   expand —— 右侧显示 ⌄ 箭头，点击展开面板（子项或音乐播放器）
+  # icon 可选：github | blog | more | music | link | mail | rss
+  buttons:
+    - text: Github
+      icon: github
+      href: https://github.com/imitoy
+      action: link
+    - text: Blog
+      icon: blog
+      href: /posts/
+      action: link
+    - text: More
+      icon: more
+      action: expand
+      items:
+        - { text: 归档, href: /archives/ }
+        - { text: 标签, href: /tags/ }
+        - { text: 友链, href: /friends/ }
+        - { text: RSS, href: /rss.xml }
+    - text: Music (From NetEase)
+      icon: music
+      action: expand
+      music: true
+
+  # 音乐面板内容（配合上面 music: true 的那一项）
+  music:
+    title: ''
+    artist: ''
+    cover: ''
+    # 方式一：音频直链，用浏览器原生播放器播放（推荐，无需外部依赖）
+    audio: ''
+    # 方式二：网易云等平台的 iframe 外链播放器地址，例如
+    # https://music.163.com/outchain/player?type=2&id=SONG_ID&auto=0&height=66
+    # 填了它就会以 iframe 嵌入，并自动把该来源加入页面的 frame-src 白名单。
+    embed: ''
+
 # ===== 界面文案（可选覆盖）=====
 # 内置文案已覆盖全部界面文字，键名见 src/site-config.ts 的 DEFAULT_STRINGS。
 # 这里写上同名键即可覆盖，例如：

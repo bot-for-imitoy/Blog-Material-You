@@ -53,6 +53,7 @@ export function seoForRoute(route: string): PageSeo {
   const pages = getPage(path.replace(/^\/+|\/+$/g, ''));
   const staticRoutes: Record<string, { title: string; desc: string }> = {
     '/posts/': { title: `文章 - ${siteTitle}`, desc: '博客所有文章' },
+    '/profile/': { title: `关于我 - ${siteTitle}`, desc: '个人名片与导航' },
     '/tags/': { title: `标签 - ${siteTitle}`, desc: '博客所有标签' },
     '/categories/': { title: `分类 - ${siteTitle}`, desc: '博客所有分类' },
     '/archives/': { title: `归档 - ${siteTitle}`, desc: '所有已归档文章' },

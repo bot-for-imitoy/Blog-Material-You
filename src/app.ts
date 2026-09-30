@@ -19,9 +19,35 @@ import cookieParser from 'cookie-parser';
 import { AVATARS_DIR, HOST, MAX_UPLOAD_MB, PUBLIC_DIR, TRUST_PROXY, UPLOADS_DIR } from './paths.ts';
 import { createPublicApiRouter } from './routes/public-api.ts';
 import { createPublicPagesRouter } from './routes/public-pages.ts';
+import { getSiteSettings } from './site-config.ts';
+
+/**
+ * Origins the profile page's music panel needs.
+ *
+ * The CSP is `default-src 'self'`, which also covers `frame-src` and `media-src`
+ * — so a NetEase embed or a remote audio file would be blocked. Rather than
+ * loosening those directives globally, only the origins actually configured in
+ * `_config.yml` are allowed, and only for the two directives that need them.
+ */
+function musicOrigins(): { frames: string[]; media: string[] } {
+  const { profile } = getSiteSettings();
+  const originOf = (value: string): string | null => {
+    if (!value) return null;
+    try {
+      const url = new URL(value);
+      return url.protocol === 'https:' || url.protocol === 'http:' ? url.origin : null;
+    } catch {
+      return null;
+    }
+  };
+  const embed = originOf(profile.music.embed);
+  const audio = originOf(profile.music.audio);
+  return { frames: embed ? [embed] : [], media: audio ? [audio] : [] };
+}
 
 /** Headers applied to every response. */
 function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
+  const { frames, media } = musicOrigins();
   res.set('X-Content-Type-Options', 'nosniff');
   res.set('X-Frame-Options', 'DENY');
   res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -34,9 +60,12 @@ function securityHeaders(_req: Request, res: Response, next: NextFunction): void
       // mdui sets inline style attributes at runtime, so style attributes must
       // stay allowed; scripts deliberately do not get 'unsafe-inline'.
       "style-src 'self' 'unsafe-inline'",
+      // `https:` covers remote avatars and the profile page's background photo.
       "img-src 'self' data: https:",
       "font-src 'self' data:",
       "connect-src 'self'",
+      `frame-src 'self'${frames.length > 0 ? ` ${frames.join(' ')}` : ''}`,
+      `media-src 'self'${media.length > 0 ? ` ${media.join(' ')}` : ''}`,
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
