@@ -58,7 +58,9 @@
     <!-- ===== Left: identity ===== -->
     <section class="pf-left">
       <div class="pf-avatar-ring">
-        <img class="pf-avatar" src="<%= profile.avatar || site.avatar %>" alt="<%= profile.name %>" width="144" height="144">
+        <%# Painted at 132px, so 320 keeps it crisp on a 2x screen. A remote
+            avatar passes through `mediaUrl` untouched. %>
+        <img class="pf-avatar" src="<%= mediaUrl(profile.avatar || site.avatar, { width: 320, height: 320, fit: 'cover' }) %>" alt="<%= profile.name %>" width="144" height="144" decoding="async">
       </div>
 
       <p class="pf-greeting"><%= profile.greeting %></p>
@@ -113,7 +115,7 @@
               <% } else if (profile.music.audio) { %>
               <div class="pf-music-meta">
                 <% if (profile.music.cover) { %>
-                <img class="pf-music-cover" src="<%= profile.music.cover %>" alt="" width="56" height="56">
+                <img class="pf-music-cover" src="<%= mediaUrl(profile.music.cover, { width: 160, height: 160, fit: 'cover' }) %>" alt="" width="56" height="56" loading="lazy" decoding="async">
                 <% } %>
                 <div class="pf-music-text">
                   <span class="pf-music-title"><%= profile.music.title || '未命名' %></span>

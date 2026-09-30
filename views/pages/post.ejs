@@ -6,7 +6,16 @@
         <div class="image-skeleton-icon">🖼️</div>
         <span><%= t('loading') %></span>
       </div>
-      <img src="<%= post.cover %>" alt="<%= postTitle %>" class="post-header-cover post-header-meta">
+      <%# Above the fold, so it is not lazy and gets a high fetch priority. The
+          CSS keeps `height: auto`, so widths alone describe the layout. A
+          remote cover yields no srcset, and the attributes are omitted rather
+          than emitted empty. %>
+      <% const coverSrcset = mediaSrcset(post.cover, [480, 640, 800, 960, 1200, 1600, 2000], { width: 960 }); %>
+      <img src="<%= mediaUrl(post.cover, { width: 960 }) %>"<% if (coverSrcset) { %>
+           srcset="<%= coverSrcset %>"
+           sizes="(max-width: 900px) calc(100vw - 32px), 760px"<% } %>
+           alt="<%= postTitle %>" class="post-header-cover post-header-meta"
+           fetchpriority="high" decoding="async">
     </div>
     <% } %>
     <div class="post-header-main">
@@ -45,6 +54,24 @@
     <mdui-text-field id="comment-email" label="<%= t('email') %>" variant="outlined" max-rows="1"></mdui-text-field>
     <mdui-text-field id="comment-website" label="<%= t('website') %>" variant="outlined" max-rows="1"></mdui-text-field>
     <mdui-text-field id="comment-content" label="<%= t('commentContent') %>" variant="outlined" max-rows="4" autosize></mdui-text-field>
+
+    <%# Privacy switch, between the comment body and the submit button.
+        `comments.js` reads it and drops the automatically collected User-Agent
+        when it is on. The icons are blanked because the site vendors mdui
+        without the Material Icons font (this site's icons are SVG files).
+
+        This is a <div> and not a <label>: mdui-switch is not a form-associated
+        custom element — it renders its own `<label><input type=checkbox>` pair
+        inside a shadow root — so an outer label would label nothing and
+        clicking the words would do nothing. comments.js forwards clicks on the
+        row to the switch instead, and `aria-labelledby` keeps the text as the
+        accessible name. %>
+    <div class="comment-privacy" id="comment-privacy-row">
+      <mdui-switch id="comment-privacy-toggle" aria-labelledby="comment-privacy-label" unchecked-icon="" checked-icon=""></mdui-switch>
+      <span class="comment-privacy-label" id="comment-privacy-label"><%= t('commentPrivacyToggle') %></span>
+    </div>
+    <p class="comment-privacy-notice"><%= t('commentPrivacyNotice') %></p>
+
     <mdui-button id="comment-submit-button" variant="filled"><%= t('submit') %></mdui-button>
   </div>
   <h3 class="comment-section-title" id="comment-section-title"><%= t('commentTitle') %></h3>

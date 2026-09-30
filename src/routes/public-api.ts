@@ -36,7 +36,7 @@ import {
 import { getPage } from '../content/pages.ts';
 import { addTalk, listTalks } from '../content/talks.ts';
 import { listFriends } from '../content/friends.ts';
-import { addComment, countAllComments, countComments, listComments, validateComment } from '../store/comments.ts';
+import { addComment, countAllComments, countComments, listComments, validateComment, type Comment } from '../store/comments.ts';
 import { listEvents, type CalendarEvent } from '../store/calendar.ts';
 import {
   addPending,
@@ -52,6 +52,7 @@ import { renderMarkdown } from '../lib/markdown.ts';
 import { searchPosts } from '../lib/search.ts';
 import { hitCounter, rateLimit } from '../lib/ratelimit.ts';
 import { processAvatar, mirrorToImghost } from '../media/avatar.ts';
+import { mediaUrl } from '../media/resize.ts';
 import { createVisitorToken, clearVisitorCookie, getVisitorEmail, setVisitorCookie } from '../auth/visitor.ts';
 
 const upload = multer({
@@ -224,6 +225,18 @@ export function createPublicApiRouter(): Router {
 
   // ===================== Comments =====================
 
+  /**
+   * Comment shape sent to the public site.
+   *
+   * Uploaded avatars are stored as 512x512 WebP but painted at 64 px, so the
+   * URL is rewritten to a `/media` resize — 24 kB becomes about 2 kB. Remote
+   * avatars are returned unchanged by `mediaUrl`.
+   */
+  const publicComment = (comment: Comment): Comment => ({
+    ...comment,
+    avatar: mediaUrl(comment.avatar, { width: 160, height: 160, fit: 'cover' }),
+  });
+
   router.get('/comments', (req, res) => {
     const path = String(req.query.path ?? req.query.url ?? '');
     if (!path) {
@@ -234,7 +247,7 @@ export function createPublicApiRouter(): Router {
       ok(res, { count: countComments(path) });
       return;
     }
-    ok(res, listComments(path));
+    ok(res, listComments(path).map(publicComment));
   });
 
   router.post('/comments', rateLimit({ name: 'comment', windowMs: 60_000, max: 10 }), (req, res) => {
@@ -244,7 +257,7 @@ export function createPublicApiRouter(): Router {
       fail(res, 400, result.error ?? 'Invalid comment');
       return;
     }
-    ok(res, addComment(result.comment));
+    ok(res, publicComment(addComment(result.comment)));
   });
 
   // ===================== Search =====================

@@ -57,6 +57,12 @@ export const DATA_DIR = path.resolve(envStr('BMY_DATA_DIR', path.join(BLOG_DIR, 
 export const COMMENTS_DIR = path.join(DATA_DIR, 'comments');
 export const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 
+/**
+ * Resized image variants, written by `GET /media`. Disposable: the directory
+ * can be deleted at any time and every file is simply rendered again.
+ */
+export const IMAGE_CACHE_DIR = path.join(DATA_DIR, 'image-cache');
+
 /** Server configuration. */
 export const PORT = envInt('BMY_PORT', 30999);
 export const HOST = envStr('BMY_HOST', '0.0.0.0');
@@ -102,7 +108,7 @@ export function ensureDir(dir: string): void {
 
 /** Create every runtime directory the app expects to exist. */
 export function ensureRuntimeDirs(): void {
-  for (const dir of [DATA_DIR, COMMENTS_DIR, SESSIONS_DIR, AVATARS_DIR, UPLOADS_DIR]) {
+  for (const dir of [DATA_DIR, COMMENTS_DIR, SESSIONS_DIR, AVATARS_DIR, UPLOADS_DIR, IMAGE_CACHE_DIR]) {
     ensureDir(dir);
   }
 }

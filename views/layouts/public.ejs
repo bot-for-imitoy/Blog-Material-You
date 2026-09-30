@@ -77,7 +77,9 @@
     <mdui-navigation-drawer class="navigation-drawer" close-on-overlay-click open="true">
       <div class="navigation-drawer-container">
         <div class="navigation-drawer-header">
-          <mdui-avatar src="<%= site.avatar || '/img/avatar.jpg' %>" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
+          <%# Rendered at 64px (navigation-drawer.css), so 160 covers a 2x screen
+              without ever sending the 445 kB original. %>
+          <mdui-avatar src="<%= mediaUrl(site.avatar || '/img/avatar.jpg', { width: 160, fit: 'cover' }) %>" class="navigation-drawer-avatar" id="nav-avatar"></mdui-avatar>
           <div class="navigation-drawer-header-title" id="nav-name"><%= site.title %></div>
           <div class="navigation-drawer-header-subtitle" id="nav-slogan"><%= site.subtitle %></div>
         </div>

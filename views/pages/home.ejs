@@ -10,7 +10,15 @@
 <% (posts || []).forEach(function (post) { %>
   <mdui-card variant="elevated" class="post-card">
     <% if (post.cover) { %>
-    <img src="<%= post.cover %>" alt="<%= post.title %>" class="post-card-cover post-card-meta" loading="lazy">
+    <%# The card is one, two or three masonry columns wide (see index.css), so
+        `sizes` describes the real layout and the browser fetches one variant.
+        A remote cover yields no srcset, and the attributes are then omitted
+        rather than emitted empty. %>
+    <% const coverSrcset = mediaSrcset(post.cover, [320, 480, 640, 800, 960], { width: 640 }); %>
+    <img src="<%= mediaUrl(post.cover, { width: 640 }) %>"<% if (coverSrcset) { %>
+         srcset="<%= coverSrcset %>"
+         sizes="(min-width: 840px) 33vw, (min-width: 428px) 50vw, 100vw"<% } %>
+         alt="<%= post.title %>" class="post-card-cover post-card-meta" loading="lazy" decoding="async">
     <% } %>
     <div class="post-card-main">
       <div class="post-card-title post-card-meta"><%= post.title %></div>

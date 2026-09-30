@@ -19,6 +19,7 @@ import cookieParser from 'cookie-parser';
 import { AVATARS_DIR, HOST, MAX_UPLOAD_MB, PUBLIC_DIR, TRUST_PROXY, UPLOADS_DIR } from './paths.ts';
 import { createPublicApiRouter } from './routes/public-api.ts';
 import { createPublicPagesRouter } from './routes/public-pages.ts';
+import { createMediaRouter } from './routes/media.ts';
 import { getSiteSettings } from './site-config.ts';
 
 /**
@@ -147,6 +148,11 @@ export async function createApp(options: AppOptions = {}): Promise<Express> {
   // Uploads change over time, so cache briefly (matches the original's 1 hour).
   app.use('/avatars', express.static(AVATARS_DIR, staticOptions(60 * 60 * 1000, false)));
   app.use('/uploads', express.static(UPLOADS_DIR, staticOptions(60 * 60 * 1000, false)));
+
+  // Resized copies of the images above, rendered on demand and cached on disk.
+  // Mounted after the static handlers so the original files keep working; the
+  // endpoint itself only ever reads from those directories.
+  app.use('/media', createMediaRouter());
 
   // ===================== APIs =====================
 

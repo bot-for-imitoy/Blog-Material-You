@@ -22,8 +22,10 @@ COPY . .
 RUN node scripts/sync-assets.mjs
 
 # Runtime directories. The container runs as the unprivileged `node` user, so
-# the writable paths must be owned by it.
-RUN mkdir -p /app/blog/data/comments /app/blog/data/sessions \
+# the writable paths must be owned by it. `image-cache` holds the resized image
+# variants rendered by `GET /media`; it is disposable and can be deleted at any
+# time.
+RUN mkdir -p /app/blog/data/comments /app/blog/data/sessions /app/blog/data/image-cache \
              /app/blog/public/avatars /app/blog/public/uploads \
     && chown -R node:node /app/blog/data /app/blog/public/avatars /app/blog/public/uploads
 

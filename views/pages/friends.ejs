@@ -11,7 +11,9 @@
   <% list.forEach(function (friend) { %>
     <mdui-list-item href="<%= friend.url %>" target="_blank" rel="noopener noreferrer">
       <% if (friend.avatar) { %>
-      <img src="<%= friend.avatar %>" alt="<%= friend.title %>" slot="icon" class="friend-avatar">
+      <%# Remote avatars pass through unchanged; a locally hosted one is
+          downscaled to the size the list actually paints it at. %>
+      <img src="<%= mediaUrl(friend.avatar, { width: 96, fit: 'cover' }) %>" alt="<%= friend.title %>" slot="icon" class="friend-avatar" loading="lazy" decoding="async">
       <% } else { %>
       <mdui-icon src="/icon/person.svg" slot="icon"></mdui-icon>
       <% } %>

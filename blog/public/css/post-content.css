@@ -197,6 +197,33 @@
     margin-top: 32px;
 }
 
+/* ===== Privacy switch =====
+   Sits between the comment body and the submit button. The negative top margin
+   cancels part of `.comment-input`'s 16px gap so the label reads as attached to
+   the switch, while the note below stays tight to the pair it explains. */
+.comment-privacy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+    cursor: pointer;
+    width: fit-content;
+}
+
+.comment-privacy-label {
+    font-size: 14px;
+    color: rgb(var(--mdui-color-on-surface));
+    user-select: none;
+}
+
+/* Deliberately quiet: it is an explanation, not a warning. */
+.comment-privacy-notice {
+    margin: -8px 0 0 0;
+    font-size: 12px;
+    line-height: 1.7;
+    color: rgb(var(--mdui-color-outline));
+}
+
 /* ===== Image loading placeholder ===== */
 .markdown-content .image-wrapper {
     position: relative;

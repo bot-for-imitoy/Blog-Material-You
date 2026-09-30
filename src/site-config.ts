@@ -201,6 +201,13 @@ export const DEFAULT_STRINGS: Record<string, string> = {
   commentFail: '评论提交失败',
   networkError: '网络错误，请检查网络连接',
 
+  // The comment form's privacy switch. `commentPrivacyNotice` has to stay
+  // accurate about what is actually collected: see `submitComment()` in
+  // js/comments.js (it drops the User-Agent) and README.md ("Comment privacy").
+  commentPrivacyToggle: '不展示我的信息',
+  commentPrivacyNotice:
+    '提交时会根据你填写的信息记录昵称、邮箱、网址，以及浏览器标识等浏览信息，仅用于统计和展示评论，不会用于其它用途。我们尊重你的隐私：开启上方开关后，将不再收集浏览器标识等浏览信息。',
+
   status: '状态',
   statusDesc: '服务状态',
   cpr: '© 2025 Blog Material You',

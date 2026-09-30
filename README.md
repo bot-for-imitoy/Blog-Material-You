@@ -75,7 +75,7 @@ Blog-Material-You/
 | Path | Contents | Gitignored |
 |------|----------|------------|
 | `blog/posts/`, `blog/pages/`, `blog/talks/`, `blog/friends/` | Your content as Markdown — **this is the database** | yes (only `.gitkeep` files are tracked) |
-| `blog/data/` | Runtime state: `admin.json` (credentials), `totp.json`, `visitors.json`, `calendar.json`, `imghost.json`, `secret.json`, `comments/`, `sessions/` | yes |
+| `blog/data/` | Runtime state: `admin.json` (credentials), `totp.json`, `visitors.json`, `calendar.json`, `imghost.json`, `secret.json`, `comments/`, `sessions/`, `image-cache/` | yes |
 | `blog/public/vendor/` | mdui / KaTeX / highlight.js, generated from `node_modules` by `scripts/sync-assets.mjs` | yes |
 | `blog/public/avatars/`, `blog/public/uploads/` | Uploaded images | yes |
 
@@ -280,6 +280,42 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - **Personal card** (`/profile/`) — a standalone, full-viewport page: a blurred night background with faint drifting lights, a frosted-glass panel, a neon-ringed avatar, gradient pill badges, and expandable navigation bars. It renders through its own layout (no site chrome) and needs **no JavaScript** — the panels are `<details>`. Content lives in the `profile:` block of `_config.yml`.
 - **Bilingual content** — per-post and per-page English title/body; the public UI strings have built-in defaults in `src/site-config.ts` and can be overridden per key under `strings:` in `_config.yml`.
 - **SEO** — per-route `<title>`, meta description and canonical link, plus `/sitemap.xml` and `/rss.xml` (`rssLimit` newest posts). Set `url` in `_config.yml` (or `BMY_SITE_URL`) so the canonical URLs and feed links are absolute.
+- **Right-sized images** — every image the site renders is served by the resize endpoint below, so a phone never downloads a desktop-sized photo.
+
+## Images: resizing, cropping and caching
+
+Nothing is pre-generated and nothing is uploaded twice. Templates and the
+Markdown renderer emit `/media` URLs carrying a target size; `GET /media`
+(`src/routes/media.ts`) renders the source through sharp on first request,
+writes the result under `blog/data/image-cache/`, and streams it. Only the size
+the browser actually picks from a `srcset` is ever produced.
+
+```
+GET /media?src=/uploads/photo.jpg&w=800          # scale to 800 px wide
+GET /media?src=/img/avatar.jpg&w=160&fit=cover   # square crop
+```
+
+- **Markdown.** `![](/uploads/a.jpg)` is rewritten at render time into
+  `src`/`srcset`/`sizes` covering 320–2000 px (`src/lib/markdown.ts`). A 2400 px
+  original is not sent to a 360 px column. Remote URLs and `data:` URIs are left
+  exactly as written.
+- **Templates.** `mediaUrl()` and `mediaSrcset()` are available to every view.
+  Covers get a `srcset` matched to the masonry column width, and the drawer and
+  about avatars request a 160/320 px square — the bundled `avatar.jpg` is 445 kB
+  and becomes about 7 kB at the size it is painted.
+- **Cache key.** The SHA-256 of the source path, its size and mtime, plus the
+  requested size, fit and format. Editing an image in place is therefore picked
+  up with no manual invalidation — the URL is unchanged but the `ETag` is not,
+  and responses are `immutable` for a year. Unused entries are swept after 30
+  days; the whole directory is disposable.
+- **Bounded on purpose.** Only local files under `/uploads`, `/avatars` and
+  `/img` are accepted (the decoded path is re-checked against those directories,
+  so `..` and `%2e%2e` cannot escape), widths snap up to a fixed ladder with a
+  2560 px ceiling, quality is fixed per format, and `w`/`h` are required —
+  `/media` cannot be used as an open proxy or to mint unbounded cache entries.
+- **Concurrency.** Two simultaneous requests for the same variant run sharp
+  once; files are written to a temporary name and renamed, so a reader never
+  sees a half-written image.
 
 ## Seamless navigation
 
@@ -333,12 +369,47 @@ navigation from initialising anything twice.
 Back and forward are handled too: history entries carry their scroll offset, and
 the parsed documents are cached briefly so going back is instant.
 
+Two details of the shell are worth knowing if you touch this code:
+
+- **The window is not the scroller.** The shell is a `100vh` flex column and
+  `.content-container` is the scroll box (`overflow: auto`), which is also what
+  mdui's top app bar is bound to via `scroll-target`. Scrolling `window` there-
+  fore does nothing at all. `pjax.js` moves the container instead, and returns
+  it to the top *before* the swap — otherwise a page entered from halfway down
+  another one keeps the elevated (opaque) app bar it inherited, even though the
+  new page is at its top where the bar is meant to blend into the background.
+- **`pushState` happens before the swap, not after.** Page scripts read
+  `window.location` — `comments.js` keys its request on the path — so updating
+  the URL afterwards meant a freshly navigated post fetched the comment list for
+  the page it had just left, and only a manual reload showed its comments.
+
 ### Comments
 
 - One JSON file per page URL under `blog/data/comments/`; writes are atomic and the reader is mtime-cached.
 - Fields: `id`, `nick`, `mail`, `comment`, `link`, `ua`, `avatar`, `url`, `createTime`.
 - Server-side validation: nickname ≤ 80, email ≤ 200 and format-checked, body ≤ 5000, `link` must start with `http(s)://`, user agent truncated to 500 characters (the original implementation had no limits at all).
 - Posting is rate limited to 10 comments per IP per minute. Comment moderation (list across all pages, delete) lives in the admin console.
+
+#### Comment privacy
+
+The form carries a switch labelled **不展示我的信息**, between the comment body and
+the submit button, with a short notice under it. It is a real behaviour, not a
+decoration:
+
+- With the switch **off**, a submission includes `nick`, `mail`, `comment`,
+  `link`, `url` (the page the comment belongs to — it is also the storage key)
+  and `ua` (`navigator.userAgent`), the only value the page collects rather than
+  the visitor typing it.
+- With the switch **on**, `comments.js` sends an empty `ua`. The server stores
+  an empty value rather than guessing the browser from the request headers, so
+  turning the switch on genuinely withholds the information instead of hiding it.
+- The switch is per submission and resets after a successful post; nothing about
+  it is persisted in the browser or the session, and the server never sets a
+  cookie to remember it.
+
+If you change either string, keep the notice accurate — it is the only place a
+visitor is told what is collected. The wording lives in `strings:` in
+`_config.yml` (`commentPrivacyToggle`, `commentPrivacyNotice`).
 
 ### Search
 
@@ -527,7 +598,7 @@ Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `BMY_BLOG_DIR` | `./blog` | Content + static + runtime-state root |
-| `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | Runtime state (credentials, comments, visitors, TOTP, settings, sessions) |
+| `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | Runtime state (credentials, comments, visitors, TOTP, settings, sessions, `image-cache/`) |
 | `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | Static assets (css/js/icon/img/vendor/avatars/uploads) |
 | `BMY_VIEWS_DIR` | `./views` | EJS template directory |
 | `BMY_CONFIG_FILE` | `./_config.yml` | Path to the site configuration file (see above) |

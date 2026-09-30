@@ -73,7 +73,7 @@ Blog-Material-You/
 | 路径 | 内容 | 是否 gitignore |
 |------|------|----------------|
 | `blog/posts/`、`blog/pages/`、`blog/talks/`、`blog/friends/` | 你的内容（Markdown）——**这就是数据库** | 是（仓库只跟踪 `.gitkeep`） |
-| `blog/data/` | 运行状态：`admin.json`（凭据）、`totp.json`、`visitors.json`、`calendar.json`、`imghost.json`、`secret.json`、`comments/`、`sessions/` | 是 |
+| `blog/data/` | 运行状态：`admin.json`（凭据）、`totp.json`、`visitors.json`、`calendar.json`、`imghost.json`、`secret.json`、`comments/`、`sessions/`、`image-cache/`（缩放后的图片变体，可随时删除） | 是 |
 | `blog/public/vendor/` | mdui / KaTeX / highlight.js，由 `scripts/sync-assets.mjs` 从 `node_modules` 生成 | 是 |
 | `blog/public/avatars/`、`blog/public/uploads/` | 上传的图片 | 是 |
 
@@ -278,6 +278,22 @@ sort_order: 0
 - **个人名片页**（`/profile/`）——一个独立的整屏页面：高斯模糊的夜景背景 + 缓慢浮动的微光点、毛玻璃卡片、霓虹圆环头像、渐变胶囊标签，以及可展开的导航长条。它使用自己的布局渲染（不带站点外壳），且**完全不需要 JavaScript**——展开面板用的是 `<details>`。内容位于 `_config.yml` 的 `profile:` 块。
 - **双语内容**——文章与页面各自支持英文标题/正文；前台 UI 文案的内置默认值位于 `src/site-config.ts`，可在 `_config.yml` 的 `strings:` 下按键覆盖。
 - **SEO**——逐路由的 `<title>`、meta description 与 canonical 链接，以及 `/sitemap.xml` 和 `/rss.xml`（最新 `rssLimit` 篇文章）。在 `_config.yml` 中设置 `url`（或设置 `BMY_SITE_URL`）后，canonical 与订阅链接为绝对地址。
+- **按需尺寸的图片**——页面上出现的每张图片都由下面的缩放接口提供，手机不会再下载桌面尺寸的大图。
+
+## 图片：缩放、裁剪与缓存
+
+既不预生成，也不重复上传。模板与 Markdown 渲染器输出带目标尺寸的 `/media` URL；`GET /media`（`src/routes/media.ts`）在首次请求时用 sharp 处理源文件，写入 `blog/data/image-cache/`，然后把结果流式返回。浏览器从 `srcset` 中真正选中的那一个尺寸才会被生成。
+
+```
+GET /media?src=/uploads/photo.jpg&w=800          # 缩放到宽 800
+GET /media?src=/img/avatar.jpg&w=160&fit=cover   # 正方形裁剪
+```
+
+- **Markdown**：`![](/uploads/a.jpg)` 在渲染时被改写为覆盖 320–2000 px 的 `src`/`srcset`/`sizes`（`src/lib/markdown.ts`），2400 px 的原图不会被送进 360 px 宽的正文栏。远程地址与 `data:` URI 原样保留。
+- **模板**：所有视图都可以用 `mediaUrl()` 与 `mediaSrcset()`。封面会按瀑布流列宽生成 `srcset`，抽屉与关于页头像请求 160/320 px 的方图——仓库自带的 `avatar.jpg` 有 445 kB，在它真正被绘制的尺寸下约为 7 kB。
+- **缓存键**：源文件路径、体积、mtime，加上请求的尺寸、裁剪方式与格式的 SHA-256。因此就地替换图片无需任何手动失效——URL 不变但 ETag 变了；响应带一年 `immutable`。超过 30 天未被使用的条目会被清理，整个目录随时可以直接删除。
+- **刻意加上边界**：只接受 `/uploads`、`/avatars`、`/img` 下的本地文件（解码后的路径会再次与这三个目录比对，`..` 与 `%2e%2e` 都逃不出去）；宽高会向上对齐到固定档位且上限 2560 px；质量按格式固定；`w`/`h` 必填——所以 `/media` 既不能当开放代理，也不能被用来刷出无限缓存。
+- **并发**：同一变体的并发请求只跑一次 sharp；缓存文件先写临时名再 rename，读者不会看到写了一半的图片。
 
 ## 无缝导航
 
@@ -304,6 +320,10 @@ export function destroy() {} // 释放监听、定时器与观察器
 
 前进/后退也已处理：历史条目会记录滚动偏移，解析后的文档会短暂缓存，因此返回是瞬时的。
 
+改这块代码前有两件事值得知道：
+
+- **滚动容器不是 window**。外壳是 `100vh` 的纵向 flex 布局，滚动的是 `.content-container`（`overflow: auto`），mdui 顶栏通过 `scroll-target` 绑定的也正是它。所以滚动 `window` 什么都不会发生。`pjax.js` 操作的是这个容器，并且在**替换之前**先把它拉回顶部——否则从另一个页面的中部进入的新页面会继承「已滚动」状态而让顶栏保持抬起（不透明），可新页面明明在最顶端、顶栏本该与背景融为一体。
+- **`pushState` 在替换之前而不是之后**。页面脚本会读 `window.location`（`comments.js` 用它作为请求的键），所以如果之后再更新 URL，新进入的文章会按「刚刚离开的那个页面」去取评论，只有手动刷新才能看到自己的评论。
 
 ### 评论
 
@@ -311,6 +331,16 @@ export function destroy() {} // 释放监听、定时器与观察器
 - 字段：`id`、`nick`、`mail`、`comment`、`link`、`ua`、`avatar`、`url`、`createTime`。
 - 服务端校验：昵称 ≤ 80，邮箱 ≤ 200 且校验格式，正文 ≤ 5000，`link` 必须以 `http(s)://` 开头，User-Agent 截断到 500 字符（旧实现完全没有限制）。
 - 提交评论按 IP 限制为每分钟 10 条。评论审核（跨页面列表、删除）位于管理后台。
+
+#### 评论隐私
+
+评论表单在「评论内容」与提交按钮之间有一个标注为 **不展示我的信息** 的开关，下面跟一行说明文案。它是有实际行为的功能，不是装饰：
+
+- 开关**关闭**时，提交内容包含 `nick`、`mail`、`comment`、`link`、`url`（评论所属页面，同时也是存储键）以及 `ua`（`navigator.userAgent`）——后者是页面自动采集、而非访客手填的唯一一项。
+- 开关**打开**时，`comments.js` 发送空的 `ua`。服务端如实存空值，而不会转去从请求头里猜浏览器——所以打开开关是真的不采集，而不是把它藏起来。
+- 开关只对一次提交生效，提交成功后复位；它不在浏览器或会话里留下任何持久化记录，服务端也不会为了记住它而写 Cookie。
+
+如果改动这两段文案，请保持说明准确——它是访客唯一能看到「采集了什么」的地方。文案位于 `_config.yml` 的 `strings:`（`commentPrivacyToggle`、`commentPrivacyNotice`）。
 
 ### 搜索
 
@@ -499,7 +529,7 @@ profile:
 | 变量 | 默认值 | 含义 |
 |------|--------|------|
 | `BMY_BLOG_DIR` | `./blog` | 内容 + 静态资源 + 运行状态的根目录 |
-| `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | 运行状态（凭据、评论、访客、TOTP、设置、会话） |
+| `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | 运行状态（凭据、评论、访客、TOTP、设置、会话、`image-cache/`） |
 | `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | 静态资源（css/js/icon/img/vendor/avatars/uploads） |
 | `BMY_VIEWS_DIR` | `./views` | EJS 模板目录 |
 | `BMY_CONFIG_FILE` | `./_config.yml` | 站点配置文件路径（见上文） |

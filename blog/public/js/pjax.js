@@ -397,16 +397,55 @@ function progressDone() {
   document.documentElement.removeAttribute('data-pjax-loading');
 }
 
+// =====================================================================
+// Scrolling
+//
+// The shell is a 100vh flex column and `.content-container` is the scroll box
+// (`overflow: auto`, see css/content-container.css), so the *window* never
+// scrolls on a public page. mdui's top app bar is bound to that same element
+// through `scroll-target`, which is why scrolling the window changed nothing:
+// the app bar's `elevate` state is derived from the container's scroll offset.
+// =====================================================================
+
+/** The element a navigation scrolls. Null only if the shell is missing. */
+function scrollElement() {
+  return document.querySelector(CONTAINER_SELECTOR);
+}
+
+/** Current scroll offset of the content region. */
+function getScrollTop() {
+  const element = scrollElement();
+  return element ? element.scrollTop : window.scrollY;
+}
+
+/**
+ * Move the content region to `top`. The window is moved too, so this stays
+ * correct on a page rendered without the shell (and is a no-op otherwise).
+ */
+function setScrollTop(top) {
+  const element = scrollElement();
+  if (element) element.scrollTop = top;
+  window.scrollTo(0, top);
+}
+
+/**
+ * Blocks the scroll listener while a navigation moves the viewport itself.
+ * A counter rather than a flag because a navigation can be superseded by
+ * another one before the first has finished unwinding.
+ */
+let recordingSuppressed = 0;
+
 /** Remember where the viewport is, so back/forward can put it back. */
 let scrollFrame = 0;
 window.addEventListener(
   'scroll',
   () => {
+    if (recordingSuppressed > 0) return;
     if (scrollFrame) return;
     scrollFrame = requestAnimationFrame(() => {
       scrollFrame = 0;
       if (history.state && history.state.pjax) {
-        history.replaceState({ ...history.state, scrollY: window.scrollY }, '');
+        history.replaceState({ ...history.state, scrollY: getScrollTop() }, '');
       }
     });
   },
@@ -418,17 +457,38 @@ async function navigate(url, { push = true, scrollTo = 0 } = {}) {
   const controller = new AbortController();
   pending = controller;
 
+  // Freeze the outgoing entry's offset before the viewport moves: this is the
+  // position "back" has to restore, and it is about to be overwritten by our
+  // own jump to the top.
+  const originY = getScrollTop();
+  if (history.state && history.state.pjax) {
+    history.replaceState({ ...history.state, scrollY: originY }, '');
+  }
+
   progressStart();
+
+  // Return to the top *before* the swap. The incoming page always starts at the
+  // top, so the app bar has to be in its "at the top" state by the time that
+  // page is on screen — otherwise it keeps the elevated colour it inherited
+  // from the page being left, and stays visually detached from the background.
+  recordingSuppressed += 1;
+  setScrollTop(0);
+
   try {
     const doc = await fetchDocument(url, { signal: controller.signal });
     if (controller.signal.aborted) return;
 
-    await swap(doc);
-
+    // The URL has to be current *before* the incoming page's scripts run.
+    // They read `window.location` — comments.js keys its request on the path —
+    // and this used to happen after the swap, so a freshly navigated post
+    // fetched the comment list for the page it had just left and only showed
+    // its comments after a manual reload.
     if (push) {
       history.pushState({ pjax: true, scrollY: 0 }, '', `${url.pathname}${url.search}`);
     }
-    window.scrollTo(0, scrollTo);
+
+    await swap(doc);
+    setScrollTop(scrollTo);
   } catch (err) {
     if (controller.signal.aborted) return;
     // Anything unexpected: hand the navigation back to the browser, which is
@@ -437,6 +497,7 @@ async function navigate(url, { push = true, scrollTo = 0 } = {}) {
     window.location.href = url.href;
     return;
   } finally {
+    recordingSuppressed -= 1;
     if (pending === controller) pending = null;
     progressDone();
   }
@@ -469,17 +530,23 @@ window.addEventListener('popstate', (event) => {
   pending = controller;
 
   progressStart();
+  // The viewport is restored by hand below, so the listener must not record the
+  // intermediate positions the swap passes through.
+  recordingSuppressed += 1;
   (async () => {
     try {
       // `allowCache` is what makes going back feel instant.
       const doc = await fetchDocument(url, { signal: controller.signal, allowCache: true });
       if (controller.signal.aborted) return;
       await swap(doc);
-      window.scrollTo(0, restoreScrollY ?? 0);
+      // Unlike a click, going back puts the reader where they left off — see
+      // `originY` in navigate(), which is what recorded this offset.
+      setScrollTop(restoreScrollY ?? 0);
     } catch (err) {
       if (!controller.signal.aborted) window.location.reload();
       console.warn('[pjax] back/forward failed:', err);
     } finally {
+      recordingSuppressed -= 1;
       if (pending === controller) pending = null;
       restoreScrollY = null;
       progressDone();
@@ -496,7 +563,9 @@ function bootstrap() {
   const container = document.querySelector(CONTAINER_SELECTOR);
   activeScripts = scriptsOf(container).map((url) => [url, null]);
   // Seed the history entry so back/forward can restore the scroll position.
-  history.replaceState({ pjax: true, scrollY: window.scrollY }, '');
+  // `getScrollTop`, not `window.scrollY`: the window is not the scroller here,
+  // so seeding from it would restore every page to the top.
+  history.replaceState({ pjax: true, scrollY: getScrollTop() }, '');
 }
 
 if (document.readyState === 'loading') {

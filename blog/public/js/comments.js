@@ -36,6 +36,14 @@ let nickField = null;
 let mailField = null;
 let linkField = null;
 let contentField = null;
+/**
+ * The "不展示我的信息" switch. When it is on, nothing about the visitor's browser
+ * is sent: the request carries only what the visitor typed (plus the page path,
+ * which is where the comment is stored).
+ */
+let privacyToggle = null;
+/** The row wrapping the switch and its wording, which also toggles the switch. */
+let privacyRow = null;
 
 /** Whether the current instance acquired state (used to stay re-entrant). */
 let initialised = false;
@@ -60,6 +68,27 @@ function clearFields() {
   [nickField, mailField, linkField, contentField].forEach((field) => {
     if (field) field.value = '';
   });
+  // The switch is a per-submission choice, so it goes back to its default
+  // (off) together with the fields it applies to.
+  if (privacyToggle) privacyToggle.checked = false;
+}
+
+/**
+ * Let the wording next to the switch switch it too.
+ *
+ * mdui-switch is not form-associated — its shadow root contains the real
+ * `<label><input type="checkbox">` pair — so wrapping it in a `<label>` would
+ * label nothing and the words would be inert. This forwards the click instead.
+ *
+ * Clicks that land on the switch are skipped: `event.target` is retargeted to
+ * the host for shadow content, so one check covers both the host and its track,
+ * and the switch keeps handling those itself (toggling twice would cancel out).
+ */
+function onPrivacyRowClick(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target || !privacyToggle) return;
+  if (target.closest('mdui-switch')) return;
+  privacyToggle.checked = !privacyToggle.checked;
 }
 
 /**
@@ -206,12 +235,20 @@ async function loadComments() {
 /** Validate the form, POST the comment and refresh the list on success. */
 async function submitComment() {
   const token = instance;
+  /**
+   * What leaves the browser. Everything here was typed by the visitor except
+   * `ua` and `url`: `url` is what the comment is attached to, and `ua` is the
+   * browsing detail the privacy switch exists to withhold. With the switch on
+   * the field is simply absent, so the server stores an empty value rather than
+   * a server-side guess at the browser.
+   */
+  const withheld = Boolean(privacyToggle && privacyToggle.checked);
   const payload = {
     nick: fieldValue(nickField),
     mail: fieldValue(mailField),
     comment: fieldValue(contentField),
     link: fieldValue(linkField),
-    ua: navigator.userAgent,
+    ua: withheld ? '' : navigator.userAgent,
     url: pagePath,
   };
 
@@ -276,6 +313,8 @@ export function init() {
   mailField = document.getElementById('comment-email');
   linkField = document.getElementById('comment-website');
   contentField = document.getElementById('comment-content');
+  privacyToggle = document.getElementById('comment-privacy-toggle');
+  privacyRow = document.getElementById('comment-privacy-row');
   initialised = true;
 
   // The submit button lives inside `#content-container` and would be discarded
@@ -283,6 +322,9 @@ export function init() {
   // stays idempotent even if it is called twice without a swap in between.
   if (submitButton) {
     submitButton.addEventListener('click', submitComment);
+  }
+  if (privacyRow) {
+    privacyRow.addEventListener('click', onPrivacyRowClick);
   }
 
   // Modules are deferred, so the DOM is parsed: load immediately.
@@ -297,6 +339,7 @@ export function init() {
  */
 export function destroy() {
   if (submitButton) submitButton.removeEventListener('click', submitComment);
+  if (privacyRow) privacyRow.removeEventListener('click', onPrivacyRowClick);
 
   instance += 1;
   initialised = false;
@@ -308,6 +351,8 @@ export function destroy() {
   mailField = null;
   linkField = null;
   contentField = null;
+  privacyToggle = null;
+  privacyRow = null;
 }
 
 // Loaded from a full page load: initialise immediately. When the pjax

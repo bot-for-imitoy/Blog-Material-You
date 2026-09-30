@@ -15,6 +15,7 @@ import { VIEWS_DIR } from '../paths.ts';
 import { escapeHtml, formatDate, formatDateTime, truncate } from '../lib/text.ts';
 import { templateGlobals } from '../site-config.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
+import { type MediaOptions, mediaSrcset, mediaUrl } from '../media/resize.ts';
 
 /** Helpers injected into every template. */
 export interface TemplateHelpers {
@@ -34,6 +35,14 @@ export interface TemplateHelpers {
   t: (key: string) => string;
   /** Whether a menu route should be highlighted for the current path. */
   isActiveNav: (route: string, currentPath: string) => boolean;
+  /**
+   * Rewrite an image URL to a server-side resize of the requested size. Remote
+   * URLs and `data:` URIs pass through untouched, so any image can be handed to
+   * it without checking first.
+   */
+  mediaUrl: (src: unknown, options?: MediaOptions) => string;
+  /** The `srcset` counterpart of `mediaUrl`; empty for non-local images. */
+  mediaSrcset: (src: unknown, widths?: readonly number[], options?: MediaOptions) => string;
 }
 
 export interface PageSeo {
@@ -95,6 +104,8 @@ const helpers: TemplateHelpers = {
   md: (source) => renderMarkdown(source, true).html,
   t: (key) => templateGlobals().t(key),
   isActiveNav,
+  mediaUrl,
+  mediaSrcset,
 };
 
 let cachedOptions: ejs.Options | null = null;
