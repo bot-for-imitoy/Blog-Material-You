@@ -41,9 +41,10 @@ USER node
 ENV NODE_ENV=production \
     BMY_BLOG_DIR=/app/blog \
     BMY_PORT=30999 \
+    BMY_PROFILE_PORT=31000 \
     BMY_HOST=0.0.0.0
 
-EXPOSE 30999
+EXPOSE 30999 31000
 
 # Persist credentials, comments, visitor data and settings.
 VOLUME ["/app/blog/data"]

@@ -37,6 +37,7 @@ import { getPage } from '../content/pages.ts';
 import { addTalk, listTalks } from '../content/talks.ts';
 import { listFriends } from '../content/friends.ts';
 import { addComment, countAllComments, countComments, listComments, validateComment, type Comment } from '../store/comments.ts';
+import { getVisits } from '../store/visits.ts';
 import { listEvents, type CalendarEvent } from '../store/calendar.ts';
 import {
   addPending,
@@ -124,6 +125,7 @@ export function createPublicApiRouter(): Router {
         heapTotal: memory.heapTotal,
       },
       authEnabled: true,
+      visits: getVisits(),
       counts: {
         posts: listPosts().length,
         comments: countAllComments(),

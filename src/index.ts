@@ -8,8 +8,9 @@ import 'dotenv/config';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { HOST, PORT, ROOT, ensureRuntimeDirs, BLOG_DIR, DATA_DIR, PUBLIC_DIR } from './paths.ts';
+import { HOST, PORT, PROFILE_PORT, ROOT, ensureRuntimeDirs, BLOG_DIR, DATA_DIR, PUBLIC_DIR } from './paths.ts';
 import { createApp } from './app.ts';
+import { createProfileApp } from './profile-app.ts';
 import { bootstrapFromEnv, credentialFormat } from './store/credentials.ts';
 import { startSessionJanitor } from './auth/session.ts';
 import { VERSION } from './version.ts';
@@ -53,47 +54,52 @@ async function main(): Promise<void> {
 
   const app = await createApp();
 
-  const server = app.listen(PORT, HOST, () => {
-    // Node can still invoke this callback when the bind failed (the 'error'
-    // event follows), which would print a success banner right before the
-    // failure. `listening` is only true for a socket that really bound.
-    if (!server.listening) return;
-    const shown = HOST === '0.0.0.0' ? 'localhost' : HOST;
-    console.log(`Blog Material You v${VERSION} (Node.js ${process.version})`);
-    console.log(`  site      http://${shown}:${PORT}/`);
-    console.log(`  admin     http://${shown}:${PORT}/admin/`);
-    console.log(`  api       http://${shown}:${PORT}/api/health`);
-    console.log(`  content   ${BLOG_DIR}`);
-    console.log(`  data      ${DATA_DIR}`);
-    console.log(`  assets    ${PUBLIC_DIR}`);
-  });
+  const servers: import('node:http').Server[] = [];
 
-  /**
-   * A failed bind must be loud.
-   *
-   * Without this handler Node emits an unhandled 'error' event, and depending on
-   * where the failure lands the process can disappear without any message at
-   * all — which reads as "the server started" while nothing is listening. The
-   * common case is a port already in use, so name it explicitly.
-   */
-  server.on('error', (err: NodeJS.ErrnoException) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(
-        `Failed to start: ${HOST}:${PORT} is already in use.\n` +
-          '  Another instance may still be running. Stop it, or start this one on a\n' +
-          '  different port with `BMY_PORT=<port> npm start`.',
-      );
-    } else if (err.code === 'EACCES') {
-      console.error(`Failed to start: not allowed to bind ${HOST}:${PORT} (privileged port?).`);
-    } else {
-      console.error('Failed to start:', err);
-    }
-    process.exit(1);
-  });
+  /** Bind one Express app and report the URLs it serves. */
+  function listen(app: import('express').Express, port: number, label: string, urls: string[]): void {
+    const server = app.listen(port, HOST, () => {
+      if (!server.listening) return;
+      const shown = HOST === '0.0.0.0' ? 'localhost' : HOST;
+      for (const line of urls) console.log(`  ${line.replace('%host%', shown).replace('%port%', String(port))}`);
+    });
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(
+          `Failed to start the ${label}: ${HOST}:${port} is already in use.\n` +
+            '  Another instance may still be running. Stop it, or move this one with\n' +
+            `  BMY_${label === 'profile card' ? 'PROFILE_' : ''}PORT=<port> npm start.`,
+        );
+      } else if (err.code === 'EACCES') {
+        console.error(`Failed to start the ${label}: not allowed to bind ${HOST}:${port} (privileged port?).`);
+      } else {
+        console.error(`Failed to start the ${label}:`, err);
+      }
+      process.exit(1);
+    });
+  }
+
+  listen(app, PORT, 'blog', [
+    `site      http://%host%:%port%/`,
+    `admin     http://%host%:%port%/admin/`,
+    `api       http://%host%:%port%/api/health`,
+  ]);
+
+  // The personal card runs on its own port so it can be published
+  // independently of the blog (e.g. its own domain behind a reverse proxy).
+  const profileApp = await createProfileApp();
+  listen(profileApp, PROFILE_PORT, 'profile card', [
+    `profile   http://%host%:%port%/`,
+  ]);
+
+  console.log(`Blog Material You v${VERSION} (Node.js ${process.version})`);
+  console.log(`  content   ${BLOG_DIR}`);
+  console.log(`  data      ${DATA_DIR}`);
+  console.log(`  assets    ${PUBLIC_DIR}`);
 
   const shutdown = (signal: string) => {
     console.log(`\n[${signal}] shutting down...`);
-    server.close(() => process.exit(0));
+    for (const server of servers) server.close();
     // Do not hang forever on keep-alive connections.
     setTimeout(() => process.exit(0), 5000).unref();
   };

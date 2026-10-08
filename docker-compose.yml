@@ -8,7 +8,8 @@ services:
     build: .
     container_name: blog-material-you
     ports:
-      - "8000:30999"
+      - "8000:30999"            # blog + admin console
+      - "31000:31000"           # standalone profile card (/profile/)
     environment:
       - BMY_BLOG_DIR=/app/blog
       # Canonical site URL — used for canonical tags, the sitemap and RSS.

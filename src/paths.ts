@@ -65,6 +65,14 @@ export const IMAGE_CACHE_DIR = path.join(DATA_DIR, 'image-cache');
 
 /** Server configuration. */
 export const PORT = envInt('BMY_PORT', 30999);
+/**
+ * Port of the standalone personal card (`/profile/`).
+ *
+ * The profile card is served by its own small Express app on this port, so it
+ * can be published behind its own domain/path without dragging the blog
+ * along. Both servers share the same content, assets and data directory.
+ */
+export const PROFILE_PORT = envInt('BMY_PROFILE_PORT', 31000);
 export const HOST = envStr('BMY_HOST', '0.0.0.0');
 export const SITE_URL = envStr('BMY_SITE_URL', '');
 export const SESSION_SECRET = envStr('BMY_SESSION_SECRET', '');

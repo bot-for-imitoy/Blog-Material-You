@@ -83,6 +83,10 @@
         <% }); %>
       </ul>
       <% }); %>
+
+      <% if (visits && typeof visits.profile === 'number') { %>
+      <p class="pf-visits">累计访问 <%= visits.profile %> 次</p>
+      <% } %>
     </section>
 
     <!-- ===== Right: navigation bars ===== -->

@@ -27,9 +27,9 @@ import { renderMarkdown } from '../lib/markdown.ts';
 import { searchPosts } from '../lib/search.ts';
 import { renderPage, type PageSeo } from '../render/engine.ts';
 import { seoForNotFound, seoForRoute } from '../render/seo.ts';
-import { buildColorScheme, hexToRgbTriple, normaliseHex } from '../lib/color-scheme.ts';
 import { getVisitorEmail, clearVisitorCookie } from '../auth/visitor.ts';
 import { getVisitor } from '../store/visitors.ts';
+import { recordVisit } from '../store/visits.ts';
 
 /** Stylesheet bundles reused by several views. */
 const MARKDOWN_STYLES = [
@@ -48,7 +48,6 @@ const VIEW_STYLES: Record<string, Array<string | { href: string; media?: string 
   'pages/talks': [...MARKDOWN_STYLES, '/css/about.css'],
   'pages/page': [...MARKDOWN_STYLES, '/css/about.css'],
   'pages/search': ['/css/search.css'],
-  'pages/profile': ['/css/profile.css'],
   'game/2048': ['/css/game-2048.css'],
 };
 
@@ -69,6 +68,13 @@ async function page(
   currentPath: string,
   layout = 'layouts/public',
 ): Promise<void> {
+  // Every rendered HTML page is one visit; static assets, feeds and 404s are
+  // not counted. A counter failure must never take the page down with it.
+  try {
+    recordVisit('blog');
+  } catch (err) {
+    console.warn('[visits] could not record the blog visit:', (err as Error).message);
+  }
   const html = await renderPage(
     view,
     {
@@ -286,47 +292,6 @@ export function createPublicPagesRouter(): Router {
     }
   });
 
-  // ===================== Standalone personal card =====================
-
-  /**
-   * `/profile/` renders through the `blank` layout: it owns the whole viewport
-   * (blurred night background + glass card) and deliberately does not inherit
-   * the site shell. Fully static — the expandable panels are `<details>`, so the
-   * page needs no JavaScript at all.
-   */
-  router.get('/profile', async (req, res, next) => {
-    try {
-      const settings = getSiteSettings();
-      // Single switch: `profile.enabled` in _config.yml.
-      if (!settings.profile.enabled) {
-        await notFound(res, '/profile/');
-        return;
-      }
-      const accent =
-        normaliseHex(settings.profile.accent) ?? buildColorScheme(settings.themeColor).seed;
-      await page(
-        res,
-        'pages/profile',
-        {
-          profile: settings.profile,
-          bodyClass: 'pf-body',
-          // The card's accent, handed to the stylesheet as custom properties.
-          // `profile.accent` pins the colour; empty follows the site theme, so
-          // changing `theme.color` re-themes this page too. An inline <style> is
-          // fine here — `style-src` allows 'unsafe-inline' (mdui needs it for
-          // runtime style attributes) while scripts stay locked down.
-          headExtra:
-            `<style>:root{--pf-accent:${accent};--pf-accent-rgb:${hexToRgbTriple(accent)};}</style>`,
-        },
-        seoForRoute('/profile/'),
-        '/profile/',
-        'layouts/blank',
-      );
-    } catch (err) {
-      next(err);
-    }
-  });
-
   // ===================== Search =====================
 
   /**
@@ -422,8 +387,6 @@ export function createPublicPagesRouter(): Router {
       { loc: '/friends/' },
       { loc: '/about/' },
     ];
-    // Only advertise the personal card when it is actually served.
-    if (site.profile.enabled) urls.push({ loc: '/profile/' });
     for (const post of activePosts()) urls.push({ loc: `/post/${encodeURIComponent(post.slug)}`, lastmod: post.date });
     for (const tag of buildTagIndex(activePosts())) urls.push({ loc: `/tags/${encodeURIComponent(tag.name)}` });
     for (const cat of buildCategoryIndex(activePosts())) urls.push({ loc: `/categories/${encodeURIComponent(cat.name)}` });

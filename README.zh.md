@@ -92,7 +92,7 @@ Blog-Material-You/
 
 ```bash
 npm install     # 安装依赖，并同步前端库到 vendor 目录
-npm start       # → http://localhost:30999/
+npm start       # 博客 → http://localhost:30999/ · 个人名片 → http://localhost:31000/
 ```
 
 常用脚本：
@@ -119,6 +119,7 @@ docker compose up -d --build
 | 博客前台 | `http://localhost:30999/`（Docker：`http://localhost:8000/`） | 服务端渲染 |
 | 管理后台 | `http://localhost:30999/admin/` | 会跳转到 `/admin/dashboard/` |
 | 健康检查 | `http://localhost:30999/api/health` | `{"status":"ok","server":"nodejs","version":"2.0.0"}` |
+| 个人名片页 | `http://localhost:31000/` | 独立端口，`/` 与 `/profile/` 渲染同一张卡片 |
 | 首次初始化 | `http://localhost:30999/admin/setup/` | 仅在尚未创建管理员时可访问 |
 | Sitemap / RSS | `/sitemap.xml`、`/rss.xml` | 设置 `BMY_SITE_URL` 后输出绝对地址 |
 
@@ -275,7 +276,7 @@ sort_order: 0
 - **访客身份验证**（`/auth/`）——读者输入邮箱：已注册地址会获得签名的访客 Cookie，未注册地址可以提交注册申请，进入管理后台的审核队列。退出登录既支持普通表单提交（`POST /auth/logout`，无需 JavaScript），也支持 JSON 接口（`POST /api/auth/logout`）。
 - **2048**（`/2048/`）——彩蛋小游戏，最高分保存在浏览器本地。
 - **搜索**（`/search/`）——对标题、标签、分类与正文进行全文搜索，索引在进程内构建。无需 JavaScript 即可使用（普通 GET 表单）；`js/search.js` 会把它升级为输入即搜，`Ctrl`/`Cmd`+`K` 可直接聚焦搜索框。
-- **个人名片页**（`/profile/`）——一个独立的整屏页面：高斯模糊的夜景背景 + 缓慢浮动的微光点、毛玻璃卡片、霓虹圆环头像、渐变胶囊标签，以及可展开的导航长条。它使用自己的布局渲染（不带站点外壳），且**完全不需要 JavaScript**——展开面板用的是 `<details>`。内容位于 `_config.yml` 的 `profile:` 块。
+- **个人名片页**（`/profile/`，独立端口）——一个独立的整屏页面：高斯模糊的夜景背景 + 缓慢浮动的微光点、毛玻璃卡片、霓虹圆环头像、渐变胶囊标签，以及可展开的导航长条。它使用自己的布局渲染（不带站点外壳），且**完全不需要 JavaScript**——展开面板用的是 `<details>`。名片由**独立的小型 Express 应用运行在 `BMY_PROFILE_PORT`（默认 31000）端口**，不与博客共用端口，反向代理可以把它单独发布到自己的域名；`/` 与 `/profile/` 渲染同一张卡片。内容位于 `_config.yml` 的 `profile:` 块。
 - **双语内容**——文章与页面各自支持英文标题/正文；前台 UI 文案的内置默认值位于 `src/site-config.ts`，可在 `_config.yml` 的 `strings:` 下按键覆盖。
 - **SEO**——逐路由的 `<title>`、meta description 与 canonical 链接，以及 `/sitemap.xml` 和 `/rss.xml`（最新 `rssLimit` 篇文章）。在 `_config.yml` 中设置 `url`（或设置 `BMY_SITE_URL`）后，canonical 与订阅链接为绝对地址。
 - **按需尺寸的图片**——页面上出现的每张图片都由下面的缩放接口提供，手机不会再下载桌面尺寸的大图。
@@ -508,7 +509,8 @@ profile:
 
 | 变量 | 默认值 | 含义 |
 |------|--------|------|
-| `BMY_PORT` | `30999` | HTTP 监听端口 |
+| `BMY_PORT` | `30999` | 博客的 HTTP 监听端口 |
+| `BMY_PROFILE_PORT` | `31000` | 个人名片页的 HTTP 监听端口 |
 | `BMY_HOST` | `0.0.0.0` | 监听地址 |
 | `BMY_SITE_URL` | *(空)* | **优先于 `_config.yml` 中的 `url`。** 站点对外地址，例如 `https://blog.example.com`，用于 canonical 链接、`sitemap.xml` 和 `rss.xml`；未设置时这些地址为相对路径 |
 | `BMY_TRUST_PROXY` | `0` | 位于反向代理后方时设为 `1`，限流会按 `X-Forwarded-For` 中的真实客户端 IP 计数 |

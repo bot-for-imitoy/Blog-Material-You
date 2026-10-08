@@ -94,7 +94,7 @@ Blog-Material-You/
 
 ```bash
 npm install     # installs dependencies and vendors the front-end libraries
-npm start       # → http://localhost:30999/
+npm start       # blog → http://localhost:30999/ · profile card → http://localhost:31000/
 ```
 
 Useful scripts:
@@ -121,6 +121,7 @@ docker compose up -d --build
 | Blog | `http://localhost:30999/` (Docker: `http://localhost:8000/`) | Server-rendered |
 | Admin console | `http://localhost:30999/admin/` | Redirects to `/admin/dashboard/` |
 | Health check | `http://localhost:30999/api/health` | `{"status":"ok","server":"nodejs","version":"2.0.0"}` |
+| Personal card | `http://localhost:31000/` | Own port — `/` and `/profile/` render the same card |
 | First-run setup | `http://localhost:30999/admin/setup/` | Only reachable while no admin exists |
 | Sitemap / RSS | `/sitemap.xml`, `/rss.xml` | Absolute URLs when `BMY_SITE_URL` is set |
 
@@ -277,7 +278,7 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - **Visitor identity** (`/auth/`) — a reader enters an email address; a registered address receives a signed visitor cookie, an unknown one can submit a registration request that lands in the admin approval queue. Logging out works both as a plain HTML form post (`POST /auth/logout`, no JavaScript required) and as JSON (`POST /api/auth/logout`).
 - **2048** (`/2048/`) — the easter egg, complete with best-score persistence in the browser.
 - **Search** (`/search/`) — full-text search over titles, tags, categories and post bodies, with an in-process index. Works without JavaScript (plain GET form); `js/search.js` upgrades it to live results as you type, and `Ctrl`/`Cmd`+`K` focuses the field.
-- **Personal card** (`/profile/`) — a standalone, full-viewport page: a blurred night background with faint drifting lights, a frosted-glass panel, a neon-ringed avatar, gradient pill badges, and expandable navigation bars. It renders through its own layout (no site chrome) and needs **no JavaScript** — the panels are `<details>`. Content lives in the `profile:` block of `_config.yml`.
+- **Personal card** (`/profile/`, its own port) — a standalone, full-viewport page: a blurred night background with faint drifting lights, a frosted-glass panel, a neon-ringed avatar, gradient pill badges, and expandable navigation bars. It renders through its own layout (no site chrome) and needs **no JavaScript** — the panels are `<details>`. The card is served by a **separate Express app on `BMY_PROFILE_PORT` (default 31000)**, not by the blog, so a reverse proxy can publish it on its own domain; `/` and `/profile/` both render it. Content lives in the `profile:` block of `_config.yml`.
 - **Bilingual content** — per-post and per-page English title/body; the public UI strings have built-in defaults in `src/site-config.ts` and can be overridden per key under `strings:` in `_config.yml`.
 - **SEO** — per-route `<title>`, meta description and canonical link, plus `/sitemap.xml` and `/rss.xml` (`rssLimit` newest posts). Set `url` in `_config.yml` (or `BMY_SITE_URL`) so the canonical URLs and feed links are absolute.
 - **Right-sized images** — every image the site renders is served by the resize endpoint below, so a phone never downloads a desktop-sized photo.
@@ -577,7 +578,8 @@ Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `BMY_PORT` | `30999` | HTTP listen port |
+| `BMY_PORT` | `30999` | HTTP listen port of the blog |
+| `BMY_PROFILE_PORT` | `31000` | HTTP listen port of the standalone personal card |
 | `BMY_HOST` | `0.0.0.0` | Listen address |
 | `BMY_SITE_URL` | *(empty)* | **Overrides `url` in `_config.yml`.** Public base URL, e.g. `https://blog.example.com`, used for canonical links, `sitemap.xml` and `rss.xml`; without it those URLs are relative |
 | `BMY_TRUST_PROXY` | `0` | Set to `1` behind a reverse proxy so rate limiting keys on the real client IP from `X-Forwarded-For` |

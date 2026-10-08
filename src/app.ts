@@ -46,8 +46,8 @@ function musicOrigins(): { frames: string[]; media: string[] } {
   return { frames: embed ? [embed] : [], media: audio ? [audio] : [] };
 }
 
-/** Headers applied to every response. */
-function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
+/** Headers applied to every response. Shared with the profile-only app. */
+export function securityHeaders(_req: Request, res: Response, next: NextFunction): void {
   const { frames, media } = musicOrigins();
   res.set('X-Content-Type-Options', 'nosniff');
   res.set('X-Frame-Options', 'DENY');

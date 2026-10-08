@@ -103,8 +103,10 @@ async function loadStatus() {
 
     const data = result.data || {};
     const counts = data.counts || {};
+    const visits = data.visits || {};
 
     setText('status-online', data.online ? '在线' : '离线');
+    setText('status-visits', `博客 ${visits.blog ?? 0} · 主页 ${visits.profile ?? 0} · 共 ${visits.total ?? 0} 次`);
     setText('status-users', counts.visitors ?? '—');
     setText('status-uptime', humaniseUptime(data.uptimeSeconds));
     setText('status-posts', counts.posts ?? '—');
