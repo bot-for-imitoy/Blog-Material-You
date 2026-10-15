@@ -12,8 +12,11 @@ This is a ground-up rewrite of the previous OpenResty/Lua + MariaDB implementati
 
 ```
 Blog-Material-You/
-├── _config.yml               # ★ The site configuration file — name, description, avatar,
-│                             #   menu, feature switches, list lengths, UI strings
+├── config.yml                # ★ Master site config (tracked) — name, description, avatar,
+│                             #   menu, feature switches, list lengths, UI strings.
+│                             #   Copied to _config.yml on boot when newer
+├── _config.yml               #   Runtime working copy (gitignored): the only file the admin
+│                             #   console writes; every write triggers a static rebuild
 ├── src/                      # Node.js + TypeScript application (run directly, no build step)
 │   ├── index.ts              # Entry point: runtime dirs, vendor assets, admin bootstrap, HTTP server
 │   ├── app.ts                # Express wiring: security headers, Origin guard, static, routes, 404/500
@@ -103,6 +106,8 @@ Useful scripts:
 |---------|---------|
 | `npm start` | Run the server (`node src/index.ts`) |
 | `npm run dev` | Run with `--watch` (restarts on file changes) |
+| `npm run build` | Render every public page into a static site under `blog/dist/` |
+| `npm run serve:api` | Serve only the APIs / admin console / static assets / image resizing — no SSR pages |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run assets` | Re-vendor mdui / KaTeX / highlight.js into `blog/public/vendor` |
 
@@ -479,7 +484,7 @@ Configuration is split in two, like Hexo plus twelve-factor:
 
 | What | Where | Version-controlled? |
 |------|-------|---------------------|
-| **Site configuration** — name, tagline, description, keywords, author, language, avatar, theme colour, navigation menu, feature switches, excerpt lengths, UI wording | **`_config.yml`** (repository root) | **Yes** |
+| **Site configuration** — name, tagline, description, keywords, author, language, avatar, theme colour, navigation menu, feature switches, excerpt lengths, UI wording | **`config.yml`** (master, tracked) → copied on boot to **`_config.yml`** (working copy, untracked; the only file the admin writes) | Master **yes** |
 | **Deployment configuration** — port, bind address, session secret, admin bootstrap, S3 credentials | **environment variables** (`.env` / `BMY_*`) | No |
 
 The split is deliberate: the first is content-ish and belongs in the repository next to the code; the second differs per machine and includes secrets, so it must never be committed.
@@ -581,6 +586,9 @@ Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker
 |----------|---------|---------|
 | `BMY_PORT` | `30999` | HTTP listen port of the blog |
 | `BMY_PROFILE_PORT` | `31000` | HTTP listen port of the standalone personal card |
+| `BMY_CONFIG_MASTER` | `./config.yml` | Master config file, synced by mtime into `BMY_CONFIG_FILE` on boot |
+| `BMY_DIST_DIR` | `$BMY_BLOG_DIR/dist` | Static build output directory (`npm run build`) |
+| `BMY_AUTO_BUILD` | `1` | Set to `0` to disable the automatic rebuild after admin config writes |
 | `BMY_HOST` | `0.0.0.0` | Listen address |
 | `BMY_SITE_URL` | *(empty)* | **Overrides `url` in `_config.yml`.** Public base URL, e.g. `https://blog.example.com`, used for canonical links, `sitemap.xml` and `rss.xml`; without it those URLs are relative |
 | `BMY_TRUST_PROXY` | `0` | Set to `1` behind a reverse proxy so rate limiting keys on the real client IP from `X-Forwarded-For` |
@@ -874,6 +882,20 @@ Because a backup restores credentials and the TOTP secret, importing a backup ta
 ---
 
 ## Deployment
+
+### Static build + API server (optional)
+
+Beyond the default single-process SSR, the site can also be deployed as "static pages + an API server":
+
+```bash
+npm run build       # render every public page + copy assets → blog/dist/
+npm run serve:api   # serve /api /admin /media and static assets only — no SSR pages
+```
+
+- `blog/dist/` is a self-contained static site, deployable on any static host;
+- the API server provides the dynamic parts: `/api/*`, `/admin/*`, `/media` (on-demand resizing) plus `/css` `/js` `/icon` `/img` `/vendor` `/avatars` `/uploads`. Point page traffic at the static host and everything else at the API server in your reverse proxy;
+- every admin write to `_config.yml` **automatically triggers a static rebuild** (debounced 1.5 s; rapid saves coalesce into one build), and `npm run serve:api` builds once at startup. Set `BMY_AUTO_BUILD=0` to disable (e.g. when CI owns the build);
+- deliberately not baked into the static output: `/api`, `/admin` (dynamic), `/media` (resize on demand — proxy it to the API server), and `/auth/` (renders the visitor's session state).
 
 ### Docker
 

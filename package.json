@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node src/index.ts",
     "dev": "node --watch src/index.ts",
+    "serve:api": "node src/api-server.ts",
+    "build": "node scripts/build-static.mjs",
     "typecheck": "tsc --noEmit",
     "assets": "node scripts/sync-assets.mjs",
     "passwd-reset": "node scripts/passwd-reset.mjs",

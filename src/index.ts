@@ -5,36 +5,13 @@
  * fresh install, initialising the admin account from `BMY_ADMIN_PASS`.
  */
 import 'dotenv/config';
-import fs from 'node:fs';
-import path from 'node:path';
-import { execFileSync } from 'node:child_process';
-import { HOST, PORT, PROFILE_PORT, ROOT, ensureRuntimeDirs, BLOG_DIR, DATA_DIR, PUBLIC_DIR } from './paths.ts';
+import { HOST, PORT, PROFILE_PORT, ensureRuntimeDirs, BLOG_DIR, DATA_DIR, PUBLIC_DIR } from './paths.ts';
 import { createApp } from './app.ts';
 import { createProfileApp } from './profile-app.ts';
 import { bootstrapFromEnv, credentialFormat } from './store/credentials.ts';
 import { startSessionJanitor } from './auth/session.ts';
+import { ensureVendoredAssets } from './vendor-assets.ts';
 import { VERSION } from './version.ts';
-
-/**
- * The vendored front-end libraries (mdui, KaTeX, highlight.js) are generated
- * from node_modules and are gitignored, so a fresh clone would 404 on every
- * stylesheet. Regenerate them on boot when they are missing.
- */
-function ensureVendoredAssets(): void {
-  const marker = path.join(PUBLIC_DIR, 'vendor', 'mdui', 'mdui.css');
-  if (fs.existsSync(marker)) return;
-  const script = path.join(ROOT, 'scripts', 'sync-assets.mjs');
-  if (!fs.existsSync(script)) {
-    console.warn('[assets] vendored front-end assets are missing and scripts/sync-assets.mjs was not found');
-    return;
-  }
-  try {
-    console.log('[assets] vendored front-end assets missing — running sync-assets.mjs');
-    execFileSync(process.execPath, [script], { stdio: 'inherit' });
-  } catch (err) {
-    console.warn('[assets] could not sync front-end assets:', (err as Error).message);
-  }
-}
 
 async function main(): Promise<void> {
   ensureRuntimeDirs();

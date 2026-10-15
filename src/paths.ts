@@ -58,6 +58,23 @@ export const COMMENTS_DIR = path.join(DATA_DIR, 'comments');
 export const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 
 /**
+ * Master site configuration (`config.yml`).
+ *
+ * This is the tracked, human-edited source of truth. On first read it is
+ * copied over the working copy (`_config.yml`) — see `ensureConfigWorkingCopy`
+ * in site-config.ts — and only the working copy is ever modified at runtime
+ * (the admin console writes there), so the master file stays pristine.
+ */
+export const CONFIG_MASTER_FILE = path.resolve(envStr('BMY_CONFIG_MASTER', path.join(ROOT, 'config.yml')));
+
+/**
+ * Output directory of the static build (`npm run build`): fully rendered HTML
+ * pages plus a copy of the static asset tree. Disposable — deleted and rebuilt
+ * from scratch by every build.
+ */
+export const DIST_DIR = path.resolve(envStr('BMY_DIST_DIR', path.join(BLOG_DIR, 'dist')));
+
+/**
  * Resized image variants, written by `GET /media`. Disposable: the directory
  * can be deleted at any time and every file is simply rendered again.
  */

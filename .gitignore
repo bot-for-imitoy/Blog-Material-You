@@ -23,6 +23,13 @@ blog/public/uploads/
 # Secrets (copy .env.example to .env)
 .env
 
+# The working copy of the site config: copied from the tracked master
+# `config.yml` on boot and modified at runtime by the admin console.
+_config.yml
+
+# Static build output (npm run build)
+blog/dist/
+
 # Local deployment files that may contain real credentials
 docker-compose.local.yml
 certs.local/

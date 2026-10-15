@@ -29,12 +29,13 @@ RUN mkdir -p /app/blog/data/comments /app/blog/data/sessions /app/blog/data/imag
              /app/blog/public/avatars /app/blog/public/uploads \
     && chown -R node:node /app/blog/data /app/blog/public/avatars /app/blog/public/uploads
 
-# The admin console can edit site settings, which are written back into
-# `_config.yml`. Without this the save would fail with EACCES for the `node`
-# user. Mount the file read-only if you would rather manage it outside the
-# container — the settings page then reports a save error instead of silently
-# doing nothing.
-RUN chown node:node /app/_config.yml
+# `config.yml` is the tracked master; on boot the app copies it over the
+# working copy `_config.yml` (which the admin console writes to). The copy
+# happens here so the file exists and is writable by the `node` user — without
+# ownership the settings save would fail with EACCES. Mount the file read-only
+# if you would rather manage it outside the container — the settings page then
+# reports a save error instead of silently doing nothing.
+RUN cp config.yml _config.yml && chown node:node /app/_config.yml
 
 USER node
 

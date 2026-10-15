@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import { CONFIG_FILE, invalidateConfig } from '../site-config.ts';
+import { scheduleStaticBuild } from '../build-scheduler.ts';
 
 export interface ConfigUpdate {
   /** Dotted key path, e.g. `['theme', 'color']`. */
@@ -234,6 +235,10 @@ export function patchConfigFile(updates: ConfigUpdate[]): string[] {
     }
   }
   invalidateConfig();
+
+  // The static output in blog/dist/ is now stale: schedule a rebuild (debounced,
+  // so saving several settings in a row builds once). No-op when BMY_AUTO_BUILD=0.
+  scheduleStaticBuild();
 
   return updates.map((update) => update.path.join('.'));
 }

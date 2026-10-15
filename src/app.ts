@@ -120,6 +120,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export interface AppOptions {
   /** Skip mounting the admin console (useful for tests / public-only runs). */
   publicOnly?: boolean;
+  /**
+   * Skip mounting the SSR public pages (the static build and the API-only
+   * server, `npm run serve:api`). Static assets, /media, /api and /admin stay
+   * mounted so the API server remains a complete backend for a statically
+   * deployed site.
+   */
+  skipPublicPages?: boolean;
 }
 
 export async function createApp(options: AppOptions = {}): Promise<Express> {
@@ -180,7 +187,9 @@ export async function createApp(options: AppOptions = {}): Promise<Express> {
 
   // ===================== Public pages =====================
 
-  app.use('/', createPublicPagesRouter());
+  if (!options.skipPublicPages) {
+    app.use('/', createPublicPagesRouter());
+  }
 
   // ===================== 404 / errors =====================
 
