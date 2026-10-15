@@ -75,7 +75,7 @@ Blog-Material-You/
 | Path | Contents | Gitignored |
 |------|----------|------------|
 | `blog/posts/`, `blog/pages/`, `blog/talks/`, `blog/friends/` | Your content as Markdown — **this is the database** | yes (only `.gitkeep` files are tracked) |
-| `blog/data/` | Runtime state: `admin.json` (credentials), `totp.json`, `visitors.json`, `calendar.json`, `imghost.json`, `secret.json`, `comments/`, `sessions/`, `image-cache/` | yes |
+| `blog/data/` | Runtime state: `admin.json` (credentials), `totp.json`, `visitors.json`, `calendar.json`, `imghost.json`, `secret.json`, `visits.json` (page-view counters), `comments/`, `sessions/`, `image-cache/` | yes |
 | `blog/public/vendor/` | mdui / KaTeX / highlight.js, generated from `node_modules` by `scripts/sync-assets.mjs` | yes |
 | `blog/public/avatars/`, `blog/public/uploads/` | Uploaded images | yes |
 
@@ -275,6 +275,7 @@ The editors at `/admin/posts/new/`, `/admin/pages/new/`, `/admin/talks/new/` and
 - **Friend links** (`/friends/`).
 - **Pages** — `/about/` plus `/pages/<slug>/`.
 - **Status** (`/status/`) — live process uptime, Node.js version, memory usage and content counts (posts, comments, talks, friends, registered visitors), plus the permission-gated visitor calendar.
+- **Visit counters** — every rendered HTML page counts as one visit, tracked separately for the blog and the personal card and written atomically to `blog/data/visits.json` (`blog` / `profile` / `total` / `since`). `/status/` shows "blog X · card Y · Z total", the card footer shows its cumulative count, and `/api/status` returns the `visits` field.
 - **Visitor identity** (`/auth/`) — a reader enters an email address; a registered address receives a signed visitor cookie, an unknown one can submit a registration request that lands in the admin approval queue. Logging out works both as a plain HTML form post (`POST /auth/logout`, no JavaScript required) and as JSON (`POST /api/auth/logout`).
 - **2048** (`/2048/`) — the easter egg, complete with best-score persistence in the browser.
 - **Search** (`/search/`) — full-text search over titles, tags, categories and post bodies, with an in-process index. Works without JavaScript (plain GET form); `js/search.js` upgrades it to live results as you type, and `Ctrl`/`Cmd`+`K` focuses the field.
@@ -657,7 +658,7 @@ Every JSON endpoint except `/api/health` uses the same envelope:
 |--------|------|-------------|
 | GET | `/api/health` | Liveness probe (plain object, no envelope) |
 | GET | `/api/site` | Site settings, navigation menu and the full UI string dictionary — never any credential material |
-| GET | `/api/status` | Uptime, start time, Node.js version, platform, memory, and counts (posts, comments, talks, friends, visitors) |
+| GET | `/api/status` | Uptime, start time, Node.js version, platform, memory, counts (posts, comments, talks, friends, visitors), and the `visits` page-view counters (`blog` / `profile` / `total`) |
 | GET | `/api/posts` | Active (non-archived) posts, newest first, as summaries with excerpts |
 | GET | `/api/posts/:slug` | One post: metadata, raw Markdown, server-rendered `html`, `htmlEn`, and `toc` (404 if missing) |
 | GET | `/api/tags` | Tag index with post counts, most used first |
@@ -922,6 +923,7 @@ Put nginx/Caddy/Traefik in front for HTTPS (the app speaks plain HTTP on one por
 2. Set **`BMY_TRUST_PROXY=1`** so Express trusts `X-Forwarded-For` and rate limits key on the real client IP instead of the proxy's. Without it, one abusive client can exhaust the limit for everyone.
 3. Forward both `Host` and `X-Forwarded-Proto`, and allow request bodies at least as large as `BMY_MAX_UPLOAD_MB`.
 4. **Cookie `Secure` flag:** session and visitor cookies are marked `HttpOnly` and `SameSite=Strict`/`Lax`, but not `Secure` — over plain HTTP a `Secure` cookie would never be sent, so the code leaves it off. If you terminate TLS at the proxy and want the flag, add `secure: true` in `setSessionCookie()` (`src/auth/session.ts`) and `setVisitorCookie()` (`src/auth/visitor.ts`) and serve the app exclusively over HTTPS. Until then, keep the app off the public internet over plain HTTP.
+5. **The personal card runs on its own port** (`BMY_PROFILE_PORT`, default `31000`). The card and the blog share the same content and `blog/data`, so both ports can sit behind the proxy as-is; if the card gets its own domain, add a dedicated `server`/`location` block forwarding to that port (also forwarding `Host` and `X-Forwarded-Proto`). The card has no cookies or sessions, so its proxy configuration can be simpler than the blog's.
 
 ### Scaling
 
@@ -1013,7 +1015,7 @@ Please refer to each project's own repository for the authoritative copyright no
 
 ## License
 
-This project is licensed under the **MIT License**. See the acknowledgements above for the respective licenses of the open-source components it uses.
+This project is licensed under the **MIT License** (full text in [LICENSE](LICENSE)). See the acknowledgements above for the respective licenses of the open-source components it uses.
 
 ---
 

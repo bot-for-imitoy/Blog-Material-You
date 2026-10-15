@@ -1,27 +1,23 @@
-# Blog Material You — Standalone Blog
+# blog/ — 内容与运行状态目录
 
-基于 [MDUI 2](https://www.mdui.org/zh-cn/docs/2/) (Material Design 3) 的独立博客前端。
+这是博客的「数据库」：所有内容都是带 YAML frontmatter 的 Markdown 文件，
+所有运行状态都是 JSON 文件。没有 MariaDB，也没有外部依赖。
+项目的完整文档见 [仓库根目录的 README.zh.md](../README.zh.md)（英文版 [README.md](../README.md)）。
 
-**后端由 OpenResty + MariaDB 驱动**，详情见 [DEPLOY.md](https://github.com/imitoy/blog-backend/blob/main/DEPLOY.md)
+## 目录一览
 
-## 快速导航
+| 路径 | 内容 | 是否 gitignore |
+|------|------|----------------|
+| `posts/` | 文章（`<slug>.md`），frontmatter 写 title/date/tags/categories/cover 等 | 是（仅跟踪 `.gitkeep`） |
+| `pages/` | 页面（如 `about.md`） | 是（同上） |
+| `talks/` | 动态（`<unixtime>.md`） | 是（同上） |
+| `friends/` | 友链（`<id>-<slug>.md`） | 是（同上） |
+| `data/` | 运行状态：管理员凭据、会话、评论、访客、日历、图床配置、访问计数等 JSON | 是 |
+| `public/` | 静态资源：`css/`、`js/`、`icon/`、`img/`；`vendor/` 由 `npm run assets` 生成 | `vendor/`、`avatars/`、`uploads/` 是 |
 
-| 链接 | 说明 |
-|------|------|
-| `http://localhost:30999/` | 博客首页 |
-| `http://localhost:30999/admin/` | 管理后台 |
-| `http://localhost:30999/api/health` | 健康检查 |
+## 快速添加一篇文章
 
-## 前端框架
-
-- **MDUI 2** — Material Design 3 Web Components
-- **SPA 架构** — 客户端路由 (pushState)，无刷新导航
-- **客户端 Markdown 渲染** — 支持代码块、表格、引用等
-- **瀑布流布局** — 首页文章卡片瀑布流
-
-## 添加文章
-
-在 `posts/` 目录下创建 `.md` 文件：
+在 `posts/` 下新建 `<slug>.md`（文件名即 URL 中的 slug）：
 
 ```markdown
 ---
@@ -32,9 +28,13 @@ categories: [编程]
 cover: /img/cover.jpg
 ---
 
-正文 Markdown...
+正文 Markdown（服务端渲染，支持代码高亮、KaTeX 公式）。
 ```
 
-## 后端部署
+保存后刷新即可，内容缓存按文件 mtime 自动失效，无需重启服务。
+各类型的完整 frontmatter 说明见主 README 的「内容编写」章节。
 
-后端部署文档见 [`blog-backend/DEPLOY.md`](../blog-backend/DEPLOY.md)
+## 注意
+
+- `data/` 是运行时状态（含凭据），**不要**提交到版本库，也不要公开分享。
+- 本目录的旧 README 描述的是已被替换的 OpenResty + MariaDB 架构，已于 2026-10 重写为当前内容。

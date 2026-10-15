@@ -73,7 +73,7 @@ Blog-Material-You/
 | 路径 | 内容 | 是否 gitignore |
 |------|------|----------------|
 | `blog/posts/`、`blog/pages/`、`blog/talks/`、`blog/friends/` | 你的内容（Markdown）——**这就是数据库** | 是（仓库只跟踪 `.gitkeep`） |
-| `blog/data/` | 运行状态：`admin.json`（凭据）、`totp.json`、`visitors.json`、`calendar.json`、`imghost.json`、`secret.json`、`comments/`、`sessions/`、`image-cache/`（缩放后的图片变体，可随时删除） | 是 |
+| `blog/data/` | 运行状态：`admin.json`（凭据）、`totp.json`、`visitors.json`、`calendar.json`、`imghost.json`、`secret.json`、`visits.json`（页面访问计数）、`comments/`、`sessions/`、`image-cache/`（缩放后的图片变体，可随时删除） | 是 |
 | `blog/public/vendor/` | mdui / KaTeX / highlight.js，由 `scripts/sync-assets.mjs` 从 `node_modules` 生成 | 是 |
 | `blog/public/avatars/`、`blog/public/uploads/` | 上传的图片 | 是 |
 
@@ -273,6 +273,7 @@ sort_order: 0
 - **友链**（`/friends/`）。
 - **页面**——`/about/` 以及 `/pages/<slug>/`。
 - **状态**（`/status/`）——实时进程运行时长、Node.js 版本、内存占用、内容统计（文章、评论、动态、友链、注册访客），以及需要权限的访客日历。
+- **访问统计**——每次渲染 HTML 页面计一次访问，博客与个人名片页分开累计，原子写入 `blog/data/visits.json`（`blog` / `profile` / `total` / `since`）。`/status/` 页展示「博客 X · 主页 Y · 共 Z 次」，名片卡底部显示「累计访问 N 次」；`/api/status` 返回 `visits` 字段。
 - **访客身份验证**（`/auth/`）——读者输入邮箱：已注册地址会获得签名的访客 Cookie，未注册地址可以提交注册申请，进入管理后台的审核队列。退出登录既支持普通表单提交（`POST /auth/logout`，无需 JavaScript），也支持 JSON 接口（`POST /api/auth/logout`）。
 - **2048**（`/2048/`）——彩蛋小游戏，最高分保存在浏览器本地。
 - **搜索**（`/search/`）——对标题、标签、分类与正文进行全文搜索，索引在进程内构建。无需 JavaScript 即可使用（普通 GET 表单）；`js/search.js` 会把它升级为输入即搜，`Ctrl`/`Cmd`+`K` 可直接聚焦搜索框。
@@ -588,7 +589,7 @@ SFTP 没有对应的环境变量，请在 `/admin/imghost/` 页面配置，配�
 |------|------|------|
 | GET | `/api/health` | 存活探针（普通对象，不使用响应结构） |
 | GET | `/api/site` | 站点设置、导航菜单与完整 UI 文案字典——绝不包含任何凭据信息 |
-| GET | `/api/status` | 运行时长、启动时间、Node.js 版本、平台、内存，以及文章/评论/动态/友链/访客数量 |
+| GET | `/api/status` | 运行时长、启动时间、Node.js 版本、平台、内存、文章/评论/动态/友链/访客数量，以及访问计数 `visits`（`blog` / `profile` / `total`） |
 | GET | `/api/posts` | 活跃（未归档）文章的摘要列表，新的在前，含自动摘要 |
 | GET | `/api/posts/:slug` | 单篇文章：元数据、原始 Markdown、服务端渲染的 `html`、`htmlEn` 与 `toc`（不存在则 404） |
 | GET | `/api/tags` | 标签索引及文章数，按使用次数倒序 |
@@ -853,6 +854,7 @@ volumes:
 2. 设置 **`BMY_TRUST_PROXY=1`**，让 Express 信任 `X-Forwarded-For`，限流将按真实客户端 IP 而非代理 IP 计数。若不设置，一个滥用者就可能耗尽所有人的限额。
 3. 转发 `Host` 与 `X-Forwarded-Proto`，并允许至少与 `BMY_MAX_UPLOAD_MB` 相当的请求体大小。
 4. **Cookie 的 `Secure` 标记：**会话 Cookie 与访客 Cookie 都设置了 `HttpOnly` 以及 `SameSite=Strict`/`Lax`，但**没有**设置 `Secure`——在明文 HTTP 下 `Secure` Cookie 永远不会被发送，因此代码选择关闭它。如果你在代理处终止 TLS 并希望加上该标记，请在 `setSessionCookie()`（`src/auth/session.ts`）和 `setVisitorCookie()`（`src/auth/visitor.ts`）中加上 `secure: true`，并确保应用只通过 HTTPS 访问。在此之前，请不要让应用以明文 HTTP 直接暴露在公网。
+5. **个人名片页运行在独立端口**（`BMY_PROFILE_PORT`，默认 `31000`）。博客与名片共享同一份内容与 `blog/data`，因此两个端口都可以直接放在代理后面；如果名片页使用自己的域名，就在代理处为它单独加一段 `server`/`location` 转发到该端口，并同样转发 `Host` 与 `X-Forwarded-Proto`。名片页没有 Cookie 与会话，反向代理配置可以比博客更简单。
 
 ### 横向扩展
 
@@ -944,7 +946,7 @@ volumes:
 
 ## 许可
 
-本项目采用 **MIT 许可**。所使用开源组件的许可请见上文的致谢部分。
+本项目采用 **MIT 许可**（完整文本见 [LICENSE](LICENSE)）。所使用开源组件的许可请见上文的致谢部分。
 
 ---
 
