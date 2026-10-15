@@ -10,14 +10,22 @@ blog/public/vendor/
 # Runtime state: credentials, comments, visitors, TOTP, settings, sessions
 blog/data/
 
-# Content (keep local; the repo ships only the directory placeholders)
+# Content: personal files stay local; the repo ships the example files only
+# (replace or extend the examples with your own posts/pages/talks/friends).
 blog/posts/*.md
+!blog/posts/hello-world.md
 blog/pages/*.md
+!blog/pages/about.md
 blog/talks/*.md
+!blog/talks/hello.md
 blog/friends/*.md
+!blog/friends/hello-friend.md
 
 # Uploaded / generated media
 blog/public/avatars/
+
+# The real avatar stays local; the repo ships a placeholder (avatar.svg).
+blog/public/img/avatar.jpg
 blog/public/uploads/
 
 # Secrets (copy .env.example to .env)

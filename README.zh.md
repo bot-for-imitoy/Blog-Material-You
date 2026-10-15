@@ -292,11 +292,11 @@ sort_order: 0
 
 ```
 GET /media?src=/uploads/photo.jpg&w=800          # 缩放到宽 800
-GET /media?src=/img/avatar.jpg&w=160&fit=cover   # 正方形裁剪
+GET /media?src=/img/avatar.svg&w=160&fit=cover   # 正方形裁剪
 ```
 
 - **Markdown**：`![](/uploads/a.jpg)` 在渲染时被改写为覆盖 320–2000 px 的 `src`/`srcset`/`sizes`（`src/lib/markdown.ts`），2400 px 的原图不会被送进 360 px 宽的正文栏。远程地址与 `data:` URI 原样保留。
-- **模板**：所有视图都可以用 `mediaUrl()` 与 `mediaSrcset()`。封面会按瀑布流列宽生成 `srcset`，抽屉与关于页头像请求 160/320 px 的方图——仓库自带的 `avatar.jpg` 有 445 kB，在它真正被绘制的尺寸下约为 7 kB。
+- **模板**：所有视图都可以用 `mediaUrl()` 与 `mediaSrcset()`。封面会按瀑布流列宽生成 `srcset`，抽屉与关于页头像请求 160/320 px 的方图——头像是一张大照片时，实际被绘制的尺寸下只需传输几 KB。
 - **缓存键**：源文件路径、体积、mtime，加上请求的尺寸、裁剪方式与格式的 SHA-256。因此就地替换图片无需任何手动失效——URL 不变但 ETag 变了；响应带一年 `immutable`。超过 30 天未被使用的条目会被清理，整个目录随时可以直接删除。
 - **刻意加上边界**：只接受 `/uploads`、`/avatars`、`/img` 下的本地文件（解码后的路径会再次与这三个目录比对，`..` 与 `%2e%2e` 都逃不出去）；宽高会向上对齐到固定档位且上限 2560 px；质量按格式固定；`w`/`h` 必填——所以 `/media` 既不能当开放代理，也不能被用来刷出无限缓存。
 - **并发**：同一变体的并发请求只跑一次 sharp；缓存文件先写临时名再 rename，读者不会看到写了一半的图片。
@@ -431,7 +431,7 @@ export function destroy() {} // 释放监听、定时器与观察器
 以下是主配置的完整键位说明（工作副本内容相同）——仓库根目录下唯一一个带注释的配置文件。只写你想改的键即可，其余键自动使用内置默认值，所以文件不完整——甚至不存在——也能正常启动。
 
 ```yaml
-title: imitoy's Blog          # 站点名称（侧边栏、顶栏、<title>）
+title: Blog Material You      # 站点名称（侧边栏、顶栏、<title>）
 subtitle: 暂无简介             # 站点名称下方的一句话简介
 description: 一个使用 Node.js 与 Material You 构建的博客   # meta description
 keywords: []                  # meta keywords
@@ -439,9 +439,9 @@ author: ''                    # meta author
 language: zh-CN               # <html lang="…">
 url: ''                       # canonical / sitemap / RSS 使用的站点地址
 
-avatar: /img/avatar.jpg
+avatar: /img/avatar.svg
 copyright: © 2025 Blog Material You
-github: https://github.com/imitoy/Blog
+github: https://github.com/yourname/blog
 theme:
   color: '#ff006a'            # Material You 配色种子色
 
@@ -484,16 +484,16 @@ strings: {}                   # 覆盖任意界面文案，例如 {page_posts: �
 profile:
   enabled: true               # 该页面唯一的开关
   accent: ''                  # 留空跟随 theme.color；填十六进制则固定
-  avatar: /img/avatar.jpg
+  avatar: /img/avatar.svg
   greeting: Hi, I am
-  name: X-LeeHe
-  tagline: 警惕赛博杂食性动物
+  name: Your Name
+  tagline: 这里是我的名片与导航
   background: ''              # 可选背景图，会被 CSS 高斯模糊；留空则用内置夜色渐变
   tags:                       # 每个数组是一行胶囊标签
-    - [ArchLinuxUser, Mild DIY enthusiast]
-    - [Robotics (idiot), Minecraft, Helldivers 2]
+    - [摄影, 旅行, 美食]
+    - [编程, 游戏]
   buttons:                    # 右侧长条
-    - { text: Github, icon: github, href: https://github.com/imitoy, action: link }
+    - { text: Github, icon: github, href: https://github.com/yourname, action: link }
     - { text: Blog, icon: blog, href: /posts/, action: link }
     - text: More
       icon: more

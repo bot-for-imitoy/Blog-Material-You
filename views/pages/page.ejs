@@ -1,6 +1,6 @@
 <div class="content">
   <mdui-card variant="elevated" class="about-header" id="about-header"<% if (features.easterEgg) { %> data-easter-egg="true"<% } %>>
-    <mdui-avatar class="about-avatar" id="about-avatar" src="<%= mediaUrl(site.avatar || '/img/avatar.jpg', { width: 320, fit: 'cover' }) %>"></mdui-avatar>
+    <mdui-avatar class="about-avatar" id="about-avatar" src="<%= mediaUrl(site.avatar || '/img/avatar.svg', { width: 320, fit: 'cover' }) %>"></mdui-avatar>
     <div class="about-title"><%= pageTitle %></div>
     <div class="about-description"><%= site.subtitle %></div>
   </mdui-card>

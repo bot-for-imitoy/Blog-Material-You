@@ -142,9 +142,9 @@ export interface SiteSettings {
  * while letting a site re-word anything without touching code.
  */
 export const DEFAULT_STRINGS: Record<string, string> = {
-  title: "imitoy's Blog",
+  title: 'Blog Material You',
   desc: '暂无简介',
-  avatar: '/img/avatar.jpg',
+  avatar: '/img/avatar.svg',
   copyright: '© 2025 Blog Material You',
 
   loading: '加载中...',
@@ -370,15 +370,15 @@ export const DEFAULT_PROFILE: ProfileSettings = {
   accent: '',
   avatar: DEFAULT_STRINGS.avatar!,
   greeting: 'Hi, I am',
-  name: 'X-LeeHe',
-  tagline: '警惕赛博杂食性动物',
+  name: 'Your Name',
+  tagline: '这里是我的名片与导航',
   background: '',
   tags: [
-    ['ArchLinuxUser', 'Mild DIY enthusiast'],
-    ['Robotics (idiot)', 'Minecraft', 'Helldivers 2'],
+    ['摄影', '旅行', '美食'],
+    ['编程', '游戏'],
   ],
   buttons: [
-    { text: 'Github', icon: 'github', href: 'https://github.com/imitoy', action: 'link', items: [], music: false },
+    { text: 'Github', icon: 'github', href: 'https://github.com/yourname', action: 'link', items: [], music: false },
     { text: 'Blog', icon: 'blog', href: '/posts/', action: 'link', items: [], music: false },
     {
       text: 'More',
@@ -409,7 +409,7 @@ function defaultSettings(): SiteSettings {
     url: SITE_URL,
     avatar: DEFAULT_STRINGS.avatar!,
     copyright: DEFAULT_STRINGS.copyright!,
-    github: 'https://github.com/imitoy/Blog',
+    github: 'https://github.com/yourname/blog',
     themeColor: '#ff006a',
     menu: DEFAULT_MENU,
     features: { comments: true, calendar: true, search: true, easterEgg: true, rss: true, sitemap: true },

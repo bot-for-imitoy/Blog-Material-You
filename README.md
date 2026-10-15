@@ -299,7 +299,7 @@ the browser actually picks from a `srcset` is ever produced.
 
 ```
 GET /media?src=/uploads/photo.jpg&w=800          # scale to 800 px wide
-GET /media?src=/img/avatar.jpg&w=160&fit=cover   # square crop
+GET /media?src=/img/avatar.svg&w=160&fit=cover   # square crop
 ```
 
 - **Markdown.** `![](/uploads/a.jpg)` is rewritten at render time into
@@ -308,8 +308,8 @@ GET /media?src=/img/avatar.jpg&w=160&fit=cover   # square crop
   exactly as written.
 - **Templates.** `mediaUrl()` and `mediaSrcset()` are available to every view.
   Covers get a `srcset` matched to the masonry column width, and the drawer and
-  about avatars request a 160/320 px square — the bundled `avatar.jpg` is 445 kB
-  and becomes about 7 kB at the size it is painted.
+  about avatars request a 160/320 px square — a large photo avatar therefore
+  ships only a few kilobytes at the size it is painted.
 - **Cache key.** The SHA-256 of the source path, its size and mtime, plus the
   requested size, fit and format. Editing an image in place is therefore picked
   up with no manual invalidation — the URL is unchanged but the `ETag` is not,
@@ -494,7 +494,7 @@ The split is deliberate: the first is content-ish and belongs in the repository 
 One file, comment-annotated, at the repository root. Only the keys you want to change need to be present; everything else falls back to built-in defaults, so a partial or even missing file still boots.
 
 ```yaml
-title: imitoy's Blog          # site name (sidebar, app bar, <title>)
+title: Blog Material You      # site name (sidebar, app bar, <title>)
 subtitle: 暂无简介             # tagline under the site name
 description: 一个使用 Node.js 与 Material You 构建的博客   # meta description
 keywords: []                  # meta keywords
@@ -502,9 +502,9 @@ author: ''                    # meta author
 language: zh-CN               # <html lang="…">
 url: ''                       # canonical base URL for canonical/sitemap/RSS
 
-avatar: /img/avatar.jpg
+avatar: /img/avatar.svg
 copyright: © 2025 Blog Material You
-github: https://github.com/imitoy/Blog
+github: https://github.com/yourname/blog
 theme:
   color: '#ff006a'            # Material You seed colour
 
@@ -547,16 +547,16 @@ strings: {}                   # override any UI string, e.g. {page_posts: 博客
 profile:
   enabled: true               # the only switch for this page
   accent: ''                  # empty = follow theme.color; set a hex to pin it
-  avatar: /img/avatar.jpg
+  avatar: /img/avatar.svg
   greeting: Hi, I am
-  name: X-LeeHe
-  tagline: 警惕赛博杂食性动物
+  name: Your Name
+  tagline: 这里是我的名片与导航
   background: ''              # optional photo; blurred by CSS. Empty = built-in night gradient
   tags:                       # one array per row of pill badges
-    - [ArchLinuxUser, Mild DIY enthusiast]
-    - [Robotics (idiot), Minecraft, Helldivers 2]
+    - [摄影, 旅行, 美食]
+    - [编程, 游戏]
   buttons:                    # the right-hand bars
-    - { text: Github, icon: github, href: https://github.com/imitoy, action: link }
+    - { text: Github, icon: github, href: https://github.com/yourname, action: link }
     - { text: Blog, icon: blog, href: /posts/, action: link }
     - text: More
       icon: more
