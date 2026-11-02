@@ -31,7 +31,7 @@ try {
     console.warn(`  errors:  ${result.errors.length}`);
     for (const error of result.errors) console.warn(`    ${error}`);
   }
-  console.log('Deploy dist/ with any static host; keep /api, /admin and /media on the API server (npm run serve:api).');
+  console.log('Deploy dist/ with any static host; keep /api and /media on the API server (npm run serve:api), and the admin console on its own port (BMY_ADMIN_PORT, default 31001).');
   if (strict && result.errors.length) process.exit(1);
 } catch (err) {
   console.error('Build failed:', err);

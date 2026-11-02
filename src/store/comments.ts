@@ -127,6 +127,15 @@ export function validateComment(input: CommentInput): ValidationResult {
   const link = str(input.link).slice(0, MAX_LINK);
   if (link && !/^https?:\/\//i.test(link)) return { ok: false, error: '网站链接必须以 http(s):// 开头' };
 
+  // The avatar URL is stored verbatim and later assigned to `img.src`, so
+  // restrict it to same-origin paths (the uploader writes to /avatars/) or
+  // https links. This blocks `javascript:`, `data:` and plain-http URLs from
+  // ever entering the comment store.
+  const avatar = str(input.avatar).slice(0, MAX_LINK);
+  if (avatar && !avatar.startsWith('/avatars/') && !/^https:\/\//i.test(avatar)) {
+    return { ok: false, error: '头像地址必须为站内 /avatars/ 路径或 https:// 链接' };
+  }
+
   const createTime = Math.floor(Date.now() / 1000);
   return {
     ok: true,
@@ -137,7 +146,7 @@ export function validateComment(input: CommentInput): ValidationResult {
       comment: body,
       link,
       ua: str(input.ua).slice(0, 500),
-      avatar: str(input.avatar).slice(0, MAX_LINK),
+      avatar,
       url,
       createTime,
     },

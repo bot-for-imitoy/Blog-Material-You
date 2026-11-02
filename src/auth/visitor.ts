@@ -13,6 +13,7 @@
  */
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
+import { COOKIE_SECURE } from '../paths.ts';
 import { sign, safeEqual } from './secret.ts';
 
 export const VISITOR_COOKIE = 'visitor_token';
@@ -64,11 +65,11 @@ export function setVisitorCookie(res: Response, token: string): void {
     path: '/',
     httpOnly: true,
     sameSite: 'lax',
-    secure: false,
+    secure: COOKIE_SECURE,
     maxAge: VISITOR_TTL * 1000,
   });
 }
 
 export function clearVisitorCookie(res: Response): void {
-  res.clearCookie(VISITOR_COOKIE, { path: '/', httpOnly: true, sameSite: 'lax' });
+  res.clearCookie(VISITOR_COOKIE, { path: '/', httpOnly: true, sameSite: 'lax', secure: COOKIE_SECURE });
 }

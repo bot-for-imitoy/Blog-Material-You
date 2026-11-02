@@ -8,10 +8,21 @@ services:
     build: .
     container_name: blog-material-you
     ports:
-      - "8000:30999"            # blog + admin console
+      - "8000:30999"            # public blog + API (no admin surface here)
+      - "127.0.0.1:31001:31001" # admin console — keep it off the public interface
       - "31000:31000"           # standalone profile card (/profile/)
     environment:
       - BMY_BLOG_DIR=/app/blog
+      # Admin console / API port. Publish it behind its own domain (or an SSH
+      # tunnel); set BMY_ADMIN_TLS_* to serve it over TLS / mutual TLS.
+      - BMY_ADMIN_PORT=31001
+      # Server TLS for the admin port:
+      #   - BMY_ADMIN_TLS_CERT=/certs/admin-server.pem
+      #   - BMY_ADMIN_TLS_KEY=/certs/admin-server-key.pem
+      # Client CA enables mutual TLS (client certificates required):
+      #   - BMY_ADMIN_TLS_CA=/certs/admin-client-ca.pem
+      # Mark auth cookies Secure once everything is HTTPS:
+      #   - BMY_COOKIE_SECURE=1
       # Canonical site URL — used for canonical tags, the sitemap and RSS.
       # Set this to the public address of your deployment.
       - BMY_SITE_URL=${BMY_SITE_URL:-}

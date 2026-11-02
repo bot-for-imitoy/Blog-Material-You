@@ -19,6 +19,7 @@ import path from 'node:path';
 import express from 'express';
 import type { Request, Response, Router } from 'express';
 
+import { ADMIN_BODY_MB } from '../paths.ts';
 import { rateLimit } from '../lib/ratelimit.ts';
 import { safeFilename, str } from '../lib/text.ts';
 import { getSessionToken, consumeTempToken, createSession, createTempToken, destroyAllSessions, destroySession, setSessionCookie, clearSessionCookie } from '../auth/session.ts';
@@ -102,11 +103,19 @@ function validateAdminUser(user: string): string | null {
 export function createAdminApiRouter(): Router {
   const router = express.Router();
 
-  // Requests bodies are JSON everywhere; a generous limit keeps a full-site
-  // import (base64 images, long posts) working. Mounting the parser here keeps
-  // the router self-contained: express.json() is a no-op when the app already
+  // Requests bodies are JSON everywhere; the limit is configurable (backup
+  // imports with base64 images need headroom) but no longer an unconditional
+  // 100 MB: it applied *before* authentication, so an anonymous client could
+  // make the parser buffer huge payloads. Mounting the parser here keeps the
+  // router self-contained: express.json() is a no-op when the app already
   // parsed the body.
-  router.use(express.json({ limit: '100mb' }));
+  router.use(express.json({ limit: `${ADMIN_BODY_MB}mb` }));
+
+  // A generous ceiling for the whole console — hundreds of requests per minute
+  // is far above what the UI generates, but it bounds brute-force and
+  // request-flood abuse from a single address.
+  const consoleLimit = rateLimit({ name: 'admin-api', windowMs: 60_000, max: 300 });
+  router.use(consoleLimit);
 
   // Nginx used to rate limit these routes; the limiter now lives in-process.
   const loginLimit = rateLimit({ name: 'admin-login', windowMs: 60_000, max: 30 });
