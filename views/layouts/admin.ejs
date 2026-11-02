@@ -84,7 +84,9 @@
         <% }); %>
       </ul>
       <div class="admin-sidebar-footer">
-        <a class="admin-nav-link" href="/" target="_blank" rel="noopener noreferrer">查看站点 ↗</a>
+        <%# The console lives on its own origin, so the site link must use the
+            configured site URL (falls back to "/" when unset). %>
+        <a class="admin-nav-link" href="<%= site.url || '/' %>" target="_blank" rel="noopener noreferrer">查看站点 ↗</a>
         <button type="button" class="btn btn-outline" data-action="logout">退出登录</button>
       </div>
     </nav>

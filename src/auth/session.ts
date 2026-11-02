@@ -15,7 +15,7 @@
  */
 import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
-import { SESSION_TTL } from '../paths.ts';
+import { SESSION_TTL, COOKIE_SECURE } from '../paths.ts';
 import { b64url, fromB64url, safeEqual, sign } from './secret.ts';
 
 export const ADMIN_COOKIE = 'admin_token';
@@ -159,7 +159,7 @@ export function setSessionCookie(res: Response, token: string, maxAge = SESSION_
     path: '/',
     httpOnly: true,
     sameSite: 'strict',
-    secure: false,
+    secure: COOKIE_SECURE,
     maxAge: maxAge * 1000,
   });
 }

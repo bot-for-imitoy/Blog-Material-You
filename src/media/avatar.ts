@@ -10,6 +10,7 @@ import path from 'node:path';
 import { createHmac } from 'node:crypto';
 import sharp from 'sharp';
 import { AVATARS_DIR, ensureDir } from '../paths.ts';
+import { MAX_INPUT_PIXELS } from './resize.ts';
 import { getImghostConfig, isEnabled, uploadKey } from './imghost.ts';
 
 /** Minimum plausible image size; below this the payload is certainly not an image. */
@@ -61,7 +62,13 @@ export async function processAvatar(buffer: Buffer): Promise<AvatarResult> {
   const filePath = path.join(AVATARS_DIR, filename);
 
   try {
-    await sharp(buffer)
+    await sharp(buffer, {
+      // This endpoint is unauthenticated, so the decode is bounded just like
+      // `/media` is: a crafted 10 MB upload must not decompress into ~1 GB of
+      // pixel memory before the resize even starts.
+      limitInputPixels: MAX_INPUT_PIXELS,
+      failOn: 'none',
+    })
       .resize(AVATAR_SIZE, AVATAR_SIZE, { fit: 'cover', position: 'centre' })
       .webp()
       .toFile(filePath);

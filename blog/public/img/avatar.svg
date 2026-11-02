@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Placeholder avatar">
+  <!-- Material You style placeholder avatar — replace with your own photo -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7c9cf5"/>
+      <stop offset="0.5" stop-color="#8a7ce8"/>
+      <stop offset="1" stop-color="#b58ad6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="256" fill="url(#bg)"/>
+  <!-- head -->
+  <circle cx="256" cy="196" r="86" fill="#ffffff" opacity="0.92"/>
+  <!-- shoulders -->
+  <path d="M256 306c-88 0-150 52-150 122 0 46 62 84 150 84s150-38 150-84c0-70-62-122-150-122z" fill="#ffffff" opacity="0.92"/>
+</svg>

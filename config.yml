@@ -16,7 +16,7 @@
 # ===== 站点信息 =====
 
 # 站点名称。显示在侧边栏、顶栏、浏览器标题与订阅源中。
-title: imitoy's Blog
+title: Blog Material You
 
 # 副标题 / 一句话简介。显示在侧边栏站点名称下方。
 subtitle: 暂无简介
@@ -40,13 +40,13 @@ url: ''
 # ===== 外观 =====
 
 # 头像图片地址（相对于 public 目录，或完整的 http(s) 地址）。
-avatar: /img/avatar.jpg
+avatar: /img/avatar.svg
 
 # 页脚版权文字。
 copyright: © 2025 Blog Material You
 
 # 侧边栏 / 页脚展示的 GitHub 地址，可留空。
-github: https://github.com/imitoy/Blog
+github: https://github.com/yourname/blog
 
 theme:
   # 主题色。mdui 会据此生成整套 Material You 配色方案，同时作为浏览器地址栏
@@ -141,12 +141,12 @@ profile:
   accent: ''
 
   # 圆形头像（带霓虹发光圆环）
-  avatar: /img/avatar.jpg
+  avatar: /img/avatar.svg
 
   # 头像上方的小字、主标题、以及下方的一句签名
   greeting: Hi, I am
-  name: X-LeeHe
-  tagline: 警惕赛博杂食性动物
+  name: Your Name
+  tagline: 这里是我的名片与导航
 
   # 背景图（可选）。会施加高斯模糊，建议用夜景照片。
   # 留空时使用内置的夜色渐变 + 缓慢浮动的光点（萤火虫效果），无需任何图片资源。
@@ -154,8 +154,8 @@ profile:
 
   # 兴趣 / 身份标签，按行分组，每行一个数组，渲染为圆角胶囊徽章
   tags:
-    - [ArchLinuxUser, Mild DIY enthusiast]
-    - [Robotics (idiot), Minecraft, Helldivers 2]
+    - [摄影, 旅行, 美食]
+    - [编程, 游戏]
 
   # 右侧导航条。action 取值：
   #   link   —— 右侧显示 › 箭头，点击跳转 href
@@ -164,7 +164,7 @@ profile:
   buttons:
     - text: Github
       icon: github
-      href: https://github.com/imitoy
+      href: https://github.com/yourname
       action: link
     - text: Blog
       icon: blog

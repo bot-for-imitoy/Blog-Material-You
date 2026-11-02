@@ -33,6 +33,21 @@ function envBool(key: string, fallback: boolean): boolean {
   return !['0', 'false', 'no', 'off', ''].includes(raw.toLowerCase());
 }
 
+/**
+ * Express `trust proxy` accepts a boolean, a hop count (number) or a list of
+ * trusted proxy IPs/subnets. Accept all three forms from the environment:
+ * `1` → hop count, `true` → trust everything (dev only), `10.0.0.0/8` → subnet.
+ */
+function envTrustProxy(key: string, fallback: boolean): boolean | number | string {
+  const raw = process.env[key];
+  if (raw === undefined || raw === '') return fallback;
+  if (/^\d+$/.test(raw)) return Number.parseInt(raw, 10);
+  if (['true', 'yes', 'on'].includes(raw.toLowerCase())) return true;
+  if (['false', 'no', 'off', '0'].includes(raw.toLowerCase())) return false;
+  // Anything else is treated as a comma-separated IP/subnet list.
+  return raw;
+}
+
 /** Content + static root. Overridable with BMY_BLOG_DIR. */
 export const BLOG_DIR = path.resolve(envStr('BMY_BLOG_DIR', path.join(ROOT, 'blog')));
 
@@ -58,6 +73,23 @@ export const COMMENTS_DIR = path.join(DATA_DIR, 'comments');
 export const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 
 /**
+ * Master site configuration (`config.yml`).
+ *
+ * This is the tracked, human-edited source of truth. On first read it is
+ * copied over the working copy (`_config.yml`) — see `ensureConfigWorkingCopy`
+ * in site-config.ts — and only the working copy is ever modified at runtime
+ * (the admin console writes there), so the master file stays pristine.
+ */
+export const CONFIG_MASTER_FILE = path.resolve(envStr('BMY_CONFIG_MASTER', path.join(ROOT, 'config.yml')));
+
+/**
+ * Output directory of the static build (`npm run build`): fully rendered HTML
+ * pages plus a copy of the static asset tree. Disposable — deleted and rebuilt
+ * from scratch by every build.
+ */
+export const DIST_DIR = path.resolve(envStr('BMY_DIST_DIR', path.join(BLOG_DIR, 'dist')));
+
+/**
  * Resized image variants, written by `GET /media`. Disposable: the directory
  * can be deleted at any time and every file is simply rendered again.
  */
@@ -73,6 +105,15 @@ export const PORT = envInt('BMY_PORT', 30999);
  * along. Both servers share the same content, assets and data directory.
  */
 export const PROFILE_PORT = envInt('BMY_PROFILE_PORT', 31000);
+/**
+ * Port of the dedicated admin server.
+ *
+ * The admin console and every admin API live on their own port so they can be
+ * published behind their own domain (or kept entirely firewalled from the
+ * public site). See `src/admin-app.ts` — the public app never answers on
+ * `/admin` or `/api/admin`.
+ */
+export const ADMIN_PORT = envInt('BMY_ADMIN_PORT', 31001);
 export const HOST = envStr('BMY_HOST', '0.0.0.0');
 export const SITE_URL = envStr('BMY_SITE_URL', '');
 export const SESSION_SECRET = envStr('BMY_SESSION_SECRET', '');
@@ -88,8 +129,40 @@ export const ADMIN_USER = envStr('BMY_ADMIN_USER', 'admin');
  * overwrite credentials behind your back.
  */
 export const ADMIN_PASS = envStr('BMY_ADMIN_PASS', '');
-export const TRUST_PROXY = envBool('BMY_TRUST_PROXY', false);
+/**
+ * Express `trust proxy` setting: `true` trusts every hop (dev only), a number
+ * counts trusted hops in front of the app, a string is a comma-separated list
+ * of trusted proxy IPs/subnets. Behind nginx/Caddy set this to `1` — a bare
+ * `true` lets clients spoof `X-Forwarded-For` and defeat the rate limiter.
+ */
+export const TRUST_PROXY = envTrustProxy('BMY_TRUST_PROXY', false);
 export const MAX_UPLOAD_MB = envInt('BMY_MAX_UPLOAD_MB', 100);
+/** JSON body limit for the admin API (backup imports may carry base64 images). */
+export const ADMIN_BODY_MB = envInt('BMY_ADMIN_BODY_MB', 25);
+/**
+ * Add the `Secure` attribute to auth cookies. Set to 1 when the site is served
+ * over HTTPS so tokens are never sent over plain HTTP.
+ */
+export const COOKIE_SECURE = envBool('BMY_COOKIE_SECURE', false);
+/**
+ * Shared passcode for visitor registration/verification.
+ *
+ * Without SMTP there is no way to prove ownership of an email address, so any
+ * caller who knows a registered address could otherwise obtain that visitor's
+ * session. Setting this passcode gates `/api/auth/check` and `/api/auth/register`
+ * on a shared secret (timing-safe comparison) and closes that gap.
+ */
+export const VISITOR_PASSCODE = envStr('BMY_VISITOR_PASSCODE', '');
+/**
+ * TLS material for the admin server. When certificate and key are present the
+ * admin port speaks HTTPS; when a CA is also given, client certificates are
+ * required and verified against it (mutual TLS).
+ */
+export const ADMIN_TLS = {
+  cert: envStr('BMY_ADMIN_TLS_CERT'),
+  key: envStr('BMY_ADMIN_TLS_KEY'),
+  ca: envStr('BMY_ADMIN_TLS_CA'),
+};
 export const DEV = envStr('NODE_ENV', 'development') !== 'production';
 
 /** Image host (SFTP or S3). */

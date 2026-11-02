@@ -57,7 +57,7 @@ export const SIZE_LADDER = [160, 240, 320, 480, 640, 800, 960, 1200, 1600, 2000]
 export const MAX_DIMENSION = 2560;
 
 /** Refuse to decode absurd inputs (a decompression-bomb guard for sharp). */
-const MAX_INPUT_PIXELS = 50_000_000;
+export const MAX_INPUT_PIXELS = 50_000_000;
 
 /**
  * Content widths for images inside rendered Markdown. The largest entry is the

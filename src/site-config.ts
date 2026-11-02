@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import { buildColorScheme, type ColorScheme } from './lib/color-scheme.ts';
-import { ROOT, SITE_URL } from './paths.ts';
+import { CONFIG_MASTER_FILE, ROOT, SITE_URL } from './paths.ts';
 
 /** One sidebar / navigation entry. */
 export interface MenuItem {
@@ -142,9 +142,9 @@ export interface SiteSettings {
  * while letting a site re-word anything without touching code.
  */
 export const DEFAULT_STRINGS: Record<string, string> = {
-  title: "imitoy's Blog",
+  title: 'Blog Material You',
   desc: '暂无简介',
-  avatar: '/img/avatar.jpg',
+  avatar: '/img/avatar.svg',
   copyright: '© 2025 Blog Material You',
 
   loading: '加载中...',
@@ -370,15 +370,15 @@ export const DEFAULT_PROFILE: ProfileSettings = {
   accent: '',
   avatar: DEFAULT_STRINGS.avatar!,
   greeting: 'Hi, I am',
-  name: 'X-LeeHe',
-  tagline: '警惕赛博杂食性动物',
+  name: 'Your Name',
+  tagline: '这里是我的名片与导航',
   background: '',
   tags: [
-    ['ArchLinuxUser', 'Mild DIY enthusiast'],
-    ['Robotics (idiot)', 'Minecraft', 'Helldivers 2'],
+    ['摄影', '旅行', '美食'],
+    ['编程', '游戏'],
   ],
   buttons: [
-    { text: 'Github', icon: 'github', href: 'https://github.com/imitoy', action: 'link', items: [], music: false },
+    { text: 'Github', icon: 'github', href: 'https://github.com/yourname', action: 'link', items: [], music: false },
     { text: 'Blog', icon: 'blog', href: '/posts/', action: 'link', items: [], music: false },
     {
       text: 'More',
@@ -409,7 +409,7 @@ function defaultSettings(): SiteSettings {
     url: SITE_URL,
     avatar: DEFAULT_STRINGS.avatar!,
     copyright: DEFAULT_STRINGS.copyright!,
-    github: 'https://github.com/imitoy/Blog',
+    github: 'https://github.com/yourname/blog',
     themeColor: '#ff006a',
     menu: DEFAULT_MENU,
     features: { comments: true, calendar: true, search: true, easterEgg: true, rss: true, sitemap: true },
@@ -429,11 +429,48 @@ interface ConfigCache {
 
 let cache: ConfigCache | null = null;
 
+let configCopyDone = false;
+
+/**
+ * Copy the master config over the working copy when the master is newer.
+ *
+ * `config.yml` is the tracked, human-edited source of truth; `_config.yml` is
+ * the runtime working copy that the admin console writes to. Before the first
+ * read, a newer (or first-time) master is copied over the working copy — so
+ * committing a new `config.yml` and restarting updates the site — while later
+ * admin edits to `_config.yml` survive restarts (the working copy then has the
+ * newer mtime). Set `BMY_CONFIG_MASTER` to relocate the master file, or delete
+ * it to manage `_config.yml` directly as before.
+ */
+export function ensureConfigWorkingCopy(): void {
+  if (configCopyDone) return;
+  configCopyDone = true;
+  try {
+    if (!fs.existsSync(CONFIG_MASTER_FILE)) return;
+    const masterMtime = fs.statSync(CONFIG_MASTER_FILE).mtimeMs;
+    let workingMtime = -1;
+    try {
+      workingMtime = fs.statSync(CONFIG_FILE).mtimeMs;
+    } catch {
+      /* missing working copy — copy below */
+    }
+    if (workingMtime >= masterMtime) return;
+    fs.copyFileSync(CONFIG_MASTER_FILE, CONFIG_FILE);
+    console.log(`[config] ${path.basename(CONFIG_MASTER_FILE)} is newer — copied to ${path.basename(CONFIG_FILE)}`);
+  } catch (err) {
+    // A failed copy must never prevent boot: the existing working copy (or the
+    // built-in defaults) still applies.
+    console.warn('[config] could not sync the master config:', (err as Error).message);
+  }
+}
+
 /**
  * Read `_config.yml`. A missing file is not an error — the built-in defaults
  * take over, which keeps `npm start` working on a bare checkout.
  */
 function readConfigFile(): Record<string, unknown> {
+  ensureConfigWorkingCopy();
+
   let stat: fs.Stats;
   try {
     stat = fs.statSync(CONFIG_FILE);

@@ -17,6 +17,7 @@ import path from 'node:path';
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import cookieParser from 'cookie-parser';
 import { AVATARS_DIR, HOST, MAX_UPLOAD_MB, PUBLIC_DIR, TRUST_PROXY, UPLOADS_DIR } from './paths.ts';
+import { escapeHtml } from './lib/text.ts';
 import { createPublicApiRouter } from './routes/public-api.ts';
 import { createPublicPagesRouter } from './routes/public-pages.ts';
 import { createMediaRouter } from './routes/media.ts';
@@ -79,8 +80,10 @@ export function securityHeaders(_req: Request, res: Response, next: NextFunction
  * Reject cross-origin state-changing requests.
  * SameSite=Strict already blocks cookie-bearing cross-site requests, but an
  * explicit Origin check also protects the Bearer-token path.
+ *
+ * Shared with the admin app (exported): both servers enforce the same rule.
  */
-function originGuard(req: Request, res: Response, next: NextFunction): void {
+export function originGuard(req: Request, res: Response, next: NextFunction): void {
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
     next();
     return;
@@ -118,8 +121,18 @@ function staticOptions(maxAgeMs: number, immutable: boolean) {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export interface AppOptions {
-  /** Skip mounting the admin console (useful for tests / public-only runs). */
+  /**
+   * Formerly skipped mounting the admin console on this app. The admin surface
+   * now always lives on its own port (see `src/admin-app.ts`), so the flag is
+   * accepted for compatibility and ignored.
+   */
   publicOnly?: boolean;
+  /**
+   * Skip mounting the SSR public pages (the static build and the API-only
+   * server, `npm run serve:api`). Static assets, /media and /api stay mounted
+   * so the API server remains a complete backend for a statically deployed site.
+   */
+  skipPublicPages?: boolean;
 }
 
 export async function createApp(options: AppOptions = {}): Promise<Express> {
@@ -155,32 +168,24 @@ export async function createApp(options: AppOptions = {}): Promise<Express> {
   app.use('/media', createMediaRouter());
 
   // ===================== APIs =====================
-
-  if (!options.publicOnly) {
-    try {
-      const { createAdminApiRouter } = await import('./routes/admin-api.ts');
-      app.use('/api/admin', createAdminApiRouter());
-    } catch (err) {
-      console.warn('[app] admin API not mounted:', (err as Error).message);
-    }
-  }
+  //
+  // NOTE: the admin surface (admin console + /api/admin) deliberately does NOT
+  // live here. It is served by the dedicated admin server on BMY_ADMIN_PORT
+  // (see src/admin-app.ts), so the public app structurally cannot answer any
+  // admin operation — a request to /admin or /api/admin here falls through to
+  // the 404 below.
 
   app.use('/api', createPublicApiRouter());
 
   // ===================== Admin console =====================
-
-  if (!options.publicOnly) {
-    try {
-      const { createAdminPagesRouter } = await import('./routes/admin-pages.ts');
-      app.use('/admin', createAdminPagesRouter());
-    } catch (err) {
-      console.warn('[app] admin console not mounted:', (err as Error).message);
-    }
-  }
+  //
+  // Moved to the dedicated admin server (BMY_ADMIN_PORT) — see src/admin-app.ts.
 
   // ===================== Public pages =====================
 
-  app.use('/', createPublicPagesRouter());
+  if (!options.skipPublicPages) {
+    app.use('/', createPublicPagesRouter());
+  }
 
   // ===================== 404 / errors =====================
 
@@ -221,8 +226,9 @@ export async function createApp(options: AppOptions = {}): Promise<Express> {
       res.status(500).json({ errno: -1, errmsg: 'Internal error' });
       return;
     }
-    // Path segments are redacted so absolute filesystem paths never leak.
-    const safe = (err.message || 'Internal error').replace(/\/[\w\-./]+/g, '[path]');
+    // Path segments are redacted so absolute filesystem paths never leak, and
+    // the rest is HTML-escaped because this is an HTML response.
+    const safe = escapeHtml((err.message || 'Internal error').replace(/\/[\w\-./]+/g, '[path]'));
     res.status(500).type('html').send(`<h1>500 Internal Server Error</h1><p>${safe}</p>`);
   });
 

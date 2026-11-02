@@ -12,6 +12,8 @@
 
 ```
 Blog-Material-You/
+├── config.yml                # ★ 主配置文件（git 跟踪）：启动时自动复制到 _config.yml
+├── _config.yml               #   运行时工作副本（gitignore）：后台只改这个文件，改动后自动触发静态重建
 ├── src/                      # Node.js + TypeScript 应用（直接运行，无需构建）
 │   ├── index.ts              # 入口：运行时目录、前端资源、管理员初始化、HTTP 服务
 │   ├── app.ts                # Express 装配：安全响应头、Origin 校验、静态资源、路由、404/500
@@ -101,6 +103,8 @@ npm start       # 博客 → http://localhost:30999/ · 个人名片 → http://
 |------|------|
 | `npm start` | 启动服务（`node src/index.ts`） |
 | `npm run dev` | 以 `--watch` 模式运行（文件变化自动重启） |
+| `npm run build` | 把全部公开页面渲染为静态站点，输出到 `blog/dist/` |
+| `npm run serve:api` | 仅提供 API / 管理后台 / 静态资源 / 图片缩放，不渲染页面 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run assets` | 重新把 mdui / KaTeX / highlight.js 同步到 `blog/public/vendor` |
 
@@ -288,11 +292,11 @@ sort_order: 0
 
 ```
 GET /media?src=/uploads/photo.jpg&w=800          # 缩放到宽 800
-GET /media?src=/img/avatar.jpg&w=160&fit=cover   # 正方形裁剪
+GET /media?src=/img/avatar.svg&w=160&fit=cover   # 正方形裁剪
 ```
 
 - **Markdown**：`![](/uploads/a.jpg)` 在渲染时被改写为覆盖 320–2000 px 的 `src`/`srcset`/`sizes`（`src/lib/markdown.ts`），2400 px 的原图不会被送进 360 px 宽的正文栏。远程地址与 `data:` URI 原样保留。
-- **模板**：所有视图都可以用 `mediaUrl()` 与 `mediaSrcset()`。封面会按瀑布流列宽生成 `srcset`，抽屉与关于页头像请求 160/320 px 的方图——仓库自带的 `avatar.jpg` 有 445 kB，在它真正被绘制的尺寸下约为 7 kB。
+- **模板**：所有视图都可以用 `mediaUrl()` 与 `mediaSrcset()`。封面会按瀑布流列宽生成 `srcset`，抽屉与关于页头像请求 160/320 px 的方图——头像是一张大照片时，实际被绘制的尺寸下只需传输几 KB。
 - **缓存键**：源文件路径、体积、mtime，加上请求的尺寸、裁剪方式与格式的 SHA-256。因此就地替换图片无需任何手动失效——URL 不变但 ETag 变了；响应带一年 `immutable`。超过 30 天未被使用的条目会被清理，整个目录随时可以直接删除。
 - **刻意加上边界**：只接受 `/uploads`、`/avatars`、`/img` 下的本地文件（解码后的路径会再次与这三个目录比对，`..` 与 `%2e%2e` 都逃不出去）；宽高会向上对齐到固定档位且上限 2560 px；质量按格式固定；`w`/`h` 必填——所以 `/media` 既不能当开放代理，也不能被用来刷出无限缓存。
 - **并发**：同一变体的并发请求只跑一次 sharp；缓存文件先写临时名再 rename，读者不会看到写了一半的图片。
@@ -410,17 +414,24 @@ export function destroy() {} // 释放监听、定时器与观察器
 
 | 内容 | 位置 | 是否纳入版本控制 |
 |------|------|------------------|
-| **站点配置**——名称、副标题、描述、关键词、作者、语言、头像、主题色、导航菜单、功能开关、摘要长度、界面文案 | **`_config.yml`**（仓库根目录） | **是** |
+| **站点配置**——名称、副标题、描述、关键词、作者、语言、头像、主题色、导航菜单、功能开关、摘要长度、界面文案 | **`config.yml`**（主配置，跟踪）→ 启动时复制到 **`_config.yml`**（工作副本，不跟踪，后台只写它） | 主配置**是** |
 | **部署配置**——端口、监听地址、会话密钥、管理员初始账号、S3 密钥 | **环境变量**（`.env` / `BMY_*`） | 否 |
 
 这样拆分是有意的：前者属于站点内容，应该和代码一起进仓库；后者因机器而异且包含机密，绝不能提交。
 
-### 站点配置 —— `_config.yml`
+### 站点配置 —— `config.yml` 与 `_config.yml`
 
-仓库根目录下唯一一个带注释的配置文件。只写你想改的键即可，其余键自动使用内置默认值，所以文件不完整——甚至不存在——也能正常启动。
+站点配置是**两个文件**：
+
+- **`config.yml`**——git 跟踪的主配置，手工编辑与提交都在这里；
+- **`_config.yml`**——运行时工作副本（gitignore），后台管理界面只写这个文件。
+
+启动时若主配置比工作副本**新**（或副本不存在），会自动把主配置复制过去。于是：改配置进仓库 → 提交 `config.yml` → 重启生效；后台临时调整 → 只落在 `_config.yml`，不会被提交，重启后仍然保留（除非主配置再次更新）。
+
+以下是主配置的完整键位说明（工作副本内容相同）——仓库根目录下唯一一个带注释的配置文件。只写你想改的键即可，其余键自动使用内置默认值，所以文件不完整——甚至不存在——也能正常启动。
 
 ```yaml
-title: imitoy's Blog          # 站点名称（侧边栏、顶栏、<title>）
+title: Blog Material You      # 站点名称（侧边栏、顶栏、<title>）
 subtitle: 暂无简介             # 站点名称下方的一句话简介
 description: 一个使用 Node.js 与 Material You 构建的博客   # meta description
 keywords: []                  # meta keywords
@@ -428,9 +439,9 @@ author: ''                    # meta author
 language: zh-CN               # <html lang="…">
 url: ''                       # canonical / sitemap / RSS 使用的站点地址
 
-avatar: /img/avatar.jpg
+avatar: /img/avatar.svg
 copyright: © 2025 Blog Material You
-github: https://github.com/imitoy/Blog
+github: https://github.com/yourname/blog
 theme:
   color: '#ff006a'            # Material You 配色种子色
 
@@ -473,16 +484,16 @@ strings: {}                   # 覆盖任意界面文案，例如 {page_posts: �
 profile:
   enabled: true               # 该页面唯一的开关
   accent: ''                  # 留空跟随 theme.color；填十六进制则固定
-  avatar: /img/avatar.jpg
+  avatar: /img/avatar.svg
   greeting: Hi, I am
-  name: X-LeeHe
-  tagline: 警惕赛博杂食性动物
+  name: Your Name
+  tagline: 这里是我的名片与导航
   background: ''              # 可选背景图，会被 CSS 高斯模糊；留空则用内置夜色渐变
   tags:                       # 每个数组是一行胶囊标签
-    - [ArchLinuxUser, Mild DIY enthusiast]
-    - [Robotics (idiot), Minecraft, Helldivers 2]
+    - [摄影, 旅行, 美食]
+    - [编程, 游戏]
   buttons:                    # 右侧长条
-    - { text: Github, icon: github, href: https://github.com/imitoy, action: link }
+    - { text: Github, icon: github, href: https://github.com/yourname, action: link }
     - { text: Blog, icon: blog, href: /posts/, action: link }
     - text: More
       icon: more
@@ -512,6 +523,9 @@ profile:
 |------|--------|------|
 | `BMY_PORT` | `30999` | 博客的 HTTP 监听端口 |
 | `BMY_PROFILE_PORT` | `31000` | 个人名片页的 HTTP 监听端口 |
+| `BMY_CONFIG_MASTER` | `./config.yml` | 主配置文件路径，启动时按 mtime 同步到 `BMY_CONFIG_FILE` |
+| `BMY_DIST_DIR` | `$BMY_BLOG_DIR/dist` | `npm run build` 的静态输出目录 |
+| `BMY_AUTO_BUILD` | `1` | 设为 `0` 关闭「后台改 `_config.yml` 后自动重建静态站点」 |
 | `BMY_HOST` | `0.0.0.0` | 监听地址 |
 | `BMY_SITE_URL` | *(空)* | **优先于 `_config.yml` 中的 `url`。** 站点对外地址，例如 `https://blog.example.com`，用于 canonical 链接、`sitemap.xml` 和 `rss.xml`；未设置时这些地址为相对路径 |
 | `BMY_TRUST_PROXY` | `0` | 位于反向代理后方时设为 `1`，限流会按 `X-Forwarded-For` 中的真实客户端 IP 计数 |
@@ -805,6 +819,20 @@ curl -b admin-cookies.txt -X POST http://localhost:30999/api/admin/import \
 ---
 
 ## 部署
+
+### 静态构建与 API 服务器（可选）
+
+除了默认的单进程 SSR，项目还支持「静态页面 + API 服务器」的部署方式：
+
+```bash
+npm run build       # 渲染全部公开页面 + 复制静态资源 → blog/dist/
+npm run serve:api   # 只提供 /api /admin /media 与静态资源，不渲染页面
+```
+
+- `blog/dist/` 是自包含的静态站点，可以用任何静态主机直接部署；
+- API 服务器提供动态部分：`/api/*`、`/admin/*`、`/media`（按需缩图）以及 `/css` `/js` `/icon` `/img` `/vendor` `/avatars` `/uploads`。反向代理把页面流量指向静态主机、其余路径指向 API 服务器即可；
+- 后台 API 每次写入 `_config.yml` 都会**自动触发一次静态重建**（防抖 1.5 秒，连续保存合并为一次构建）；`npm run serve:api` 启动时也会构建一次。设 `BMY_AUTO_BUILD=0` 可关闭（例如交给 CI 构建）；
+- 不打进静态输出的内容：`/api`、`/admin`（动态接口）、`/media`（按需缩图，代理到 API 服务器）、`/auth/`（依赖访客会话）。
 
 ### Docker
 

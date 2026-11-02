@@ -41,6 +41,9 @@ export function getVisits(): VisitCounts {
 
 /** Increment one counter (and the total) and persist the file. */
 export function recordVisit(kind: VisitKind): VisitCounts {
+  // The static build fetches every page through the app in-process; those
+  // renders are not human visits and must not pollute the counters.
+  if (process.env.BMY_NO_RECORD === '1') return store.read();
   return store.update((current) => ({
     ...current,
     [kind]: (current[kind] ?? 0) + 1,

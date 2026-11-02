@@ -49,6 +49,8 @@ import {
   normaliseEmail,
 } from '../store/visitors.ts';
 import { publicSiteConfig } from '../site-config.ts';
+import { VISITOR_PASSCODE } from '../paths.ts';
+import { safeEqual } from '../auth/secret.ts';
 import { renderMarkdown } from '../lib/markdown.ts';
 import { searchPosts } from '../lib/search.ts';
 import { hitCounter, rateLimit } from '../lib/ratelimit.ts';
@@ -67,6 +69,25 @@ function ok<T>(res: express.Response, data: T): void {
 
 function fail(res: express.Response, status: number, errmsg: string): void {
   res.status(status).json({ errno: -1, errmsg });
+}
+
+/**
+ * Shared-secret gate for visitor identity endpoints.
+ *
+ * Without SMTP the server cannot prove ownership of an email address, so any
+ * caller who *knows* a registered address could otherwise obtain that
+ * visitor's signed session. When `BMY_VISITOR_PASSCODE` is configured, both
+ * `/auth/check` and `/auth/register` must present it. Comparison is
+ * constant-time. Returns true when the request may proceed (already failed
+ * with 403 otherwise).
+ */
+function requirePasscode(req: express.Request, res: express.Response): boolean {
+  if (VISITOR_PASSCODE === '') return true;
+  const body = (req.body ?? {}) as { passcode?: unknown };
+  const given = typeof body.passcode === 'string' ? body.passcode : '';
+  if (given.length === VISITOR_PASSCODE.length && safeEqual(given, VISITOR_PASSCODE)) return true;
+  fail(res, 403, '访客口令错误');
+  return false;
 }
 
 /** Strip internal-only fields and attach the rendered body. */
@@ -252,15 +273,22 @@ export function createPublicApiRouter(): Router {
     ok(res, listComments(path).map(publicComment));
   });
 
-  router.post('/comments', rateLimit({ name: 'comment', windowMs: 60_000, max: 10 }), (req, res) => {
-    const body = (req.body ?? {}) as Record<string, unknown>;
-    const result = validateComment(body);
-    if (!result.ok || !result.comment) {
-      fail(res, 400, result.error ?? 'Invalid comment');
-      return;
-    }
-    ok(res, publicComment(addComment(result.comment)));
-  });
+  router.post(
+    '/comments',
+    // Two windows: a short burst limit and a per-day ceiling, so the rate
+    // limiter cannot be defeated by pacing requests exactly 61 s apart.
+    rateLimit({ name: 'comment', windowMs: 60_000, max: 10 }),
+    rateLimit({ name: 'comment-daily', windowMs: 24 * 3600_000, max: 100 }),
+    (req, res) => {
+      const body = (req.body ?? {}) as Record<string, unknown>;
+      const result = validateComment(body);
+      if (!result.ok || !result.comment) {
+        fail(res, 400, result.error ?? 'Invalid comment');
+        return;
+      }
+      ok(res, publicComment(addComment(result.comment)));
+    },
+  );
 
   // ===================== Search =====================
 
@@ -283,6 +311,7 @@ export function createPublicApiRouter(): Router {
   // ===================== Visitor auth =====================
 
   router.post('/auth/check', rateLimit({ name: 'auth-check', windowMs: 60_000, max: 20 }), (req, res) => {
+    if (!requirePasscode(req, res)) return;
     const email = normaliseEmail((req.body as { email?: unknown } | undefined)?.email);
     if (!email) {
       fail(res, 400, 'Missing email');
@@ -309,6 +338,7 @@ export function createPublicApiRouter(): Router {
   });
 
   router.post('/auth/register', rateLimit({ name: 'auth-register', windowMs: 60_000, max: 5 }), (req, res) => {
+    if (!requirePasscode(req, res)) return;
     const body = (req.body ?? {}) as { email?: unknown; name?: unknown };
     const email = normaliseEmail(body.email);
     if (!email) {
