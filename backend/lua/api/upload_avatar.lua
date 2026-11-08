@@ -93,9 +93,30 @@ if #img_data > 5 * 1024 * 1024 then
     return
 end
 
--- Save to temp file
-local stamp = tostring(os.time()) .. tostring(math.random(10000, 99999))
-local tmp_path = "/tmp/avatar_" .. stamp .. ".png"
+-- Only real raster images are accepted. ImageMagick sniffs the format from
+-- the bytes, so without this check an "image" could actually be an MVG/SVG
+-- script or a URL (SSRF / local file read through coder delegates).
+local function image_kind(d)
+    if d:sub(1, 8) == "\137PNG\r\n\26\n" then return "png" end
+    if d:sub(1, 3) == "\255\216\255" then return "jpg" end
+    if d:sub(1, 6) == "GIF87a" or d:sub(1, 6) == "GIF89a" then return "gif" end
+    if d:sub(1, 4) == "RIFF" and d:sub(9, 12) == "WEBP" then return "webp" end
+    return nil
+end
+local kind = image_kind(img_data)
+if not kind then
+    ngx.status = 415
+    ngx.say(cjson.encode({ errno = -1, errmsg = "仅支持 PNG / JPEG / GIF / WebP 图片" }))
+    return
+end
+
+-- Random, unpredictable temp name (the old one used os.time + math.random,
+-- which made uploaded avatar URLs guessable and allowed overwriting).
+local rand = security.random_bytes(16)
+local nonce = (rand or ""):gsub(".", function(c)
+    return string.format("%02x", string.byte(c))
+end)
+local tmp_path = "/tmp/avatar_" .. nonce .. "." .. kind
 local f = io.open(tmp_path, "wb")
 if not f then
     ngx.status = 500
@@ -105,16 +126,18 @@ end
 f:write(img_data)
 f:close()
 
--- Resize to 512x512 with ImageMagick, convert to WebP
+-- Resize to 512x512 with ImageMagick, convert to WebP.
+-- Paths are quoted and resource limits are set; the input is already known
+-- to be a raster image at this point.
 local avatars_dir = require("utils").blog_dir() .. "/public/avatars"
-os.execute("mkdir -p " .. avatars_dir)
+local function shq(v) return "'" .. tostring(v):gsub("'", "'\\''") .. "'" end
+os.execute("mkdir -p " .. shq(avatars_dir))
 
-local hash = ngx.encode_base64(ngx.hmac_sha1(stamp, "avatar-salt"))
-    :gsub("/", "_"):gsub("%+", "-"):gsub("=", ""):sub(1, 16)
-local out_name = hash .. ".webp"
+local out_name = nonce .. ".webp"
 local out_path = avatars_dir .. "/" .. out_name
 
-os.execute("convert " .. tmp_path .. " -resize 512x512^ -gravity center -extent 512x512 " .. out_path .. " 2>/dev/null")
+os.execute("convert -limit memory 128MiB -limit map 256MiB " .. shq(tmp_path) ..
+    " -resize 512x512^ -gravity center -extent 512x512 " .. shq(out_path) .. " 2>/dev/null")
 
 -- Clean up temp file
 os.remove(tmp_path)

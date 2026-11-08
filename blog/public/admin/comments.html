@@ -103,17 +103,27 @@
           html += '<div class="empty-state">暂无评论</div>';
         } else {
           comments.forEach(function(c) {
-            var authorHtml = c.url ? '<a href="' + escapeHtml(c.url) + '" target="_blank">' + escapeHtml(c.author || '匿名') + '</a>' : escapeHtml(c.author || '匿名');
+            // API returns the raw DB columns: nick / mail / comment / url / create_time.
+            // url is attacker-controlled, so only allow same-site paths as links
+            // (a bare "javascript:..." href would otherwise execute on click).
+            var nick = c.nick || '匿名';
+            var url = String(c.url || '');
+            var safeUrl = /^\/(?!\/)/.test(url) ? url : '';
+            var authorHtml = safeUrl
+              ? '<a href="' + escapeHtml(safeUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(nick) + '</a>'
+              : escapeHtml(nick);
+            var created = c.create_time ? new Date(Number(c.create_time) * 1000).toLocaleString() : '';
+            var id = Number(c.id) || 0;
             html += '<div class="comment-item">';
             html += '<div class="comment-info">';
             html += '<div class="comment-author">' + authorHtml + '</div>';
-            html += '<div class="comment-text">' + escapeHtml(c.content || c.text || '') + '</div>';
+            html += '<div class="comment-text">' + escapeHtml(c.comment || '') + '</div>';
             html += '<div class="comment-meta">';
-            html += '<span>📧 ' + escapeHtml(c.email || '-') + '</span>';
-            html += '<span>📅 ' + escapeHtml(c.date || c.created_at || '') + '</span>';
-            if (c.post_title) html += '<span>📄 ' + escapeHtml(c.post_title) + '</span>';
+            html += '<span>📧 ' + escapeHtml(c.mail || '-') + '</span>';
+            html += '<span>📅 ' + escapeHtml(created) + '</span>';
+            if (c.url) html += '<span>📄 ' + escapeHtml(c.url) + '</span>';
             html += '</div></div>';
-            html += '<div><button class="btn btn-error btn-sm" onclick="deleteComment(\'' + c.id + '\')">🗑️</button></div>';
+            html += '<div><button class="btn btn-error btn-sm" onclick="deleteComment(' + id + ')">🗑️</button></div>';
             html += '</div>';
           });
         }

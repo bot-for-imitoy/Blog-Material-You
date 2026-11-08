@@ -18,6 +18,27 @@ local uri = ngx.var.uri or "/"
 local route = uri:gsub("^/api/admin/ssr", "")
 if route == "" then route = "/" end
 
+-- ===== Auth gate =====
+-- Previously every admin fragment was rendered without authentication, which
+-- exposed drafts (editor), the comment list with commenter emails, and the
+-- dashboard to anyone who could reach port 31000. Only the fragments needed
+-- *before* a session exists stay public.
+local PUBLIC_ROUTES = {
+    ["/layout"] = true, ["/layout/"] = true,
+    ["/login"] = true,  ["/login/"] = true,
+    ["/login-totp"] = true, ["/login/totp"] = true,
+    ["/setup"] = true,  ["/setup/"] = true,
+}
+if not PUBLIC_ROUTES[route] then
+    local admin_auth = require("admin_auth")
+    if not admin_auth.verify_bearer_token() then
+        ngx.status = 401
+        ngx.header["Content-Type"] = "application/json"
+        ngx.say(cjson.encode({ errno = -1, errmsg = "Unauthorized" }))
+        return
+    end
+end
+
 local function render_or_404(template, data)
     local html = renderer.render(template, data)
     if not html then
@@ -55,7 +76,7 @@ elseif route == "/dashboard" or route == "/dashboard/" then
     end
     -- Comments count
     local comment_count = 0
-    local ok, comments_res = pcall(require("comments").get_all_comments)
+    local ok, comments_res = pcall(require("comments").list_all)
     if ok and comments_res then
         if type(comments_res) == "table" and #comments_res > 0 then
             comment_count = #comments_res

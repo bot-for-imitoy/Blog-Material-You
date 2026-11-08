@@ -10,6 +10,47 @@ local function env(key, default)
     return default
 end
 
+-- Session signing secret.
+-- A hard-coded fallback used to exist ("bmy-default-dev-secret-2024"), which
+-- meant that forgetting BMY_SESSION_SECRET let anyone forge an admin token by
+-- reading the source. Now an unset secret becomes a random, process-local
+-- value: tokens stop surviving a restart (acceptable, and advertised) but can
+-- never be predicted. docker/docker-entrypoint.sh still generates a stable
+-- random secret for containers.
+local function runtime_secret()
+    local f = io.open("/dev/urandom", "rb")
+    if f then
+        local raw = f:read(32)
+        f:close()
+        if raw and #raw == 32 then
+            return (raw:gsub(".", function(c)
+                return string.format("%02x", string.byte(c))
+            end))
+        end
+    end
+    -- Last resort: time + address of a fresh table, still not a constant.
+    return string.format("%x%x%x", os.time(), math.random(0, 0x7fffffff), tostring({}):match("0x(%x+)"))
+end
+
+local function session_secret()
+    local configured = os.getenv("BMY_SESSION_SECRET")
+    if configured and configured ~= "" then return configured end
+
+    local dict = ngx and ngx.shared and ngx.shared.blog_config
+    if dict then
+        local cached = dict:get("runtime_session_secret")
+        if cached then return cached end
+    end
+
+    local secret = runtime_secret()
+    if dict then dict:set("runtime_session_secret", secret) end
+    if ngx and ngx.log then
+        ngx.log(ngx.WARN, "BMY_SESSION_SECRET is not set; using an ephemeral ",
+            "secret (admin sessions will not survive a restart)")
+    end
+    return secret
+end
+
 _M.data = {
     -- Sidebar header
     title = "My Blog",
@@ -201,8 +242,9 @@ _M.data = {
     admin_user = "",
     admin_pass = "",
 
-    -- Session token HMAC secret (default for dev, always override in production)
-    session_secret = env("BMY_SESSION_SECRET", "bmy-default-dev-secret-2024"),
+    -- Session token HMAC secret (set BMY_SESSION_SECRET in production; when
+    -- unset a random ephemeral secret is generated instead of a known default)
+    session_secret = session_secret(),
 
     -- Sidebar navigation menu
     -- Each item: { text, page_title?, page_desc?, icon, route }
