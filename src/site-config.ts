@@ -203,7 +203,18 @@ export const DEFAULT_STRINGS: Record<string, string> = {
   website: '网站（可选）',
   commentContent: '评论内容',
   commentSuccess: '评论提交成功',
+  // Fallback only: when the server explains itself ("邮箱格式不正确",
+  // "昵称过长…") that wording is shown instead. A bare "提交失败" with no
+  // reason was the whole problem — a visitor whose 网站 field read `example.com`
+  // saw it and had nothing to act on.
   commentFail: '评论提交失败',
+  // Checks js/comments.js runs before sending, so an obvious mistake costs no
+  // round trip. Kept in sync with validateComment() in src/store/comments.ts.
+  commentRequired: '请填写昵称、邮箱和评论内容',
+  commentBadEmail: '邮箱格式不正确',
+  commentBadLink: '网站格式不正确，可以只填 example.com',
+  // `{n}` is the Retry-After the server sends with a 429.
+  commentRateLimited: '评论太频繁了，请 {n} 秒后再试',
   networkError: '网络错误，请检查网络连接',
 
   // The comment form's privacy switch. `commentPrivacyNotice` has to stay

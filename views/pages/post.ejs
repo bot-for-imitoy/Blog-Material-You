@@ -57,7 +57,15 @@
   <div
     class="comment-section"
     id="comment-section"
-    data-strings="<%= JSON.stringify({ count: t('comment_count'), empty: t('no_comments') }) %>"
+    data-strings="<%= JSON.stringify({
+      count: t('comment_count'),
+      empty: t('no_comments'),
+      fail: t('commentFail'),
+      required: t('commentRequired'),
+      badEmail: t('commentBadEmail'),
+      badLink: t('commentBadLink'),
+      rateLimited: t('commentRateLimited'),
+    }) %>"
   >
     <div class="comment-input">
       <mdui-text-field id="comment-nick" label="<%= t('nickName') %>" variant="outlined" max-rows="1"></mdui-text-field>
@@ -82,6 +90,13 @@
       </div>
       <p class="comment-privacy-notice"><%= t('commentPrivacyNotice') %></p>
 
+      <%# Why a submission was refused, worded by the server or by the check
+          in comments.js. A snackbar was the wrong place for it: it disappears
+          after a few seconds, and the reason ("邮箱格式不正确") is the one thing
+          the visitor needs in order to retry. Empty and hidden until a submit
+          is actually rejected. %>
+      <p class="comment-error" id="comment-error" role="alert" hidden></p>
+
       <mdui-button id="comment-submit-button" variant="filled"><%= t('submit') %></mdui-button>
     </div>
 
@@ -94,7 +109,6 @@
 
     <mdui-snackbar class="snackbar-network-error"><%= t('networkError') %></mdui-snackbar>
     <mdui-snackbar class="snackbar-comment-success"><%= t('commentSuccess') %></mdui-snackbar>
-    <mdui-snackbar class="snackbar-comment-failure"><%= t('commentFail') %></mdui-snackbar>
   </div>
   <% } %>
 </div>

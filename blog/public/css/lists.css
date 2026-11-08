@@ -262,6 +262,19 @@
   display: none;
 }
 
+/* Why a submission was refused ("邮箱格式不正确", "评论太频繁了，请 47 秒后再试").
+   It stays put: a snackbar would dismiss itself before the visitor had read the
+   one sentence they need in order to retry. */
+.comment-error {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgb(var(--mdui-color-error));
+}
+.comment-error[hidden] {
+  display: none;
+}
+
 /* ===== About page easter egg ===== */
 /* app.js adds `.pulse` once per click on the about header/avatar. */
 .about-avatar.pulse {

@@ -61,7 +61,10 @@ export function rateLimit(options: RateLimitOptions) {
     if (bucket.count > options.max) {
       const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
       res.set('Retry-After', String(retryAfter));
-      res.status(429).json({ errno: -1, errmsg: message });
+      // `code` and `retryAfter` are machine-readable duplicates of the status
+      // and the header: the comment form localises the wait into `{n} 秒后再试`
+      // and reads this rather than parsing `errmsg`, which is prose.
+      res.status(429).json({ errno: -1, code: 'rate_limited', retryAfter, errmsg: message });
       return;
     }
     next();

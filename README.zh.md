@@ -337,7 +337,8 @@ export function destroy() {} // 释放监听、定时器与观察器
 - 文件名使用页面的**规范路径**作为键——去掉 query/fragment、合并重复斜杠、去掉末尾斜杠——因此 `/post/x` 与 `/post/x/` 共用同一串评论。这一点很关键，因为一篇文章确实同时存在这两个地址：Express 把末尾斜杠视为可选，而静态构建产出的 `dist/post/x/index.html` 由静态服务器以带斜杠的形式提供（不带斜杠会重定向过去）。此前直接拿 `window.location.pathname` 当键，会把同一篇文章的评论拆成两份：pjax 导航（URL 保持链接原样）时提交的评论，在刷新（落在带斜杠的地址）后就消失了。仍保存在旧「带斜杠」键下的评论会照常读出，并在下一次有人发表评论时改写为规范键——见 `src/store/comments.ts` 的 `canonicalCommentPath()`。
 - 字段：`id`、`nick`、`mail`、`comment`、`link`、`ua`、`avatar`、`url`、`createTime`。
 - `mail`、`ua`、`url` 只保留在服务端：`GET /api/comments` 返回的是明确列出的字段（`id`、`nick`、`comment`、`link`、`avatar`、`createTime`），`mail` 只在管理后台可见。
-- 服务端校验：昵称 ≤ 80，邮箱 ≤ 200 且校验格式，正文 ≤ 5000，`link` 必须以 `http(s)://` 开头，`url` 必须是站内路径（以 `/` 开头，不接受 `//…` 或其他协议）且不超过 200 字符，User-Agent 截断到 500 字符（旧实现完全没有限制）。
+- 服务端校验：昵称 ≤ 80，邮箱 ≤ 200 且校验格式，正文 ≤ 5000，`url` 必须是站内路径（以 `/` 开头，不接受 `//…` 或其他协议）且不超过 200 字符，User-Agent 截断到 500 字符（旧实现完全没有限制）。可选的 `link` 接受 `http(s)://…`、裸域名（`example.com`）或域名加路径，裸域名会自动补成 `https://`——这个字段的标签是「网站（可选）」，访客最自然的写法就是填个域名，而更严格的旧规则会因此把整条评论丢掉。其余写法（`javascript:`、`data:`、`mailto:`、`//host/…`）仍然拒绝，因为这个值会在管理后台被渲染成 `href`。见 `normaliseCommentLink()`。
+- 被拒绝的提交会在**表单下方**说明原因，用的是服务端返回的原话（`邮箱格式不正确`、`昵称过长（最多 80 字符）`、`评论太频繁了，请 47 秒后再试`）。以前无论什么原因都只弹一句「提交失败」，访客既不知道发生了什么，也不知道该改哪里。必填项、邮箱格式与网站格式也会在客户端先校验一遍，这类错误不必往返一次服务端。
 - 提交评论按 IP 限制为每分钟 10 条。评论审核（跨页面列表、删除）位于管理后台。
 
 #### 评论隐私
@@ -619,7 +620,7 @@ SFTP 没有对应的环境变量，请在 `/admin/imghost/` 页面配置，配�
 | GET | `/api/friends` | 按展示顺序排列的友链 |
 | GET | `/api/search?q=<query>&limit=<n>` | 全文搜索。返回 `{query, tokens, total, limit, results}`；每条结果同时给出纯文本 `title`/`snippet` 与已转义的 `titleHtml`/`snippetHtml`（含 `<mark>`）。`q` 为空时返回空结果集而非报错。`limit` 默认 20（上限 50） |
 | GET | `/api/comments?path=<url>` | 某页面的评论，旧的在前。任意 URL 形式都可以（`/post/x` 与 `/post/x/` 是同一串评论）。每条评论只有 `id`、`nick`、`comment`、`link`、`avatar`、`createTime`——不会返回 `mail` 与 `ua`。加 `&type=count` 只返回 `{count}` |
-| POST | `/api/comments` | 提交评论。请求体 `{nick, mail, comment, url, link?, ua?, avatar?}`；`url` 必须是站内路径（`/post/x`，末尾斜杠可接受并会被规范化） |
+| POST | `/api/comments` | 提交评论。请求体 `{nick, mail, comment, url, link?, ua?, avatar?}`；`url` 必须是站内路径（`/post/x`，末尾斜杠可接受并会被规范化），`link` 可以是 `https://…` 或裸域名 `example.com`（自动补 https）。失败时返回 `400` 与 `{errno: -1, errmsg}`——`errmsg` 是写给访客看的原话，表单会原样展示——或 `429` 与 `{errno: -1, code: "rate_limited", retryAfter, errmsg}`，并带 `Retry-After` 响应头 |
 | POST | `/api/auth/check` | `{email}` → `{registered, permissions, name}`；邮箱已注册时同时下发签名访客 Cookie |
 | POST | `/api/auth/register` | `{email, name?}` → 提交注册申请，等待管理员审核（已注册或已在队列中返回 409） |
 | POST | `/api/auth/logout` | 清除访客 Cookie |

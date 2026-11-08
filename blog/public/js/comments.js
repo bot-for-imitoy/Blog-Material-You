@@ -11,7 +11,12 @@
  *   GET  /api/comments?path=…          → { errno: 0, data: PublicComment[] }
  *   GET  /api/comments?path=…&type=count → { errno: 0, data: { count } }
  *   POST /api/comments                 → { errno: 0, data: PublicComment }
- *                                        { errno: -1, errmsg }
+ *                                        { errno: -1, errmsg }   (400, and 429
+ *                                        with `code: 'rate_limited'` +
+ *                                        `retryAfter` + a Retry-After header)
+ *
+ * A refusal always carries a reason meant for the visitor ("邮箱格式不正确",
+ * "昵称过长（最多 80 字符）"), which the form shows verbatim; see `showError()`.
  *
  * A `PublicComment` is `{ id, nick, comment, link, avatar, createTime }` — the
  * endpoint deliberately withholds the stored `mail` and `ua`.
@@ -39,6 +44,12 @@ let submitButton = null;
 let listContainer = null;
 let titleElement = null;
 let emptyElement = null;
+/**
+ * Where a rejected submission explains itself. A snackbar is wrong for this:
+ * it dismisses itself after a few seconds, and the reason ("邮箱格式不正确",
+ * "评论太频繁了，请 47 秒后再试") is exactly what the visitor has to act on.
+ */
+let errorElement = null;
 let nickField = null;
 let mailField = null;
 let linkField = null;
@@ -46,8 +57,9 @@ let contentField = null;
 /**
  * Localised wording, re-parsed from `#comment-section[data-strings]` on every
  * init(): the count and the empty state describe a list that only exists after
- * the fetch below, so the server cannot render them. Reads the same `strings:`
- * overrides as the rest of the site (see js/search.js).
+ * the fetch below, so the server cannot render them, and a rejected submission
+ * is explained in the visitor's language. Reads the same `strings:` overrides as
+ * the rest of the site (see js/search.js).
  */
 let strings = {};
 /**
@@ -122,6 +134,32 @@ function showSnackbar(className) {
   if (!snackbar) return;
   if ('open' in snackbar) snackbar.open = true;
   else snackbar.show = true;
+}
+
+/**
+ * Explain why a submission was refused, under the form.
+ *
+ * This used to be a snackbar carrying the single word "提交失败", so a visitor
+ * whose 网站 field read `example.com` — or one who had simply retried a few
+ * times — was told nothing at all and had no way to know what to change.
+ * `message` is the server's own wording when it has some (it always answers a
+ * refusal with a reason a person can act on), and `strings.fail` otherwise.
+ */
+function showError(message, field) {
+  if (errorElement) {
+    errorElement.textContent = message || strings.fail || '';
+    errorElement.hidden = errorElement.textContent === '';
+  }
+  // Put the caret where the problem is, so "邮箱格式不正确" is one click from
+  // being fixed rather than a search for which field it meant.
+  if (field && typeof field.focus === 'function') field.focus();
+}
+
+/** Drop the error line (on a successful submit). */
+function clearError() {
+  if (!errorElement) return;
+  errorElement.textContent = '';
+  errorElement.hidden = true;
 }
 
 /** Block the form while a request is in flight. */
@@ -263,6 +301,61 @@ async function loadComments() {
  * Submission
  * ======================================================================== */
 
+/** Same shape the server accepts (store/comments.ts). */
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
+/**
+ * Promote a bare host to an https URL, mirroring `normaliseCommentLink()` in
+ * src/store/comments.ts. The 网站 field is optional and invites `example.com`,
+ * which is what people type; the server used to refuse it and drop the whole
+ * comment with it. Anything that is not `http(s)://…`, `host.tld` or
+ * `host.tld/path` yields '' — the same value the server refuses.
+ */
+function normaliseLink(value) {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?$/i.test(value)) return '';
+  return `https://${value}`;
+}
+
+/**
+ * First problem with the form, as `{ message, field }`, or null.
+ *
+ * Checked before sending so an obvious mistake costs no round trip and names
+ * the field instead of failing silently. The server validates the same rules;
+ * this is the fast path, not the authority.
+ */
+function checkForm(payload, linkInput) {
+  if (!payload.nick) return { message: strings.required, field: nickField };
+  if (!payload.mail) return { message: strings.required, field: mailField };
+  if (!EMAIL_PATTERN.test(payload.mail)) return { message: strings.badEmail, field: mailField };
+  if (!payload.comment) return { message: strings.required, field: contentField };
+  if (linkInput && !payload.link) return { message: strings.badLink, field: linkField };
+  return null;
+}
+
+/**
+ * Why the server refused the comment.
+ *
+ * The endpoint answers every refusal with a reason meant for a person ("昵称过
+ * 长（最多 80 字符）", "请求过于频繁，请稍后再试"), so that is what gets shown —
+ * a generic "提交失败" left the visitor with nothing to correct. The one case
+ * worth rewording is the rate limiter, whose wait is localised here into
+ * `commentRateLimited` (`{n}` seconds) so `strings:` stays authoritative.
+ */
+function rejectionText(response, result) {
+  const serverMessage =
+    result && typeof result.errmsg === 'string' ? result.errmsg.trim() : '';
+  if (response.status !== 429) return serverMessage;
+
+  const retryAfter =
+    Number(response.headers.get('Retry-After')) ||
+    Number(result && result.retryAfter) ||
+    60;
+  const template = strings.rateLimited || serverMessage;
+  return template ? format(template, { n: Math.ceil(retryAfter) }) : serverMessage;
+}
+
 /** Validate the form, POST the comment and refresh the list on success. */
 async function submitComment() {
   const token = instance;
@@ -274,22 +367,23 @@ async function submitComment() {
    * a server-side guess at the browser.
    */
   const withheld = Boolean(privacyToggle && privacyToggle.checked);
+  const linkInput = fieldValue(linkField);
   const payload = {
     nick: fieldValue(nickField),
     mail: fieldValue(mailField),
     comment: fieldValue(contentField),
-    link: fieldValue(linkField),
+    link: normaliseLink(linkInput),
     ua: withheld ? '' : navigator.userAgent,
     url: pagePath,
   };
 
-  // The three required fields; the website is optional and the server rejects
-  // anything that is not an http(s) URL.
-  if (!payload.nick || !payload.mail || !payload.comment) {
-    showSnackbar('snackbar-comment-failure');
+  const problem = checkForm(payload, linkInput);
+  if (problem) {
+    showError(problem.message, problem.field);
     return;
   }
 
+  clearError();
   setSubmitting(true);
   try {
     const response = await fetch(COMMENTS_API, {
@@ -297,18 +391,21 @@ async function submitComment() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const result = await response.json();
+    // A proxy or a crash can answer with HTML; that is a failed request, not a
+    // rejection with a reason.
+    const result = await response.json().catch(() => null);
 
-    if (result.errno === 0) {
+    if (result && result.errno === 0) {
       // The visitor may have navigated away while the request was in flight;
       // the reply then belongs to a page that no longer exists.
       if (token !== instance) return;
+      clearError();
       showSnackbar('snackbar-comment-success');
       clearFields();
       await Promise.all([loadCommentCount(), loadComments()]);
     } else {
-      if (token === instance) showSnackbar('snackbar-comment-failure');
-      console.error('Comment rejected:', result.errmsg);
+      console.error('Comment rejected:', response.status, result && result.errmsg);
+      if (token === instance) showError(rejectionText(response, result));
     }
   } catch (error) {
     if (token === instance) showSnackbar('snackbar-network-error');
@@ -341,6 +438,7 @@ export function init() {
   listContainer = document.getElementById('comments-container');
   titleElement = document.getElementById('comment-section-title');
   emptyElement = document.getElementById('comment-empty');
+  errorElement = document.getElementById('comment-error');
   nickField = document.getElementById('comment-nick');
   mailField = document.getElementById('comment-email');
   linkField = document.getElementById('comment-website');
@@ -386,6 +484,7 @@ export function destroy() {
   listContainer = null;
   titleElement = null;
   emptyElement = null;
+  errorElement = null;
   nickField = null;
   mailField = null;
   linkField = null;
