@@ -72,6 +72,20 @@ function fail(res: express.Response, status: number, errmsg: string): void {
 }
 
 /**
+ * A comment as the public site sees it. Deliberately narrower than the stored
+ * record (`Comment`): `mail`, `ua` and the page key stay on the server. See
+ * `publicComment` below.
+ */
+interface PublicComment {
+  id: number;
+  nick: string;
+  comment: string;
+  link: string;
+  avatar: string;
+  createTime: number;
+}
+
+/**
  * Shared-secret gate for visitor identity endpoints.
  *
  * Without SMTP the server cannot prove ownership of an email address, so any
@@ -249,15 +263,26 @@ export function createPublicApiRouter(): Router {
   // ===================== Comments =====================
 
   /**
-   * Comment shape sent to the public site.
+   * The comment shape sent to the public site.
+   *
+   * An explicit field list rather than a spread of the stored record: the file
+   * also holds `mail`, `ua` and the page key, none of which the page renders.
+   * Spreading it published every commenter's email address — and every stored
+   * User-Agent — to any visitor who opened the endpoint, which also defeated the
+   * form's "不展示我的信息" switch: withholding your own browser was pointless
+   * while everyone else's was still being handed out.
    *
    * Uploaded avatars are stored as 512x512 WebP but painted at 64 px, so the
    * URL is rewritten to a `/media` resize — 24 kB becomes about 2 kB. Remote
    * avatars are returned unchanged by `mediaUrl`.
    */
-  const publicComment = (comment: Comment): Comment => ({
-    ...comment,
+  const publicComment = (comment: Comment): PublicComment => ({
+    id: comment.id,
+    nick: comment.nick,
+    comment: comment.comment,
+    link: comment.link,
     avatar: mediaUrl(comment.avatar, { width: 160, height: 160, fit: 'cover' }),
+    createTime: comment.createTime,
   });
 
   router.get('/comments', (req, res) => {
