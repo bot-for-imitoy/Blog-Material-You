@@ -172,6 +172,30 @@ const MAX_COMMENT = 5000;
  */
 const MAX_URL = 200;
 
+/**
+ * Canonical https URL for the optional 网站 field, or '' when the value cannot
+ * be one.
+ *
+ * The field is labelled 网站（可选）and the obvious thing to type is a bare host
+ * (`example.com`), which is exactly what the previous rule refused: it demanded
+ * a scheme and threw the whole comment away otherwise — "网站链接必须以
+ * http(s):// 开头" surfaced to the visitor as a bare "提交失败". A bare host is
+ * therefore promoted to https instead of rejected.
+ *
+ * Anything else is still refused, because the value becomes an `href` in the
+ * admin console: `javascript:`, `data:`, `mailto:`, protocol-relative `//host`
+ * and plain-http links never get stored.
+ */
+export function normaliseCommentLink(value: unknown): string {
+  const link = str(value).slice(0, MAX_LINK);
+  if (!link) return '';
+  if (/^https?:\/\//i.test(link)) return link;
+  // host.tld, optionally followed by a path — `[^@\s:]` keeps scheme-like
+  // prefixes (`javascript:`) out, since a colon is not allowed before the path.
+  if (!/^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/\S*)?$/i.test(link)) return '';
+  return `https://${link}`;
+}
+
 /** Validate a comment submission. Length limits are new — the original had none. */
 export function validateComment(input: CommentInput): ValidationResult {
   const nick = str(input.nick);
@@ -193,8 +217,9 @@ export function validateComment(input: CommentInput): ValidationResult {
   if (body.length > MAX_COMMENT) return { ok: false, error: `评论过长（最多 ${MAX_COMMENT} 字符）` };
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(mail)) return { ok: false, error: '邮箱格式不正确' };
 
-  const link = str(input.link).slice(0, MAX_LINK);
-  if (link && !/^https?:\/\//i.test(link)) return { ok: false, error: '网站链接必须以 http(s):// 开头' };
+  const linkInput = str(input.link);
+  const link = normaliseCommentLink(linkInput);
+  if (linkInput && !link) return { ok: false, error: '网站格式不正确，可以只填 example.com' };
 
   // The avatar URL is stored verbatim and later assigned to `img.src`, so
   // restrict it to same-origin paths (the uploader writes to /avatars/) or
