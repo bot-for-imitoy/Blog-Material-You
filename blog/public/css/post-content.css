@@ -197,6 +197,26 @@
     margin-top: 32px;
 }
 
+/* ===== Comment form validation ===== */
+/* Field-level "required" hint, injected next to the offending input. */
+.comment-field-error {
+    display: block;
+    margin: -10px 0 0 4px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: rgb(var(--mdui-color-error));
+}
+.comment-field-error:empty {
+    display: none;
+}
+
+/* Invalid outline reuses the theme error colour, no hard-coded palette. */
+.comment-input mdui-text-field[aria-invalid="true"] {
+    outline: 2px solid rgb(var(--mdui-color-error));
+    outline-offset: 2px;
+    border-radius: 6px;
+}
+
 /* ===== Image loading placeholder ===== */
 .markdown-content .image-wrapper {
     position: relative;

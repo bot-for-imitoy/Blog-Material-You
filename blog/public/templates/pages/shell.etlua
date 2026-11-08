@@ -76,6 +76,7 @@
     </mdui-layout-main>
   </mdui-layout>
   <script src="/js/navigation-drawer.js"></script>
+  <script src="/js/comment.js?v=20261108"></script>
   <script type="module" src="/js/color.js"></script>
 
   <script>
@@ -362,124 +363,10 @@
     }
 
     // ===== Comments =====
+    // All comment form logic (validation, a11y errors, safe rendering)
+    // lives in /js/comment.js; this is only the post-navigation hook.
     function initComments() {
-      var path = window.location.pathname;
-      var countUrl = '/api/comments?type=count&path=' + encodeURIComponent(path);
-      var listUrl = '/api/comments?path=' + encodeURIComponent(path);
-
-      Promise.all([
-        fetch(countUrl).then(function(r) { return r.json(); }),
-        fetch(listUrl).then(function(r) { return r.json(); })
-      ]).then(function(results) {
-        var countResult = results[0];
-        var listResult = results[1];
-
-        var titleEl = document.getElementById('comment-section-title');
-        if (titleEl && countResult.data) {
-          var count = parseInt(countResult.data.count) || 0;
-          titleEl.textContent = count + ' Comment' + (count !== 1 ? 's' : '');
-        }
-
-        var container = document.getElementById('comments-container');
-        if (!container) return;
-        container.innerHTML = '';
-        if (listResult.data && listResult.data.data && listResult.data.data.forEach) {
-          listResult.data.data.forEach(function(comment) {
-            var item = document.createElement('mdui-list-item');
-            item.classList.add('comment');
-            item.alignment = 'start';
-            item.nonclickable = true;
-            item.innerHTML = '<div slot="custom" class="comment-block">'
-              + (comment.avatar ? '<img src="' + comment.avatar + '" class="comment-avatar">' : '<mdui-avatar src="/icon/person.svg" class="comment-avatar"></mdui-avatar>')
-              + '<div class="comment-right-area">'
-              + '<p class="comment-nick-name">' + escapeHtml(comment.nick || '') + '</p>'
-              + '<div class="comment-content">' + escapeHtml(comment.comment || '') + '</div>'
-              + '</div></div>';
-            container.appendChild(item);
-          });
-        }
-      }).catch(function(e) {
-        console.error('Comments load error:', e);
-      });
-
-      // Submit comment button (clone to remove old listeners)
-      var submitBtn = document.getElementById('comment-submit-button');
-      if (submitBtn) {
-        var newBtn = submitBtn.cloneNode(true);
-        submitBtn.parentNode.replaceChild(newBtn, submitBtn);
-        newBtn.addEventListener('click', function() { submitComment(path); });
-      }
-    }
-
-    function submitComment(path) {
-      var btn = document.getElementById('comment-submit-button');
-      if (!btn) return;
-      btn.disabled = true;
-      btn.loading = true;
-
-      var nick = document.getElementById('comment-nick').value.trim();
-      var email = document.getElementById('comment-email').value.trim();
-      var website = document.getElementById('comment-website').value.trim();
-      var content = document.getElementById('comment-content').value.trim();
-
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.disabled = true;
-      });
-
-      var hasError = false;
-      if (!nick) { hasError = true; }
-      if (!email) { hasError = true; }
-      if (!content) { hasError = true; }
-
-      if (hasError) {
-        showSnackbar('comment-failure');
-        resetCommentForm();
-        return;
-      }
-
-      fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nick: nick, mail: email, comment: content,
-          link: website, ua: navigator.userAgent,
-          url: path
-        })
-      }).then(function(res) { return res.json(); })
-      .then(function(result) {
-        if (result.errno === 0) {
-          showSnackbar('comment-success');
-          initComments();
-          setTimeout(function() {
-            ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
-              var el = document.getElementById(id);
-              if (el) el.value = '';
-            });
-            resetCommentForm();
-          }, 100);
-        } else {
-          showSnackbar('comment-failure');
-          resetCommentForm();
-        }
-      }).catch(function() {
-        showSnackbar('network-error');
-        resetCommentForm();
-      });
-    }
-
-    function resetCommentForm() {
-      ['comment-nick', 'comment-email', 'comment-website', 'comment-content'].forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.disabled = false;
-      });
-      var btn = document.getElementById('comment-submit-button');
-      if (btn) { btn.disabled = false; btn.loading = false; }
-    }
-
-    function showSnackbar(type) {
-      var el = document.querySelector('.snackbar-' + type);
-      if (el) el.show = true;
+      if (window.BMYComments) window.BMYComments.init(window.location.pathname);
     }
 
     // ===== Auth State (client-side) =====
