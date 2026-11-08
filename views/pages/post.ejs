@@ -49,36 +49,52 @@
   <hr>
 
   <% if (commentsEnabled) { %>
-  <div class="comment-input">
-    <mdui-text-field id="comment-nick" label="<%= t('nickName') %>" variant="outlined" max-rows="1"></mdui-text-field>
-    <mdui-text-field id="comment-email" label="<%= t('email') %>" variant="outlined" max-rows="1"></mdui-text-field>
-    <mdui-text-field id="comment-website" label="<%= t('website') %>" variant="outlined" max-rows="1"></mdui-text-field>
-    <mdui-text-field id="comment-content" label="<%= t('commentContent') %>" variant="outlined" max-rows="4" autosize></mdui-text-field>
+    <%# `data-strings` carries the wording js/comments.js needs once it has
+        loaded: the count and the empty state describe a list that is fetched
+        from /api/comments after render, so they cannot be produced here. Same
+        mechanism as pages/search.ejs, which also keeps both strings
+        overridable from `strings:` in _config.yml. %>
+  <div
+    class="comment-section"
+    id="comment-section"
+    data-strings="<%= JSON.stringify({ count: t('comment_count'), empty: t('no_comments') }) %>"
+  >
+    <div class="comment-input">
+      <mdui-text-field id="comment-nick" label="<%= t('nickName') %>" variant="outlined" max-rows="1"></mdui-text-field>
+      <mdui-text-field id="comment-email" label="<%= t('email') %>" variant="outlined" max-rows="1"></mdui-text-field>
+      <mdui-text-field id="comment-website" label="<%= t('website') %>" variant="outlined" max-rows="1"></mdui-text-field>
+      <mdui-text-field id="comment-content" label="<%= t('commentContent') %>" variant="outlined" max-rows="4" autosize></mdui-text-field>
 
-    <%# Privacy switch, between the comment body and the submit button.
-        `comments.js` reads it and drops the automatically collected User-Agent
-        when it is on. The icons are blanked because the site vendors mdui
-        without the Material Icons font (this site's icons are SVG files).
+      <%# Privacy switch, between the comment body and the submit button.
+          `comments.js` reads it and drops the automatically collected User-Agent
+          when it is on. The icons are blanked because the site vendors mdui
+          without the Material Icons font (this site's icons are SVG files).
 
-        This is a <div> and not a <label>: mdui-switch is not a form-associated
-        custom element — it renders its own `<label><input type=checkbox>` pair
-        inside a shadow root — so an outer label would label nothing and
-        clicking the words would do nothing. comments.js forwards clicks on the
-        row to the switch instead, and `aria-labelledby` keeps the text as the
-        accessible name. %>
-    <div class="comment-privacy" id="comment-privacy-row">
-      <mdui-switch id="comment-privacy-toggle" aria-labelledby="comment-privacy-label" unchecked-icon="" checked-icon=""></mdui-switch>
-      <span class="comment-privacy-label" id="comment-privacy-label"><%= t('commentPrivacyToggle') %></span>
+          This is a <div> and not a <label>: mdui-switch is not a form-associated
+          custom element — it renders its own `<label><input type=checkbox>` pair
+          inside a shadow root — so an outer label would label nothing and
+          clicking the words would do nothing. comments.js forwards clicks on the
+          row to the switch instead, and `aria-labelledby` keeps the text as the
+          accessible name. %>
+      <div class="comment-privacy" id="comment-privacy-row">
+        <mdui-switch id="comment-privacy-toggle" aria-labelledby="comment-privacy-label" unchecked-icon="" checked-icon=""></mdui-switch>
+        <span class="comment-privacy-label" id="comment-privacy-label"><%= t('commentPrivacyToggle') %></span>
+      </div>
+      <p class="comment-privacy-notice"><%= t('commentPrivacyNotice') %></p>
+
+      <mdui-button id="comment-submit-button" variant="filled"><%= t('submit') %></mdui-button>
     </div>
-    <p class="comment-privacy-notice"><%= t('commentPrivacyNotice') %></p>
 
-    <mdui-button id="comment-submit-button" variant="filled"><%= t('submit') %></mdui-button>
+    <h3 class="comment-section-title" id="comment-section-title"><%= t('commentTitle') %></h3>
+    <%# Rendered hidden: "还没有评论" is only the truth after the list has been
+        fetched, so comments.js reveals it when a successful load comes back
+        empty. Leaving it visible would flash it in front of every reader. %>
+    <p class="comment-empty" id="comment-empty" hidden><%= t('no_comments') %></p>
+    <mdui-list id="comments-container" class="comment-list"></mdui-list>
+
+    <mdui-snackbar class="snackbar-network-error"><%= t('networkError') %></mdui-snackbar>
+    <mdui-snackbar class="snackbar-comment-success"><%= t('commentSuccess') %></mdui-snackbar>
+    <mdui-snackbar class="snackbar-comment-failure"><%= t('commentFail') %></mdui-snackbar>
   </div>
-  <h3 class="comment-section-title" id="comment-section-title"><%= t('commentTitle') %></h3>
-  <mdui-list id="comments-container" class="comment-list"></mdui-list>
-
-  <mdui-snackbar class="snackbar-network-error"><%= t('networkError') %></mdui-snackbar>
-  <mdui-snackbar class="snackbar-comment-success"><%= t('commentSuccess') %></mdui-snackbar>
-  <mdui-snackbar class="snackbar-comment-failure"><%= t('commentFail') %></mdui-snackbar>
   <% } %>
 </div>

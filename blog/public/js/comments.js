@@ -8,10 +8,16 @@
  * into an HTML template string, which made stored XSS trivial).
  *
  * API wire format (src/routes/public-api.ts):
- *   GET  /api/comments?path=…          → { errno: 0, data: Comment[] }
+ *   GET  /api/comments?path=…          → { errno: 0, data: PublicComment[] }
  *   GET  /api/comments?path=…&type=count → { errno: 0, data: { count } }
- *   POST /api/comments                 → { errno: 0, data: Comment }
+ *   POST /api/comments                 → { errno: 0, data: PublicComment }
  *                                        { errno: -1, errmsg }
+ *
+ * A `PublicComment` is `{ id, nick, comment, link, avatar, createTime }` — the
+ * endpoint deliberately withholds the stored `mail` and `ua`.
+ *
+ * `path` may be any URL form of the page (`/post/x` or `/post/x/`): the server
+ * canonicalises it, so both forms address the same thread.
  *
  * The module is imported once but every post page is a fresh DOM (pjax swaps
  * `#content-container`), so the nodes and the page path are acquired by init()
@@ -32,10 +38,18 @@ let pagePath = '';
 let submitButton = null;
 let listContainer = null;
 let titleElement = null;
+let emptyElement = null;
 let nickField = null;
 let mailField = null;
 let linkField = null;
 let contentField = null;
+/**
+ * Localised wording, re-parsed from `#comment-section[data-strings]` on every
+ * init(): the count and the empty state describe a list that only exists after
+ * the fetch below, so the server cannot render them. Reads the same `strings:`
+ * overrides as the rest of the site (see js/search.js).
+ */
+let strings = {};
 /**
  * The "不展示我的信息" switch. When it is on, nothing about the visitor's browser
  * is sent: the request carries only what the visitor typed (plus the page path,
@@ -61,6 +75,13 @@ let instance = 0;
 /** Current value of an mdui-text-field (or any form field), trimmed. */
 function fieldValue(field) {
   return field && typeof field.value === 'string' ? field.value.trim() : '';
+}
+
+/** Replace `{n}` placeholders in a template string (as js/search.js does). */
+function format(template, values) {
+  return String(template || '').replace(/\{(\w+)\}/g, (match, key) =>
+    Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match,
+  );
 }
 
 /** Reset every input of the comment form. */
@@ -173,12 +194,16 @@ function createCommentItem(comment) {
   return item;
 }
 
-/** Replace the list with the given comments. */
+/**
+ * Replace the list with the given comments, and show the empty state only when
+ * a *successful* load came back with nothing to show.
+ */
 function renderComments(comments) {
   if (!listContainer) return;
   const fragment = document.createDocumentFragment();
   comments.forEach((comment) => fragment.append(createCommentItem(comment)));
   listContainer.replaceChildren(fragment);
+  if (emptyElement) emptyElement.hidden = comments.length > 0;
 }
 
 /* ==========================================================================
@@ -200,7 +225,13 @@ async function loadCommentCount() {
       return;
     }
     const count = Number(result.data && result.data.count) || 0;
-    if (titleElement) titleElement.textContent = `${count} 条评论`;
+    if (titleElement) {
+      // `comment_count` is a `{n}` template (`1 条评论`), not a hardcoded
+      // string: the label has to follow `strings:` in _config.yml like every
+      // other piece of UI text on the site. A page rendered by an older build
+      // has no `count` key, so fall back to the bare number.
+      titleElement.textContent = strings.count ? format(strings.count, { n: count }) : String(count);
+    }
   } catch (error) {
     // The heading keeps its server-rendered text; a failed count is not worth
     // interrupting the reader with a snackbar.
@@ -309,12 +340,19 @@ export function init() {
   submitButton = document.getElementById('comment-submit-button');
   listContainer = document.getElementById('comments-container');
   titleElement = document.getElementById('comment-section-title');
+  emptyElement = document.getElementById('comment-empty');
   nickField = document.getElementById('comment-nick');
   mailField = document.getElementById('comment-email');
   linkField = document.getElementById('comment-website');
   contentField = document.getElementById('comment-content');
   privacyToggle = document.getElementById('comment-privacy-toggle');
   privacyRow = document.getElementById('comment-privacy-row');
+  strings = {};
+  try {
+    strings = JSON.parse(document.getElementById('comment-section')?.dataset.strings || '{}');
+  } catch {
+    strings = {};
+  }
   initialised = true;
 
   // The submit button lives inside `#content-container` and would be discarded
@@ -347,12 +385,14 @@ export function destroy() {
   submitButton = null;
   listContainer = null;
   titleElement = null;
+  emptyElement = null;
   nickField = null;
   mailField = null;
   linkField = null;
   contentField = null;
   privacyToggle = null;
   privacyRow = null;
+  strings = {};
 }
 
 // Loaded from a full page load: initialise immediately. When the pjax

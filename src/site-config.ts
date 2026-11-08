@@ -192,6 +192,11 @@ export const DEFAULT_STRINGS: Record<string, string> = {
   postsYear: '',
   write_comment: '写评论',
   commentTitle: '评论',
+  // Heading of the comment section once the browser has counted the thread.
+  // `{n}` is substituted by js/comments.js, the same way `search_results_for`
+  // is by js/search.js — the count cannot be rendered on the server because the
+  // list is fetched after the page has loaded.
+  comment_count: '{n} 条评论',
 
   nickName: '昵称',
   email: '邮箱',

@@ -251,6 +251,17 @@
   color: rgb(var(--mdui-color-on-surface));
 }
 
+/* Shown when a page has no comments yet (comments.js unhides it, so it never
+   flashes in front of a page whose list is still loading). */
+.comment-empty {
+  margin: 8px 0 0 0;
+  font-size: 14px;
+  color: rgb(var(--mdui-color-outline));
+}
+.comment-empty[hidden] {
+  display: none;
+}
+
 /* ===== About page easter egg ===== */
 /* app.js adds `.pulse` once per click on the about header/avatar. */
 .about-avatar.pulse {
