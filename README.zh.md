@@ -333,9 +333,11 @@ export function destroy() {} // 释放监听、定时器与观察器
 
 ### 评论
 
-- 每个页面 URL 对应 `blog/data/comments/` 下的一个 JSON 文件；写入原子化，读取按 mtime 缓存。
+- 每个页面对应 `blog/data/comments/` 下的一个 JSON 文件；写入原子化，读取按 mtime 缓存。
+- 文件名使用页面的**规范路径**作为键——去掉 query/fragment、合并重复斜杠、去掉末尾斜杠——因此 `/post/x` 与 `/post/x/` 共用同一串评论。这一点很关键，因为一篇文章确实同时存在这两个地址：Express 把末尾斜杠视为可选，而静态构建产出的 `dist/post/x/index.html` 由静态服务器以带斜杠的形式提供（不带斜杠会重定向过去）。此前直接拿 `window.location.pathname` 当键，会把同一篇文章的评论拆成两份：pjax 导航（URL 保持链接原样）时提交的评论，在刷新（落在带斜杠的地址）后就消失了。仍保存在旧「带斜杠」键下的评论会照常读出，并在下一次有人发表评论时改写为规范键——见 `src/store/comments.ts` 的 `canonicalCommentPath()`。
 - 字段：`id`、`nick`、`mail`、`comment`、`link`、`ua`、`avatar`、`url`、`createTime`。
-- 服务端校验：昵称 ≤ 80，邮箱 ≤ 200 且校验格式，正文 ≤ 5000，`link` 必须以 `http(s)://` 开头，User-Agent 截断到 500 字符（旧实现完全没有限制）。
+- `mail`、`ua`、`url` 只保留在服务端：`GET /api/comments` 返回的是明确列出的字段（`id`、`nick`、`comment`、`link`、`avatar`、`createTime`），`mail` 只在管理后台可见。
+- 服务端校验：昵称 ≤ 80，邮箱 ≤ 200 且校验格式，正文 ≤ 5000，`link` 必须以 `http(s)://` 开头，`url` 必须是站内路径（以 `/` 开头，不接受 `//…` 或其他协议）且不超过 200 字符，User-Agent 截断到 500 字符（旧实现完全没有限制）。
 - 提交评论按 IP 限制为每分钟 10 条。评论审核（跨页面列表、删除）位于管理后台。
 
 #### 评论隐私
@@ -345,6 +347,7 @@ export function destroy() {} // 释放监听、定时器与观察器
 - 开关**关闭**时，提交内容包含 `nick`、`mail`、`comment`、`link`、`url`（评论所属页面，同时也是存储键）以及 `ua`（`navigator.userAgent`）——后者是页面自动采集、而非访客手填的唯一一项。
 - 开关**打开**时，`comments.js` 发送空的 `ua`。服务端如实存空值，而不会转去从请求头里猜浏览器——所以打开开关是真的不采集，而不是把它藏起来。
 - 开关只对一次提交生效，提交成功后复位；它不在浏览器或会话里留下任何持久化记录，服务端也不会为了记住它而写 Cookie。
+- 访客提交的内容不会以超出评论展示范围的任何形式回到其他访客手里。`GET /api/comments` 返回的是明确列出的字段——`nick`、`comment`、`link`、`avatar`、`createTime`——存下来的 `mail` 与 `ua` 只留在服务端（仅管理后台可见），不会因为别人打开开发者工具就被公开。
 
 如果改动这两段文案，请保持说明准确——它是访客唯一能看到「采集了什么」的地方。文案位于 `_config.yml` 的 `strings:`（`commentPrivacyToggle`、`commentPrivacyNotice`）。
 
@@ -615,8 +618,8 @@ SFTP 没有对应的环境变量，请在 `/admin/imghost/` 页面配置，配�
 | GET | `/api/talks` | 全部动态，新的在前，每条带渲染后的 `html` |
 | GET | `/api/friends` | 按展示顺序排列的友链 |
 | GET | `/api/search?q=<query>&limit=<n>` | 全文搜索。返回 `{query, tokens, total, limit, results}`；每条结果同时给出纯文本 `title`/`snippet` 与已转义的 `titleHtml`/`snippetHtml`（含 `<mark>`）。`q` 为空时返回空结果集而非报错。`limit` 默认 20（上限 50） |
-| GET | `/api/comments?path=<url>` | 某页面路径下的评论，旧的在前。加 `&type=count` 只返回 `{count}` |
-| POST | `/api/comments` | 提交评论。请求体 `{nick, mail, comment, url, link?, ua?, avatar?}` |
+| GET | `/api/comments?path=<url>` | 某页面的评论，旧的在前。任意 URL 形式都可以（`/post/x` 与 `/post/x/` 是同一串评论）。每条评论只有 `id`、`nick`、`comment`、`link`、`avatar`、`createTime`——不会返回 `mail` 与 `ua`。加 `&type=count` 只返回 `{count}` |
+| POST | `/api/comments` | 提交评论。请求体 `{nick, mail, comment, url, link?, ua?, avatar?}`；`url` 必须是站内路径（`/post/x`，末尾斜杠可接受并会被规范化） |
 | POST | `/api/auth/check` | `{email}` → `{registered, permissions, name}`；邮箱已注册时同时下发签名访客 Cookie |
 | POST | `/api/auth/register` | `{email, name?}` → 提交注册申请，等待管理员审核（已注册或已在队列中返回 409） |
 | POST | `/api/auth/logout` | 清除访客 Cookie |

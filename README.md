@@ -392,9 +392,11 @@ Two details of the shell are worth knowing if you touch this code:
 
 ### Comments
 
-- One JSON file per page URL under `blog/data/comments/`; writes are atomic and the reader is mtime-cached.
+- One JSON file per page under `blog/data/comments/`; writes are atomic and the reader is mtime-cached.
+- The file is keyed by the *canonical* page path — query/fragment dropped, duplicate slashes collapsed, trailing slash removed — so `/post/x` and `/post/x/` share one thread. That matters because a post genuinely has both URLs: Express treats the trailing slash as optional, and the static build's `dist/post/x/index.html` is served at the slash form (with a redirect from the bare one). Keying on the raw `window.location.pathname` split a post's comments in two, so a comment posted after a pjax navigation (which keeps the URL as linked) was missing after a reload (which lands on the slash form). Threads still stored under the old trailing-slash key keep loading, and are rewritten under the canonical key on the next post — see `canonicalCommentPath()` in `src/store/comments.ts`.
 - Fields: `id`, `nick`, `mail`, `comment`, `link`, `ua`, `avatar`, `url`, `createTime`.
-- Server-side validation: nickname ≤ 80, email ≤ 200 and format-checked, body ≤ 5000, `link` must start with `http(s)://`, user agent truncated to 500 characters (the original implementation had no limits at all).
+- `mail`, `ua` and `url` are server-side only: `GET /api/comments` returns an explicit field list (`id`, `nick`, `comment`, `link`, `avatar`, `createTime`). `mail` is shown in the admin console and nowhere else.
+- Server-side validation: nickname ≤ 80, email ≤ 200 and format-checked, body ≤ 5000, `link` must start with `http(s)://`, `url` must be a site path (`/…`, not `//…` or a scheme) of at most 200 characters, user agent truncated to 500 characters (the original implementation had no limits at all).
 - Posting is rate limited to 10 comments per IP per minute. Comment moderation (list across all pages, delete) lives in the admin console.
 
 #### Comment privacy
@@ -413,6 +415,11 @@ decoration:
 - The switch is per submission and resets after a successful post; nothing about
   it is persisted in the browser or the session, and the server never sets a
   cookie to remember it.
+- Nothing a visitor submits is handed back to other visitors beyond what the
+  comment displays. `GET /api/comments` returns an explicit field list — `nick`,
+  `comment`, `link`, `avatar`, `createTime` — so the stored `mail` and `ua` stay
+  server-side (visible in the admin console only) instead of being published to
+  anyone who opens DevTools.
 
 If you change either string, keep the notice accurate — it is the only place a
 visitor is told what is collected. The wording lives in `strings:` in
@@ -678,8 +685,8 @@ Every JSON endpoint except `/api/health` uses the same envelope:
 | GET | `/api/talks` | All talks, newest first, each with rendered `html` |
 | GET | `/api/friends` | Friend links in display order |
 | GET | `/api/search?q=<query>&limit=<n>` | Full-text search. Returns `{query, tokens, total, limit, results}`; each result carries plain `title`/`snippet` plus pre-escaped `titleHtml`/`snippetHtml` with `<mark>`. An empty `q` returns an empty result set, not an error. `limit` defaults to 20 (max 50) |
-| GET | `/api/comments?path=<url>` | Comments for a page path, oldest first. Add `&type=count` to get `{count}` only |
-| POST | `/api/comments` | Post a comment. Body `{nick, mail, comment, url, link?, ua?, avatar?}` |
+| GET | `/api/comments?path=<url>` | Comments for a page, oldest first. Any URL form of the page works (`/post/x` and `/post/x/` are the same thread). Each comment has `id`, `nick`, `comment`, `link`, `avatar`, `createTime` — `mail` and `ua` are never returned. Add `&type=count` to get `{count}` only |
+| POST | `/api/comments` | Post a comment. Body `{nick, mail, comment, url, link?, ua?, avatar?}`; `url` must be a site path (`/post/x` — a trailing slash is accepted and normalised away) |
 | POST | `/api/auth/check` | `{email}` → `{registered, permissions, name}`; sets the signed visitor cookie when the address is registered |
 | POST | `/api/auth/register` | `{email, name?}` → queues a registration request for admin approval (409 if already registered or already pending) |
 | POST | `/api/auth/logout` | Clears the visitor cookie |
