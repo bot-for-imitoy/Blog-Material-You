@@ -1,11 +1,15 @@
 /**
- * comments.ts — File-based comments, one JSON file per page URL.
+ * comments.ts — File-based comments, one JSON file per page.
  *
  * `blog/data/comments/<key>.json` holds an array of comments for one page:
  *   { id, nick, mail, comment, link, ua, avatar, url, createTime }
  *
  * This replaces the `comments` table. Files are keyed by a sanitised form of
- * the page path so a URL can never escape the comments directory.
+ * the canonical page path so a URL can never escape the comments directory.
+ *
+ * "Canonical" matters: the same post is reachable at `/post/x` and `/post/x/`,
+ * and the two forms used to land in two different files. See
+ * `canonicalCommentPath()`.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -31,8 +35,47 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-function fileFor(url: string): string {
-  return path.join(COMMENTS_DIR, `${safeFilename(url)}.json`);
+/**
+ * Canonical storage key for a page path.
+ *
+ * A page has more than one URL. Express treats the trailing slash as optional,
+ * so the server answers both `/post/x` and `/post/x/`; the static build writes
+ * `dist/post/x/index.html`, which a static host serves at `/post/x/` and
+ * redirects the bare form to. The client keys its request on
+ * `window.location.pathname`, so a reader who clicks a post (pjax keeps the URL
+ * as linked, `/post/x`) and one who reloads it (the static host sends them to
+ * `/post/x/`) were writing to two different files — a comment posted on one of
+ * them simply did not exist on the other.
+ *
+ * So the path is canonicalised before it becomes a filename: query/fragment
+ * dropped, duplicate slashes collapsed, trailing slash removed. Every form of a
+ * page therefore maps onto one thread. Returns '' for anything that is not a
+ * site path, which is how a caller learns the value cannot be a key.
+ */
+export function canonicalCommentPath(value: unknown): string {
+  const raw = str(value);
+  if (!raw) return '';
+  const cleaned = raw.split('#')[0]!.split('?')[0]!.trim();
+  // Site paths only: this rejects absolute URLs, `//host/…` (protocol-relative)
+  // and schemes such as `javascript:`, all of which are also the values that
+  // would be dangerous to render into a link later on.
+  if (!cleaned.startsWith('/') || cleaned.startsWith('//')) return '';
+  const collapsed = cleaned.replace(/\/{2,}/g, '/');
+  const trimmed = collapsed.replace(/\/+$/, '');
+  return trimmed === '' ? '/' : trimmed;
+}
+
+function fileFor(key: string): string {
+  return path.join(COMMENTS_DIR, `${safeFilename(key)}.json`);
+}
+
+/**
+ * Where a page's comments were stored before the key was canonicalised — i.e.
+ * the trailing-slash form of the same page. Existing threads keep loading from
+ * there and are migrated into the canonical file by `addComment()`.
+ */
+function legacyFileFor(key: string): string | null {
+  return key === '/' ? null : fileFor(`${key}/`);
 }
 
 function readFile(file: string): Comment[] {
@@ -80,10 +123,22 @@ function writeFile(file: string, comments: Comment[]): void {
   cache.delete(file);
 }
 
-/** Comments for one page path, oldest first. */
+/**
+ * Comments for one canonical key, falling back to the pre-canonicalisation
+ * file when the canonical one does not exist yet.
+ */
+function readPage(key: string): Comment[] {
+  const file = fileFor(key);
+  if (fs.existsSync(file)) return readFile(file);
+  const legacy = legacyFileFor(key);
+  return legacy !== null && fs.existsSync(legacy) ? readFile(legacy) : [];
+}
+
+/** Comments for one page path, oldest first. Accepts any URL form of the page. */
 export function listComments(url: string): Comment[] {
-  if (!url) return [];
-  return readFile(fileFor(url));
+  const key = canonicalCommentPath(url);
+  if (!key) return [];
+  return readPage(key);
 }
 
 export function countComments(url: string): number {
@@ -110,15 +165,29 @@ const MAX_NICK = 80;
 const MAX_MAIL = 200;
 const MAX_LINK = 300;
 const MAX_COMMENT = 5000;
+/**
+ * Page path limit. The path becomes a filename, and a filename component may
+ * not exceed 255 bytes; `safeFilename` maps every non-ASCII byte to `_`, so the
+ * character count is the byte count here. 200 + ".json" stays well clear.
+ */
+const MAX_URL = 200;
 
 /** Validate a comment submission. Length limits are new — the original had none. */
 export function validateComment(input: CommentInput): ValidationResult {
   const nick = str(input.nick);
   const mail = str(input.mail);
   const body = str(input.comment);
-  const url = str(input.url);
+  // Canonicalised here as well as in the store, so what is validated is exactly
+  // what will be stored: `/post/x/` and `/post/x` are one thread.
+  const url = canonicalCommentPath(input.url);
 
-  if (!nick || !mail || !body || !url) return { ok: false, error: 'Missing required fields' };
+  if (!nick || !mail || !body) return { ok: false, error: 'Missing required fields' };
+  // The comment has to belong to a page on this site: `url` is the storage key
+  // and is rendered as a link in the admin console, so an absolute URL, a
+  // protocol-relative `//host/…` or a `javascript:` URL is rejected rather than
+  // stored.
+  if (!url) return { ok: false, error: '评论必须属于本站的一个页面路径（如 /post/hello）' };
+  if (url.length > MAX_URL) return { ok: false, error: `页面路径过长（最多 ${MAX_URL} 字符）` };
   if (nick.length > MAX_NICK) return { ok: false, error: `昵称过长（最多 ${MAX_NICK} 字符）` };
   if (mail.length > MAX_MAIL) return { ok: false, error: `邮箱过长（最多 ${MAX_MAIL} 字符）` };
   if (body.length > MAX_COMMENT) return { ok: false, error: `评论过长（最多 ${MAX_COMMENT} 字符）` };
@@ -153,16 +222,37 @@ export function validateComment(input: CommentInput): ValidationResult {
   };
 }
 
-/** Append a comment to its page file. */
+/**
+ * Append a comment to its page file.
+ *
+ * The target file is derived from the canonical path, so a comment written from
+ * any URL form of the page joins the one thread. A thread that still lives in
+ * the pre-canonicalisation (trailing-slash) file is migrated by this write: its
+ * rows are included above and the old file is removed, otherwise the admin list
+ * would show every one of them twice.
+ */
 export function addComment(comment: Comment): Comment {
-  const file = fileFor(comment.url);
-  const comments = readFile(file);
+  const key = canonicalCommentPath(comment.url);
+  if (!key) throw new Error(`a comment needs a site page path, got "${comment.url}"`);
+
+  const file = fileFor(key);
+  const comments = readPage(key);
   // Guarantee a unique id even for comments posted in the same millisecond.
   let id = comment.id;
   while (comments.some((c) => c.id === id)) id += 1;
-  const stored = { ...comment, id };
+  const stored = { ...comment, id, url: key };
   comments.push(stored);
   writeFile(file, comments);
+
+  const legacy = legacyFileFor(key);
+  if (legacy !== null && fs.existsSync(legacy)) {
+    try {
+      fs.unlinkSync(legacy);
+      cache.delete(legacy);
+    } catch (err) {
+      console.warn(`[comments] could not retire ${legacy}:`, (err as Error).message);
+    }
+  }
   return stored;
 }
 
