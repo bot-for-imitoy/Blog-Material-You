@@ -158,6 +158,9 @@ export async function createApp(options: AppOptions = {}): Promise<Express> {
   app.use('/js', express.static(path.join(PUBLIC_DIR, 'js'), staticOptions(7 * DAY_MS, true)));
   app.use('/icon', express.static(path.join(PUBLIC_DIR, 'icon'), staticOptions(30 * DAY_MS, true)));
   app.use('/img', express.static(path.join(PUBLIC_DIR, 'img'), staticOptions(7 * DAY_MS, true)));
+  // Self-hosted code font (Maple Mono NF, SIL OFL 1.1). Ships with the site and
+  // never changes without a new build, so it is cached like /vendor.
+  app.use('/fonts', express.static(path.join(PUBLIC_DIR, 'fonts'), staticOptions(30 * DAY_MS, true)));
   // Uploads change over time, so cache briefly (matches the original's 1 hour).
   app.use('/avatars', express.static(AVATARS_DIR, staticOptions(60 * 60 * 1000, false)));
   app.use('/uploads', express.static(UPLOADS_DIR, staticOptions(60 * 60 * 1000, false)));

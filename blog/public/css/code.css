@@ -1,4 +1,27 @@
-/* 代码块 (marked 输出 <pre><code class="language-xxx">) */
+/* ===== 代码 =====
+   正文里所有代码文本都用 root.css 里的同一个字体栈 --font-mono
+   （自托管的 Maple Mono NF / NF CN 两份子集，见 root.css 顶部）。
+
+   ``` 围栏代码块由 markdown-it 输出 <pre><code class="language-xxx">，
+   highlight.js 再把词法记号包成 <span class="hljs-xxx">，三者都在这里统一。
+
+   font-family 用 !important 是刻意的：mdui.css（先于本文件加载）自带一条
+   `code { font-family: Consolas, Courier, "Courier New", monospace }`，
+   给正文钉死字体栈后，样式表加载顺序、组件库升级都不会再把代码抢回
+   Consolas / 通用 monospace，也就不会出现“行内代码是 Maple、代码块却是
+   正文字体”这种前后不一致。 */
+
+.markdown-content pre,
+.markdown-content pre code,
+.markdown-content pre code *,
+.markdown-content code,
+.markdown-content kbd,
+.markdown-content samp {
+    font-family: var(--font-mono) !important;
+}
+
+/* 围栏代码块的外框。`pre` 也带字体栈，这样直接写在 <pre> 里的文本（缩进式
+   代码块、正文里手写的 <pre>）同样不会退回正文字体。 */
 .markdown-content pre {
     border: 2px solid rgb(var(--mdui-color-outline));
     border-radius: 21px;
@@ -7,10 +30,11 @@
     overflow-x: auto;
     scrollbar-width: none;
     margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
 }
 
 .markdown-content pre code {
-    font-family: "Maple Mono NF CN", "Fira Code", "Source Code Pro", Consolas, "Courier New", monospace;
     font-size: 16px;
     line-height: 1.5;
     background: none;
@@ -19,8 +43,10 @@
     color: rgb(var(--mdui-color-on-surface));
 }
 
-/* Inline code — only applies to <code> NOT inside <pre> (code blocks) */
-code:not(pre code) {
+/* 行内代码：只作用于 <pre> 之外的 <code>。靠选择器权重（0,1,2 > 0,1,1）覆盖
+   上面的代码块规则，没用 `:not(pre code)`——那需要 Selectors 4，旧引擎会把
+   整条规则丢掉。 */
+.markdown-content code {
     background-color: rgb(var(--mdui-color-secondary-container));
     padding: 2px 4px;
     border-radius: 8px;

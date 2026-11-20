@@ -1,3 +1,45 @@
+/* ===== 字体 =====
+   Maple Mono NF / Maple Mono NF CN —— 自托管代码字体（SIL OFL 1.1，见
+   blog/public/fonts/OFL.txt）。上游：https://github.com/subframe7536/maple-font
+   两个文件由 `bash scripts/build-fonts.sh` 从 MapleMono-NF-CN-Regular.ttf
+   子集化得出，按体积从小到大拆成两份：
+
+   · maple-mono-nf-latin.woff2（约 45 KB）拉丁、标点、箭头、制表、几何、盲文。
+     代码里出现最多的就是这些，含代码的页面几乎一定用它。
+   · maple-mono-nf-cn-cjk.woff2（约 1.7 MB）GB2312 全集 7445 汉字 + 全角标点。
+     只在代码里真的出现汉字时才下载 —— 用 unicode-range 声明覆盖范围即可，
+     不需要 JavaScript，也不用为中文单独加一次请求。
+
+   两份用不同的族名，字体栈里小份在前：拉丁字符由第一份直接命中，汉字因为
+   第一份没有字形而落到第二份，这就是“先小后大”的加载顺序。 */
+@font-face {
+    font-family: "Maple Mono NF";
+    src: url("/fonts/maple-mono-nf-latin.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Maple Mono NF CN";
+    src: url("/fonts/maple-mono-nf-cn-cjk.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+    /* 与子集的实际内容一致：汉字、CJK 标点、全角标点。范围之外的字不会
+       触发这份 1.7 MB 的下载，哪怕 @font-face 已经声明。 */
+    unicode-range: U+3000-303F, U+4E00-9FFF, U+FF00-FFEF;
+}
+
+/* 等宽字体栈——站点所有代码文本（``` 代码块、` 行内代码、kbd/samp）共用这一处。
+   前两个是自托管字体，后面的兜底只在字体加载失败时才会用到；这里刻意不写
+   "Fira Code"、"Source Code Pro" 这类名字——本机没装时它们会被 fontconfig
+   替换成比例字体（实测落到 Noto Sans CJK），反而破坏代码块的等宽效果。 */
+:root {
+    --font-mono: "Maple Mono NF", "Maple Mono NF CN",
+        ui-monospace, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
 body {
     margin: 0;
     padding: 0;

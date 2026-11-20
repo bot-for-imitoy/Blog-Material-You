@@ -39,6 +39,15 @@
   <script src="/vendor/mdui/mdui.global.js"></script>
 
   <link rel="stylesheet" href="/css/root.css">
+  <%# Only the Markdown views (post, page, talks) include code.css, so that is
+      the same condition as "this page has code on it": start fetching the
+      45 kB Latin half of the code font while the HTML is still parsing, instead
+      of discovering it once the stylesheet has been applied. `crossorigin` is
+      required because fonts are always fetched in CORS mode. The CJK half is
+      deliberately not preloaded — it is 1.7 MB and most pages never need it. %>
+  <% if ((styles || []).some(function (entry) { return (typeof entry === 'string' ? entry : entry.href) === '/css/code.css'; })) { %>
+  <link rel="preload" as="font" type="font/woff2" href="/fonts/maple-mono-nf-latin.woff2" crossorigin>
+  <% } %>
   <link rel="stylesheet" href="/css/content-container.css">
   <link rel="stylesheet" href="/css/navigation-drawer.css">
   <link rel="stylesheet" href="/css/lists.css">
