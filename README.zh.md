@@ -56,10 +56,12 @@ Blog-Material-You/
 │   ├── data/                 # 运行状态（已 gitignore）：凭据、评论、访客、
 │   │                         # TOTP、会话、站点/日历/图床设置
 │   ├── locales.yml           # 旧版翻译文件，仅作参考（运行时已不使用）
-│   └── public/               # 静态资源，通过 /css、/js、/icon、/img 等路径提供
+│   └── public/               # 静态资源，通过 /css、/js、/icon、/img、/fonts 等路径提供
+│       ├── fonts/            # 自托管的 Maple Mono NF 子集与 OFL.txt（SIL OFL 1.1）
 │       └── vendor/           # 生成目录：从 node_modules 复制来的 mdui、KaTeX、highlight.js
 ├── scripts/
 │   ├── sync-assets.mjs       # 把 mdui/KaTeX/highlight.js 复制到 blog/public/vendor
+│   ├── build-fonts.sh        # 把 Maple Mono NF CN 子集化为 blog/public/fonts 下的 woff2
 │   ├── import-legacy-mariadb.mjs  # 从旧 MariaDB 安装一次性迁移
 │   └── passwd-reset.mjs      # 离线重置管理员凭据（npm run passwd-reset）
 ├── Dockerfile                # node:24-alpine、非 root 用户、HEALTHCHECK
@@ -300,6 +302,36 @@ GET /media?src=/img/avatar.svg&w=160&fit=cover   # 正方形裁剪
 - **缓存键**：源文件路径、体积、mtime，加上请求的尺寸、裁剪方式与格式的 SHA-256。因此就地替换图片无需任何手动失效——URL 不变但 ETag 变了；响应带一年 `immutable`。超过 30 天未被使用的条目会被清理，整个目录随时可以直接删除。
 - **刻意加上边界**：只接受 `/uploads`、`/avatars`、`/img` 下的本地文件（解码后的路径会再次与这三个目录比对，`..` 与 `%2e%2e` 都逃不出去）；宽高会向上对齐到固定档位且上限 2560 px；质量按格式固定；`w`/`h` 必填——所以 `/media` 既不能当开放代理，也不能被用来刷出无限缓存。
 - **并发**：同一变体的并发请求只跑一次 sharp；缓存文件先写临时名再 rename，读者不会看到写了一半的图片。
+
+## 代码字体：自托管的 Maple Mono NF
+
+代码——围栏代码块和行内代码——统一使用 **Maple Mono NF**，字体随站点一起分发，
+所以访客装没装这个字体，看到的都是同一套字形。两份子集放在 `blog/public/fonts/`，
+通过 `/fonts/` 提供：
+
+| 文件 | 内容 | 体积 |
+|------|------|------|
+| `maple-mono-nf-latin.woff2` | 拉丁字母、标点、箭头、制表符、几何图形、盲文 | 约 45 KB |
+| `maple-mono-nf-cn-cjk.woff2` | GB2312 全集（7445 汉字）+ CJK 标点 + 全角标点 | 约 1.7 MB |
+
+它们是两条族名不同的 `@font-face`，在 `--font-mono`（`blog/public/css/root.css`）里
+小份在前：拉丁字符由 45 KB 那份直接命中、立刻显示，汉字因为第一份没有字形而落到
+第二份。中文那份声明了 `unicode-range`，所以只有代码块里真的出现汉字时才会去取那
+1.7 MB——不需要 JavaScript，没有中文的页面也不会多下载一个字节。两份都是
+`font-display: swap`，按不可变资源缓存 30 天。
+
+需要重新生成子集时：
+
+```bash
+python3 -m pip install --user fonttools brotli
+bash scripts/build-fonts.sh                    # 用 MAPLE_TTF=/path/to/font.ttf 指定其它源文件
+```
+
+要覆盖 GB2312 之外的生僻字，把 `scripts/build-fonts.sh` 里的字符范围放宽（例如给
+`--unicodes` 加上 `U+4E00-9FFF`），中文那份会增长到约 5 MB。
+
+字体以 **SIL Open Font License 1.1** 授权，许可全文随字体一起放在
+`blog/public/fonts/OFL.txt`。
 
 ## 无缝导航
 
@@ -551,7 +583,7 @@ profile:
 |------|--------|------|
 | `BMY_BLOG_DIR` | `./blog` | 内容 + 静态资源 + 运行状态的根目录 |
 | `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | 运行状态（凭据、评论、访客、TOTP、设置、会话、`image-cache/`） |
-| `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | 静态资源（css/js/icon/img/vendor/avatars/uploads） |
+| `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | 静态资源（css/js/icon/img/fonts/vendor/avatars/uploads） |
 | `BMY_VIEWS_DIR` | `./views` | EJS 模板目录 |
 | `BMY_CONFIG_FILE` | `./_config.yml` | 站点配置文件路径（见上文） |
 
@@ -960,6 +992,7 @@ volumes:
 | KaTeX | MIT | [katex.org](https://katex.org) |
 | highlight.js | BSD-3-Clause | [highlightjs.org](https://highlightjs.org) |
 | markdown-it | MIT | [markdown-it.github.io](https://markdown-it.github.io) |
+| Maple Mono NF CN（代码字体，已子集化） | SIL OFL 1.1 | [github.com/subframe7536/maple-font](https://github.com/subframe7536/maple-font) |
 
 ### 存储、媒体与服务
 

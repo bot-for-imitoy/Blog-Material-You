@@ -59,10 +59,12 @@ Blog-Material-You/
 │   ├── friends/              # <id>-<slug>.md
 │   ├── data/                 # Runtime state (gitignored): credentials, comments,
 │   │                         # visitors, TOTP, sessions, calendar/imghost settings
-│   └── public/               # Static assets served under /css, /js, /icon, /img, …
+│   └── public/               # Static assets served under /css, /js, /icon, /img, /fonts, …
+│       ├── fonts/            # Self-hosted Maple Mono NF subsets + OFL.txt (SIL OFL 1.1)
 │       └── vendor/           # GENERATED: mdui, KaTeX, highlight.js copied from node_modules
 ├── scripts/
 │   ├── sync-assets.mjs       # Vendors mdui/KaTeX/highlight.js into blog/public/vendor
+│   ├── build-fonts.sh        # Subsets Maple Mono NF CN into blog/public/fonts (woff2)
 │   ├── import-legacy-mariadb.mjs  # One-time migration from the old MariaDB install
 │   └── passwd-reset.mjs      # Offline admin-credential recovery (npm run passwd-reset)
 ├── Dockerfile                # node:24-alpine, non-root, HEALTHCHECK
@@ -323,6 +325,39 @@ GET /media?src=/img/avatar.svg&w=160&fit=cover   # square crop
 - **Concurrency.** Two simultaneous requests for the same variant run sharp
   once; files are written to a temporary name and renamed, so a reader never
   sees a half-written image.
+
+## Code font: Maple Mono NF, self-hosted
+
+Code — fenced blocks and inline spans alike — is set in **Maple Mono NF**, which
+ships with the site, so every visitor sees the same font whether or not it is
+installed locally. Two subset files live in `blog/public/fonts/` and are served
+from `/fonts/`:
+
+| File | Contents | Size |
+|------|----------|------|
+| `maple-mono-nf-latin.woff2` | Latin, punctuation, arrows, box drawing, geometric shapes, braille | ~45 KB |
+| `maple-mono-nf-cn-cjk.woff2` | GB2312 (7445 hanzi) plus CJK and fullwidth punctuation | ~1.7 MB |
+
+They are two `@font-face` rules with different family names, listed small-first in
+`--font-mono` (`blog/public/css/root.css`): Latin characters hit the 45 KB face and
+render immediately, while Chinese falls through to the second one. The CJK face
+declares a `unicode-range`, so its 1.7 MB is only fetched when a code block actually
+contains Chinese — no JavaScript, and nothing extra downloaded on pages that don't.
+Both use `font-display: swap` and are cached for 30 days as immutable.
+
+Regenerate the subsets from a local copy of the font:
+
+```bash
+python3 -m pip install --user fonttools brotli
+bash scripts/build-fonts.sh                    # MAPLE_TTF=/path/to/font.ttf to override
+```
+
+To cover characters outside GB2312, widen the character list in
+`scripts/build-fonts.sh` (for example by adding `U+4E00-9FFF` to `--unicodes`); the
+CJK file then grows to about 5 MB for the whole CJK block.
+
+The font is licensed under the **SIL Open Font License 1.1**; the license text ships
+next to the files as `blog/public/fonts/OFL.txt`.
 
 ## Seamless navigation
 
@@ -618,7 +653,7 @@ Copy `.env.example` to `.env` (it is gitignored) or pass the variables to Docker
 |----------|---------|---------|
 | `BMY_BLOG_DIR` | `./blog` | Content + static + runtime-state root |
 | `BMY_DATA_DIR` | `$BMY_BLOG_DIR/data` | Runtime state (credentials, comments, visitors, TOTP, settings, sessions, `image-cache/`) |
-| `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | Static assets (css/js/icon/img/vendor/avatars/uploads) |
+| `BMY_PUBLIC_DIR` | `$BMY_BLOG_DIR/public` | Static assets (css/js/icon/img/fonts/vendor/avatars/uploads) |
 | `BMY_VIEWS_DIR` | `./views` | EJS template directory |
 | `BMY_CONFIG_FILE` | `./_config.yml` | Path to the site configuration file (see above) |
 
@@ -1027,6 +1062,7 @@ This project is built on the work of many open-source projects. We thank their a
 | KaTeX | MIT | [katex.org](https://katex.org) |
 | highlight.js | BSD-3-Clause | [highlightjs.org](https://highlightjs.org) |
 | markdown-it | MIT | [markdown-it.github.io](https://markdown-it.github.io) |
+| Maple Mono NF CN (code font, subsetted) | SIL OFL 1.1 | [github.com/subframe7536/maple-font](https://github.com/subframe7536/maple-font) |
 
 ### Storage, media and services
 
